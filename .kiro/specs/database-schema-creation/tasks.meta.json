@@ -1,0 +1,237 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Create `database/schema.sql` with Wave 1 tables: [User], Sport, Position": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353554405
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353566687
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353654377
+      }
+    ],
+    "1.2 Add Wave 2 table: SportFormat": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353555915
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353664882
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353711300
+      }
+    ],
+    "1.3 Add Wave 3 tables: FormatPosition, UserSportProfile, GameListing, Post": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556061
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353717863
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353765739
+      }
+    ],
+    "1.4 Add Wave 4 tables: GameJoiner, Session, Comment, [Like], [Follow], Notification, Report": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556163
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353770350
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353834939
+      }
+    ],
+    "1.5 Add Wave 5 table: MatchResult": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556235
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353840176
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353904003
+      }
+    ],
+    "2.1 Create `database/drop-all.sql` with all 16 DROP statements": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556295
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353567595
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353655251
+      }
+    ],
+    "3.1 Create `database/seed-data.sql` with Sport seed data": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556367
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353841022
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353904374
+      }
+    ],
+    "3.2 Add SportFormat seed data": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556430
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353909697
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354029413
+      }
+    ],
+    "3.3 Add Position seed data": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556499
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353910504
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354029857
+      }
+    ],
+    "3.4 Add FormatPosition link records": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556582
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354035352
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354118512
+      }
+    ],
+    "4.1 Create `database/indexes.sql` with all performance indexes": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556644
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354036280
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354117553
+      }
+    ],
+    "5. Final checkpoint": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353556724
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354124928
+      },
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354141215
+      }
+    ],
+    "2. Create drop-all.sql with DROP TABLE IF EXISTS in reverse dependency order": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353655336
+      }
+    ],
+    "1. Create schema.sql with all 16 CREATE TABLE statements": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785353904219
+      }
+    ],
+    "4. Create indexes.sql with performance indexes": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354117687
+      }
+    ],
+    "3. Create seed-data.sql with initial reference data": [
+      {
+        "executionId": "1c52455d-9dc7-4198-b153-ea668e2dd325",
+        "chatSessionId": "sess_3acd936c-619b-4ced-8419-7bc36e89d12c",
+        "timestamp": 1785354118616
+      }
+    ]
+  }
+}

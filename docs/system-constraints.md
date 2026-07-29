@@ -11,7 +11,7 @@ This document outlines the technical and organisational constraints that shape t
 | Constraint | Description |
 |------------|-------------|
 | Frontend Technology | HTML, CSS, and vanilla JavaScript (multi-page application). No frontend frameworks (React, Angular, Vue). |
-| Backend Technology | Java (Spring Boot or generic Java servlets). |
+| Backend Technology | Java with Servlets and JDBC (deployed on Apache Tomcat 10+). |
 | Database | Microsoft SQL Server (database name: `GameOnDb`). |
 | Authentication | Session-based authentication managed server-side. |
 | Hosting | Local development only — no hosted server infrastructure available. |
@@ -40,7 +40,7 @@ This document outlines the technical and organisational constraints that shape t
 | Shared Components | Common elements (navbar, footer, styles) live in `frontend/shared/`. |
 | RESTful API | Backend exposes RESTful endpoints consumed by frontend via `fetch()` or `XMLHttpRequest`. |
 | Database Normalisation | Database schema follows at least 3NF (Third Normal Form). |
-| No ORM Requirement | Data access may use JDBC directly or Spring Data JPA depending on framework choice. |
+| No ORM | Data access uses JDBC directly with parameterised queries. |
 
 ---
 

@@ -33,7 +33,7 @@ You are the Specification Architect for GameOn-CodeSphere — a sports match boo
 
 ## Project Context
 
-- **Tech stack:** HTML/CSS/JS frontend, Java backend (Spring Boot or generic), SQL Server (GameOnDb, local/offline)
+- **Tech stack:** HTML/CSS/JS frontend, Java backend (Servlets + JDBC on Tomcat), SQL Server (GameOnDb, local/offline)
 - **Team:** Lihlumelo (Listings A100–A700), Zane (Social B100–B500), Gerard (Match Results C100–C500), Robert (User Management D100–D700)
 - **Key docs directory:** `docs/`, `docs/specs/`, `docs/tasks/`
 

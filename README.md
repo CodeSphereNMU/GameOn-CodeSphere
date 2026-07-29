@@ -20,7 +20,7 @@ A sports match booking platform with social features. Users can create and join 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | HTML5, CSS3, JavaScript (ES6+) — multi-page application |
-| Backend | Java (Spring Boot with Maven **or** generic Java Servlets) |
+| Backend | Java (Servlets + JDBC, deployed on Tomcat) |
 | Database | Microsoft SQL Server (`GameOnDb`) |
 | Version Control | Git + GitHub |
 
@@ -52,7 +52,6 @@ GameOn-CodeSphere/
 ├── backend/
 │   ├── README.md
 │   └── docs/
-│       ├── springboot-setup.md
 │       └── generic-java-setup.md
 ├── frontend/
 │   ├── README.md
@@ -77,7 +76,8 @@ GameOn-CodeSphere/
 
 - Java 17+ (JDK)
 - Maven 3.8+
-- SQL Server (local or remote)
+- Apache Tomcat 10+
+- SQL Server (local instance)
 - Modern browser (Chrome, Firefox, or Edge)
 - Git
 
@@ -91,11 +91,10 @@ GameOn-CodeSphere/
 
 2. Create the database `GameOnDb` on your SQL Server instance.
 
-3. Choose a backend framework and follow the corresponding guide:
-   - [Spring Boot Setup](backend/docs/springboot-setup.md)
+3. Follow the backend setup guide:
    - [Generic Java Setup](backend/docs/generic-java-setup.md)
 
-4. Configure your database connection (see chosen guide).
+4. Configure your database connection (see setup guide).
 
 5. Run the backend (default: `http://localhost:8080`).
 

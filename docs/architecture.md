@@ -19,10 +19,10 @@ GameOn-CodeSphere follows a **three-tier architecture**:
                        │ HTTP (REST API)
 ┌──────────────────────▼──────────────────────┐
 │              Application Tier                │
-│         (Java — Spring Boot or Servlets)     │
-│     Controllers → Services → Repositories   │
+│         (Java — Servlets + JDBC)             │
+│       Servlets → Services → DAOs            │
 └──────────────────────┬──────────────────────┘
-                       │ JDBC / JPA
+                       │ JDBC
 ┌──────────────────────▼──────────────────────┐
 │                Data Tier                     │
 │          (SQL Server — GameOnDb)             │
@@ -51,11 +51,11 @@ GameOn-CodeSphere follows a **three-tier architecture**:
 
 | Layer | Responsibility |
 |-------|---------------|
-| Controllers | Handle HTTP requests, validate input, return responses |
+| Servlets | Handle HTTP requests, validate input, return responses |
 | Services | Business logic, rule enforcement, orchestration |
-| Repositories | Data access, SQL queries, entity mapping |
+| DAOs | Data access, SQL queries (JDBC), entity mapping |
 | Models / Entities | Domain objects representing database tables |
-| Config | Application configuration, security, CORS |
+| Util / Config | Application configuration, security, CORS, DB connection |
 
 ### Database (Data Tier)
 
@@ -68,10 +68,10 @@ GameOn-CodeSphere follows a **three-tier architecture**:
 
 1. User interacts with an HTML page in the browser.
 2. JavaScript sends an HTTP request (GET/POST/PUT/DELETE) to the backend API.
-3. Backend controller receives the request, delegates to the service layer.
-4. Service applies business rules and calls the repository layer.
-5. Repository executes SQL against `GameOnDb` and returns data.
-6. Response flows back through service → controller → HTTP response → frontend renders result.
+3. Backend servlet receives the request, delegates to the service layer.
+4. Service applies business rules and calls the DAO layer.
+5. DAO executes SQL via JDBC against `GameOnDb` and returns data.
+6. Response flows back through service → servlet → HTTP response → frontend renders result.
 
 ---
 
@@ -93,15 +93,15 @@ GameOn-CodeSphere/
 | Authentication | Session-based; login returns session cookie |
 | Authorisation | Role checks in service layer (user vs host vs admin) |
 | Error Handling | Global exception handler returns consistent JSON error responses |
-| Logging | Server-side logging (SLF4J / java.util.logging) |
+| Logging | Server-side logging (java.util.logging) |
 | CORS | Configured to allow frontend origin during development |
 
 ---
 
 ## Deployment (Development)
 
-- **Frontend:** Served as static files (or via backend's static resource folder)
-- **Backend:** Embedded Tomcat (Spring Boot) or external Tomcat (generic Java)
+- **Frontend:** Served as static files (or via Tomcat's static resource folder)
+- **Backend:** Apache Tomcat 10+ (WAR deployment)
 - **Database:** Local SQL Server instance only (offline — no hosted/remote server available)
 
 ---

@@ -6,25 +6,22 @@ The backend for GameOn-CodeSphere is a Java-based REST API that serves the front
 
 ---
 
-## Framework Options
+## Framework
 
-The team has two framework paths documented. Choose one and follow the corresponding setup guide:
+The backend uses **plain Java with Servlets and JDBC** — no frameworks. This gives full manual control over the application lifecycle.
 
-| Option | Guide | Best For |
-|--------|-------|----------|
-| Spring Boot (Maven) | [docs/springboot-setup.md](docs/springboot-setup.md) | Rapid development, built-in dependency injection, auto-configuration |
-| Generic Java (Servlets) | [docs/generic-java-setup.md](docs/generic-java-setup.md) | Lightweight, manual control, fewer abstractions |
+See the setup guide: [Generic Java Setup](docs/generic-java-setup.md)
 
 ---
 
 ## Architecture Layers
 
 ```
-Controllers      → Handle HTTP requests, route to services
+Servlets         → Handle HTTP requests, route to services
 Services         → Business logic and rule enforcement
-Repositories     → Data access (JDBC or JPA)
+DAOs             → Data access (JDBC)
 Models/Entities  → Domain objects mapped to DB tables
-Config           → App configuration, security, CORS
+Config/Util      → App configuration, security, CORS, DB connection
 ```
 
 ---
@@ -34,7 +31,7 @@ Config           → App configuration, security, CORS
 - RESTful API serving JSON responses
 - Session-based authentication
 - Input validation and error handling
-- Database interaction with SQL Server
+- Database interaction with SQL Server via JDBC
 - CORS configuration for frontend access
 
 ---
@@ -47,12 +44,10 @@ See [../docs/api-endpoints.md](../docs/api-endpoints.md) for the full endpoint r
 
 ## Running the Backend
 
-Refer to the chosen framework guide for specific run instructions. General workflow:
-
-1. Configure database connection (SQL Server connection string).
-2. Build the project.
-3. Run the application.
-4. API available at `http://localhost:8080/api`.
+1. Configure database connection (SQL Server connection string in `DatabaseConnection.java`).
+2. Build the WAR: `mvn clean package`
+3. Deploy to Apache Tomcat 10+.
+4. API available at `http://localhost:8080/codesphere/api/`.
 
 ---
 
@@ -63,4 +58,4 @@ Refer to the chosen framework guide for specific run instructions. General workf
 | `DB_URL` | JDBC connection string for GameOnDb |
 | `DB_USERNAME` | Database username |
 | `DB_PASSWORD` | Database password |
-| `SERVER_PORT` | Application port (default: 8080) |
+| `SERVER_PORT` | Tomcat port (default: 8080) |

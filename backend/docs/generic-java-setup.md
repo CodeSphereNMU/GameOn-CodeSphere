@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers setting up the GameOn-CodeSphere backend using **plain Java** with Servlets and JDBC — no Spring framework. This approach gives full manual control over the application lifecycle.
+This guide covers setting up the GameOn-CodeSphere backend using **plain Java** with Servlets and JDBC. This approach gives full manual control over the application lifecycle.
 
 ---
 
@@ -218,20 +218,6 @@ public class ListingServlet extends HttpServlet {
 ### Embedded Jetty (Alternative)
 
 Add Jetty dependency and a main class to run without external container.
-
----
-
-## Comparison: Generic Java vs Spring Boot
-
-| Aspect | Generic Java | Spring Boot |
-|--------|-------------|-------------|
-| Setup complexity | Higher (manual wiring) | Lower (auto-config) |
-| Dependency injection | Manual or service locator | Built-in (@Autowired) |
-| Data access | Raw JDBC | Spring Data JPA |
-| Configuration | web.xml + properties files | application.properties |
-| Deployment | WAR to Tomcat | Embedded server (JAR) |
-| Learning curve | Understand fundamentals | Framework conventions |
-| Control | Full manual control | Convention over configuration |
 
 ---
 
