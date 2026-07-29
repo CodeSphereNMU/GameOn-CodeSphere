@@ -1,0 +1,76 @@
+# ===========================
+# Java
+# ===========================
+*.class
+*.jar
+*.war
+*.ear
+*.log
+target/
+build/
+out/
+
+# ===========================
+# Maven
+# ===========================
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+
+# ===========================
+# Gradle
+# ===========================
+.gradle/
+build/
+!gradle-wrapper.jar
+
+# ===========================
+# IDE — IntelliJ IDEA
+# ===========================
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# ===========================
+# IDE — VS Code
+# ===========================
+.vscode/
+*.code-workspace
+
+# ===========================
+# IDE — Eclipse
+# ===========================
+.classpath
+.project
+.settings/
+bin/
+
+# ===========================
+# OS — macOS
+# ===========================
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===========================
+# OS — Windows
+# ===========================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===========================
+# OS — Linux
+# ===========================
+*~
+.nfs*
+
+# ===========================
+# Environment / Secrets
+# ===========================
+.env
+*.env.local
