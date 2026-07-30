@@ -1,0 +1,37 @@
+# Maven build output
+**/target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+.project
+.classpath
+.settings/
+*.swp
+
+# Environment and secrets
+.env
+**/.env
+*.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# Compiled classes (outside target)
+*.class
+
+# Dependency directories
+dependency-reduced-pom.xml
