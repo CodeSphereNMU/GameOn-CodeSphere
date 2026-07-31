@@ -1,7 +1,10 @@
 package com.codesphere.gameon.config;
 
+import com.codesphere.gameon.controller.AuthController;
 import com.codesphere.gameon.controller.HealthController;
+import com.codesphere.gameon.dao.UserDao;
 import com.codesphere.gameon.exception.ApiException;
+import com.codesphere.gameon.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -76,8 +79,12 @@ public class JavalinConfig {
         // Health / status endpoint
         new HealthController(databaseConfig).register(app);
 
+        // Authentication
+        UserDao userDao = new UserDao(databaseConfig.getDataSource());
+        AuthService authService = new AuthService(userDao);
+        new AuthController(authService, userDao).register(app);
+
         // Future route registrations:
-        // new AuthController(...).register(app);
         // new ProfileController(...).register(app);
         // new ListingController(...).register(app);
     }

@@ -1,17 +1,23 @@
 /* GameOn - Base Styles */
 
 :root {
-    --color-primary: #1a73e8;
-    --color-primary-dark: #1557b0;
+    --color-primary: #e60000;
+    --color-primary-dark: #cc0000;
+    --color-primary-light: #ff1a1a;
     --color-success: #34a853;
     --color-warning: #fbbc04;
     --color-error: #ea4335;
-    --color-bg: #f8f9fa;
+    --color-bg: #f0f0f0;
     --color-surface: #ffffff;
     --color-text: #202124;
     --color-text-secondary: #5f6368;
-    --radius: 8px;
+    --color-border: #999999;
+    --color-border-light: #cccccc;
+    --radius: 12px;
+    --radius-sm: 8px;
     --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 * {
@@ -21,12 +27,341 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-family);
     background-color: var(--color-bg);
     color: var(--color-text);
     line-height: 1.6;
     min-height: 100vh;
 }
+
+/* ============================================================
+   ACCESSIBILITY
+   ============================================================ */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ============================================================
+   SHARED HEADER (matches Canva grey gradient bar)
+   ============================================================ */
+
+.app-header {
+    background: linear-gradient(135deg, #808080, #b0b0b0, #909090);
+    padding: 1.5rem 2rem;
+    text-align: center;
+    border-bottom: 4px solid var(--color-primary);
+}
+
+.app-header__title {
+    font-size: 3rem;
+    font-weight: 900;
+    font-style: italic;
+    color: var(--color-primary);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* ============================================================
+   LOGIN PAGE
+   ============================================================ */
+
+.login-page {
+    background-color: var(--color-bg);
+}
+
+.login-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+    min-height: calc(100vh - 120px);
+}
+
+.login-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+}
+
+.login-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-logo__letter {
+    font-size: 12rem;
+    font-weight: 900;
+    font-style: italic;
+    color: var(--color-primary);
+    line-height: 1;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.login-card {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 420px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 1rem;
+    font-family: var(--font-family);
+    border: 1.5px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    transition: border-color 0.2s;
+}
+
+.form-input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(230, 0, 0, 0.1);
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper .form-input {
+    padding-right: 3rem;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle:hover {
+    color: var(--color-text);
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.btn-login {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-surface);
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    text-align: center;
+    text-decoration: none;
+}
+
+.btn-login:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.btn-login:active {
+    transform: scale(0.98);
+}
+
+.btn-login:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 2px;
+}
+
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.login-error {
+    background: #fce8e6;
+    color: var(--color-error);
+    border: 1px solid var(--color-error);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.login-signup {
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--color-primary);
+    font-size: 1rem;
+}
+
+.login-signup p {
+    margin-bottom: 0.25rem;
+    font-style: italic;
+}
+
+.signup-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.signup-link:hover {
+    color: var(--color-primary-dark);
+}
+
+.signup-link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   DASHBOARD / CONFIRMATION PAGE
+   ============================================================ */
+
+.dashboard-page {
+    background-color: var(--color-bg);
+}
+
+.dashboard-content {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 3rem 2rem;
+    min-height: calc(100vh - 120px);
+}
+
+.dashboard-card {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+}
+
+.dashboard-card h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text);
+}
+
+.dashboard-subtitle {
+    color: var(--color-success);
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-details {
+    text-align: left;
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-details dt {
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.75rem;
+}
+
+.dashboard-details dd {
+    font-size: 1rem;
+    margin-left: 0;
+}
+
+.dashboard-loading {
+    color: var(--color-text-secondary);
+    padding: 2rem;
+}
+
+.dashboard-error {
+    color: var(--color-error);
+}
+
+.dashboard-error p {
+    margin-bottom: 1rem;
+}
+
+.btn-secondary {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: transparent;
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-primary);
+    color: var(--color-surface);
+}
+
+.btn-secondary:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   STATUS PAGE (preserved styles)
+   ============================================================ */
 
 .container {
     max-width: 600px;
@@ -57,7 +392,7 @@ body {
 
 .status-card {
     background: var(--color-surface);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     box-shadow: var(--shadow);
     padding: 2rem;
     width: 100%;
@@ -122,4 +457,32 @@ body {
     padding-top: 2rem;
     color: var(--color-text-secondary);
     font-size: 0.85rem;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 768px) {
+    .app-header__title {
+        font-size: 2rem;
+    }
+
+    .login-row {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .login-content {
+        padding: 2rem 1rem;
+    }
+
+    .login-logo__letter {
+        font-size: 6rem;
+    }
+
+    .login-card {
+        max-width: 100%;
+        padding: 2rem 1.5rem;
+    }
 }

@@ -4,6 +4,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Function;
 
 /**
  * Loads application configuration from environment variables (with .env fallback).
@@ -17,10 +18,37 @@ import java.nio.file.Path;
  */
 public class AppConfig {
 
-    private final Dotenv dotenv;
+    private final Function<String, String> valueProvider;
 
+    /**
+     * Production constructor. Resolves values from:
+     * 1. System environment variables (highest precedence)
+     * 2. .env file at the repository root
+     * 3. Hardcoded defaults (lowest precedence)
+     */
     public AppConfig() {
-        this.dotenv = loadDotenv();
+        Dotenv dotenv = loadDotenv();
+        this.valueProvider = key -> {
+            String sysValue = System.getenv(key);
+            if (sysValue != null && !sysValue.isBlank()) {
+                return sysValue;
+            }
+            String dotenvValue = dotenv.get(key);
+            if (dotenvValue != null && !dotenvValue.isBlank()) {
+                return dotenvValue;
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Test seam. Accepts a controlled value provider so tests can run
+     * without reading the real .env or system environment.
+     * The provider should return null for keys it does not supply,
+     * allowing the hardcoded defaults to take effect.
+     */
+    AppConfig(Function<String, String> valueProvider) {
+        this.valueProvider = valueProvider;
     }
 
     // --- Database ---
@@ -69,15 +97,9 @@ public class AppConfig {
     // --- Helpers ---
 
     private String getOrDefault(String key, String defaultValue) {
-        // System env vars take highest precedence
-        String sysValue = System.getenv(key);
-        if (sysValue != null && !sysValue.isBlank()) {
-            return sysValue;
-        }
-        // Then .env file values
-        String dotenvValue = dotenv.get(key);
-        if (dotenvValue != null && !dotenvValue.isBlank()) {
-            return dotenvValue;
+        String value = valueProvider.apply(key);
+        if (value != null && !value.isBlank()) {
+            return value;
         }
         return defaultValue;
     }

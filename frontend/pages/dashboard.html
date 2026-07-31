@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameOn - Dashboard</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="dashboard-page">
+    <header class="app-header">
+        <h1 class="app-header__title">GAME ON</h1>
+    </header>
+
+    <main class="dashboard-content">
+        <div class="dashboard-card">
+            <div id="dashboard-loading" class="dashboard-loading">
+                <p>Verifying session...</p>
+            </div>
+            <div id="dashboard-info" class="dashboard-info hidden">
+                <h2>Welcome, <span id="display-username"></span></h2>
+                <p class="dashboard-subtitle">You are signed in successfully.</p>
+                <dl class="dashboard-details">
+                    <dt>User ID</dt>
+                    <dd id="display-user-id"></dd>
+                    <dt>Account Type</dt>
+                    <dd id="display-user-type"></dd>
+                </dl>
+                <a href="/pages/status.html" class="btn-secondary">View System Status</a>
+            </div>
+            <div id="dashboard-error" class="dashboard-error hidden">
+                <p>You are not signed in.</p>
+                <a href="/" class="btn-login">Go to Login</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

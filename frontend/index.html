@@ -3,32 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GameOn</title>
+    <title>GameOn - Login</title>
     <link rel="stylesheet" href="/css/main.css">
 </head>
-<body>
-    <div class="container">
-        <header class="header">
-            <h1>GameOn</h1>
-            <p class="subtitle">Sports Organisation &amp; Community Platform</p>
-        </header>
+<body class="login-page">
+    <header class="app-header">
+        <h1 class="app-header__title">GAME ON</h1>
+    </header>
 
-        <main class="status-card">
-            <h2>System Status</h2>
-            <div id="status-indicator" class="status-indicator loading">
-                Checking...
+    <main class="login-content">
+        <div class="login-row">
+            <div class="login-logo" aria-hidden="true">
+                <!-- Stylised G logo rendered via CSS -->
+                <span class="login-logo__letter">G</span>
             </div>
-            <dl id="health-details" class="health-details">
-                <!-- Populated by JavaScript -->
-            </dl>
-        </main>
 
-        <footer class="footer">
-            <p>Built by CodeSphere &mdash; 2026</p>
-        </footer>
-    </div>
+            <div class="login-column">
+                <div class="login-card">
+                    <form id="login-form" class="login-form" novalidate>
+                        <div class="form-group">
+                            <label for="username" class="visually-hidden">Username</label>
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                class="form-input"
+                                placeholder="Username"
+                                autocomplete="username"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password" class="visually-hidden">Password</label>
+                            <div class="password-wrapper">
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
+                                    class="form-input"
+                                    placeholder="Password"
+                                    autocomplete="current-password"
+                                    required
+                                >
+                                <button
+                                    type="button"
+                                    class="password-toggle"
+                                    aria-label="Toggle password visibility"
+                                    title="Show password"
+                                >
+                                    <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                    <svg class="icon-eye-off hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                        <path d="M1 1l22 22"/>
+                                        <path d="M14.12 14.12a3 3 0 0 1-4.24-4.24"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="login-error" class="login-error hidden" role="alert" aria-live="polite"></div>
+
+                        <button type="submit" id="login-btn" class="btn-login">
+                            Login
+                        </button>
+                    </form>
+                </div>
+
+                <div class="login-signup">
+                    <p>Don&#8217;t Have an account?</p>
+                    <a href="/pages/register.html" class="signup-link">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </main>
 
     <script src="/js/api.js"></script>
-    <script src="/js/health.js"></script>
+    <script src="/js/login.js"></script>
 </body>
 </html>
