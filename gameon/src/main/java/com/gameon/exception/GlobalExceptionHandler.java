@@ -2,14 +2,17 @@ package com.gameon.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -119,6 +122,57 @@ public class GlobalExceptionHandler {
         ModelAndView mav = new ModelAndView("error/404");
         mav.addObject("message", "The page you're looking for doesn't exist");
         mav.setStatus(HttpStatus.NOT_FOUND);
+        return mav;
+    }
+
+    /**
+     * Handles database constraint violations (unique key, FK violations, etc.).
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ModelAndView handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        logger.error("Data integrity violation on URL: {} | Cause: {}",
+                request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        ModelAndView mav = new ModelAndView("error/409");
+        mav.addObject("message", "A data conflict occurred. The record may already exist or a required reference is missing.");
+        mav.setStatus(HttpStatus.CONFLICT);
+        return mav;
+    }
+
+    /**
+     * Handles unsupported HTTP methods (e.g., GET on a POST-only endpoint).
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ModelAndView handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        logger.warn("Method not supported: {} {} | Supported: {}",
+                ex.getMethod(), request.getRequestURI(), ex.getSupportedMethods());
+        ModelAndView mav = new ModelAndView("error/400");
+        mav.addObject("message", "This action is not supported. Please use the navigation to access features.");
+        mav.setStatus(HttpStatus.METHOD_NOT_ALLOWED);
+        return mav;
+    }
+
+    /**
+     * Handles missing required request parameters.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ModelAndView handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
+        logger.warn("Missing request parameter: {} | URL: {}", ex.getParameterName(), request.getRequestURI());
+        ModelAndView mav = new ModelAndView("error/400");
+        mav.addObject("message", String.format("Required parameter '%s' is missing", ex.getParameterName()));
+        mav.setStatus(HttpStatus.BAD_REQUEST);
+        return mav;
+    }
+
+    /**
+     * Handles type mismatch in request parameters (e.g., string where number expected).
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ModelAndView handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        logger.warn("Type mismatch for parameter '{}' on URL: {} | Value: {}",
+                ex.getName(), request.getRequestURI(), ex.getValue());
+        ModelAndView mav = new ModelAndView("error/400");
+        mav.addObject("message", String.format("Invalid value for '%s'. Please check your input.", ex.getName()));
+        mav.setStatus(HttpStatus.BAD_REQUEST);
         return mav;
     }
 

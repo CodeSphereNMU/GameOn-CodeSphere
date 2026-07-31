@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- ============================================================
+         GameOn - Logback Configuration
+         Profile-aware logging with console + rolling file output.
+         ============================================================ -->
+
+    <!-- Property defaults -->
+    <property name="LOG_DIR" value="${LOG_PATH:-logs}" />
+    <property name="APP_NAME" value="GameOn" />
+
+    <!-- ============================================================
+         CONSOLE APPENDER (all profiles)
+         ============================================================ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{40} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================
+         COLORED CONSOLE APPENDER (dev only)
+         ============================================================ -->
+    <appender name="CONSOLE_COLOR" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{30}) - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================
+         FILE APPENDER - Application Log (rolling daily, max 30 days)
+         ============================================================ -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/gameon.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/gameon.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================
+         ERROR FILE APPENDER - Errors only (rolling daily, max 90 days)
+         ============================================================ -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/gameon-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/gameon-error.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n%xException</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================
+         SECURITY AUDIT FILE APPENDER (tracks auth events)
+         ============================================================ -->
+    <appender name="SECURITY_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/gameon-security.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/gameon-security.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================
+         LOGGER DEFINITIONS
+         ============================================================ -->
+
+    <!-- GameOn Application Loggers -->
+    <logger name="com.gameon" level="DEBUG" />
+    <logger name="com.gameon.security" level="DEBUG" additivity="true">
+        <appender-ref ref="SECURITY_FILE" />
+    </logger>
+    <logger name="com.gameon.service" level="DEBUG" />
+    <logger name="com.gameon.controller" level="DEBUG" />
+    <logger name="com.gameon.repository" level="INFO" />
+    <logger name="com.gameon.config" level="INFO" />
+
+    <!-- Spring Security -->
+    <logger name="org.springframework.security" level="INFO" />
+
+    <!-- Hibernate SQL -->
+    <logger name="org.hibernate.SQL" level="INFO" />
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="INFO" />
+
+    <!-- Flyway -->
+    <logger name="org.flywaydb" level="INFO" />
+
+    <!-- HikariCP -->
+    <logger name="com.zaxxer.hikari" level="INFO" />
+
+    <!-- Spring Framework -->
+    <logger name="org.springframework" level="INFO" />
+    <logger name="org.springframework.web" level="INFO" />
+
+    <!-- ============================================================
+         DEVELOPMENT PROFILE
+         ============================================================ -->
+    <springProfile name="dev,local">
+        <logger name="com.gameon" level="DEBUG" />
+        <logger name="org.springframework.security" level="DEBUG" />
+        <logger name="org.hibernate.SQL" level="DEBUG" />
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" />
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_COLOR" />
+            <appender-ref ref="FILE" />
+            <appender-ref ref="ERROR_FILE" />
+        </root>
+    </springProfile>
+
+    <!-- ============================================================
+         TEST PROFILE
+         ============================================================ -->
+    <springProfile name="test">
+        <logger name="com.gameon" level="DEBUG" />
+        <logger name="org.springframework.security" level="DEBUG" />
+        <logger name="org.hibernate.SQL" level="DEBUG" />
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+        </root>
+    </springProfile>
+
+    <!-- ============================================================
+         PRODUCTION PROFILE
+         ============================================================ -->
+    <springProfile name="prod">
+        <logger name="com.gameon" level="INFO" />
+        <logger name="org.springframework.security" level="WARN" />
+        <logger name="org.hibernate.SQL" level="WARN" />
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN" />
+        <logger name="org.springframework" level="WARN" />
+
+        <root level="WARN">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+            <appender-ref ref="ERROR_FILE" />
+        </root>
+    </springProfile>
+
+    <!-- ============================================================
+         DEFAULT (no profile active)
+         ============================================================ -->
+    <springProfile name="default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+            <appender-ref ref="ERROR_FILE" />
+        </root>
+    </springProfile>
+
+</configuration>

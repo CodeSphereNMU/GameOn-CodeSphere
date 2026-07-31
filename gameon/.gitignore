@@ -1,0 +1,44 @@
+# ============================================================
+# GameOn .gitignore
+# ============================================================
+
+# === Build Output ===
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# === IDE Files ===
+.idea/
+*.iml
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === Maven ===
+.mvn/
+mvnw
+mvnw.cmd
+
+# === Logs ===
+logs/
+*.log
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Environment Files ===
+.env
+.env.local
+.env.*.local
+
+# === Application Generated ===
+*.pid
+*.seed

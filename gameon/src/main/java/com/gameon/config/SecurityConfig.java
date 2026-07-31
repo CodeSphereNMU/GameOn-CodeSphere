@@ -36,6 +36,7 @@ public class SecurityConfig {
             // CSRF Protection - enabled with cookie repository for Thymeleaf compatibility
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .ignoringRequestMatchers("/h2-console/**")
             )
 
             // Authorization Rules
@@ -45,6 +46,9 @@ public class SecurityConfig {
 
                 // Authentication pages - accessible to anonymous users only
                 .requestMatchers("/login", "/register", "/register-sports").permitAll()
+
+                // H2 Console (local profile only - secured by profile activation)
+                .requestMatchers("/h2-console/**").permitAll()
 
                 // Actuator health endpoint
                 .requestMatchers("/actuator/health").permitAll()
