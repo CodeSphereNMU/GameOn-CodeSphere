@@ -3,7 +3,7 @@
 ## Database
 
 - Microsoft SQL Server (local instance per developer).
-- Database name: `GameOnDb`.
+- Database name: `GameOnDB`.
 - Each developer creates the database locally; Flyway handles schema.
 
 ## Migrations (Flyway)

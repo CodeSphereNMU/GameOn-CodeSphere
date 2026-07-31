@@ -88,7 +88,7 @@ java --version    # Should show 21+
 1. Open SQL Server Management Studio (SSMS) or Azure Data Studio.
 2. Create a new database:
    ```sql
-   CREATE DATABASE GameOnDb;
+   CREATE DATABASE GameOnDB;
    ```
 3. Ensure your SQL Server instance accepts TCP connections on port 1433.
 
@@ -102,7 +102,7 @@ java --version    # Should show 21+
    ```
    DB_HOST=localhost
    DB_PORT=1433
-   DB_NAME=GameOnDb
+   DB_NAME=GameOnDB
    DB_USER=sa
    DB_PASSWORD=YourActualPassword
    APP_PORT=7070

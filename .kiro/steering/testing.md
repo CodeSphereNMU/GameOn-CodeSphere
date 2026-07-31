@@ -59,7 +59,7 @@ Tests must pass before pushing to the shared branch.
 - DAO tests require a real SQL Server connection. Mark these with a tag or skip if DB is unavailable.
 - Use a separate test database or transaction rollback to keep tests isolated.
 
-**Proposal (requires group confirmation):** Use a `GameOnDb_Test` database for DAO integration tests, configured via a separate test `.env` or system properties.
+**Proposal (requires group confirmation):** Use a `GameOnDB_Test` database for DAO integration tests, configured via a separate test `.env` or system properties.
 
 ## Test Evidence
 

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - Project foundation compiles and starts (health endpoint works).
-- SQL Server database `GameOnDb` exists locally.
+- SQL Server database `GameOnDB` exists locally.
 - **Group has confirmed:** session approach, validation rules, public route list.
 
 ## Tasks

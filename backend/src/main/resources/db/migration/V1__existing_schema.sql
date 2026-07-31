@@ -1,5 +1,5 @@
--- V1: Reproduces the existing GameOnDb schema from the Spring Boot/Hibernate phase.
--- Source: docs/Database/GameOnDb-current-schema.sql (UTF-16LE reference).
+-- V1: Reproduces the existing GameOnDB schema from the Spring Boot/Hibernate phase.
+-- Source: docs/Database/GameOnDB-current-schema.sql (UTF-16LE reference).
 -- This file is UTF-8 for Flyway compatibility.
 --
 -- Every statement uses IF NOT EXISTS guards so it is safe to run against:
@@ -175,7 +175,7 @@ BEGIN
         WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF,
               ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF)
         ON [PRIMARY],
-    CONSTRAINT [UKdp32kabjjko32nypvrtr1pme] UNIQUE NONCLUSTERED ([game_listing_id] ASC)
+    CONSTRAINT [UKdp32kabjjko32nypvrttr1pme] UNIQUE NONCLUSTERED ([game_listing_id] ASC)
         WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF,
               ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF)
         ON [PRIMARY]

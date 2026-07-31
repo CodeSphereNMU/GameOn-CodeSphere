@@ -16,7 +16,7 @@ class AppConfigTest {
 
         assertEquals("localhost", config.getDbHost());
         assertEquals(1433, config.getDbPort());
-        assertEquals("GameOnDb", config.getDbName());
+        assertEquals("GameOnDB", config.getDbName());
         assertEquals(7070, config.getAppPort());
         assertEquals("development", config.getAppEnv());
         assertFalse(config.isProduction());
@@ -30,7 +30,7 @@ class AppConfigTest {
         assertTrue(url.startsWith("jdbc:sqlserver://"));
         assertTrue(url.contains("localhost"));
         assertTrue(url.contains("1433"));
-        assertTrue(url.contains("GameOnDb"));
+        assertTrue(url.contains("GameOnDB"));
         assertTrue(url.contains("trustServerCertificate=true"));
     }
 }

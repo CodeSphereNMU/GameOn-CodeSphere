@@ -59,7 +59,7 @@ These technologies are explicitly excluded unless the group changes direction:
 |----------|---------|---------|
 | `DB_HOST` | SQL Server hostname | `localhost` |
 | `DB_PORT` | SQL Server port | `1433` |
-| `DB_NAME` | Database name | `GameOnDb` |
+| `DB_NAME` | Database name | `GameOnDB` |
 | `DB_USER` | Database username | (required) |
 | `DB_PASSWORD` | Database password | (required) |
 | `APP_PORT` | HTTP server port | `7070` |

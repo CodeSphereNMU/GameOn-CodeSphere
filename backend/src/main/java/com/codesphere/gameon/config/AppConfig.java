@@ -34,7 +34,7 @@ public class AppConfig {
     }
 
     public String getDbName() {
-        return getOrDefault("DB_NAME", "GameOnDb");
+        return getOrDefault("DB_NAME", "GameOnDB");
     }
 
     public String getDbUser() {
