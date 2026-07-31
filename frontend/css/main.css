@@ -486,3 +486,385 @@ body {
         padding: 2rem 1.5rem;
     }
 }
+
+/* ============================================================
+   CREATE LISTING PAGE (A100)
+   ============================================================ */
+
+.create-listing-page {
+    background-color: var(--color-bg);
+}
+
+.create-listing-content {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2rem 1rem;
+    min-height: calc(100vh - 120px);
+}
+
+.step-section {
+    width: 100%;
+    max-width: 520px;
+}
+
+.step-section.active {
+    display: block;
+}
+
+.step-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+}
+
+.step-card {
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 2rem 1.5rem;
+}
+
+.step-instruction {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--color-text);
+}
+
+/* Form rows inside step card */
+.form-fieldset {
+    border: none;
+    padding: 0;
+    margin-bottom: 1.25rem;
+}
+
+.form-legend {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--color-text);
+}
+
+.radio-group {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-primary);
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    gap: 1rem;
+}
+
+.form-label {
+    font-size: 1rem;
+    font-weight: 500;
+    min-width: 160px;
+    color: var(--color-text);
+}
+
+.form-select {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-family: var(--font-family);
+    border: 1.5px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    appearance: auto;
+    cursor: pointer;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(230, 0, 0, 0.1);
+}
+
+.form-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.step-card .form-input {
+    flex: 1;
+}
+
+/* Checkbox list (positions + friends) */
+.checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.05rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.friend-label {
+    padding: 0.5rem 0;
+}
+
+.friend-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #ddd;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.friend-name {
+    font-size: 1.05rem;
+    font-weight: 500;
+}
+
+.invite-counter {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.75rem 0;
+    color: var(--color-text);
+}
+
+.no-friends-message,
+.no-sports-message {
+    text-align: center;
+    color: var(--color-text-secondary);
+    padding: 1rem 0;
+    font-size: 1rem;
+}
+
+/* Step buttons row */
+.step-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.btn-primary {
+    flex: 1;
+    padding: 0.9rem 1.5rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-surface);
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    text-align: center;
+}
+
+.btn-primary:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+.btn-primary:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 2px;
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.btn-primary.btn-success {
+    background-color: var(--color-success);
+}
+
+.btn-back {
+    flex: 0.6;
+    padding: 0.9rem 1.5rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 2px solid var(--color-border-light);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.2s;
+    text-align: center;
+}
+
+.btn-back:hover {
+    border-color: var(--color-border);
+}
+
+.btn-back:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 2px;
+}
+
+/* Step 1 single next button (full width) */
+#btn-next-1 {
+    width: 100%;
+    margin-top: 1.5rem;
+}
+
+/* Confirm card */
+.confirm-card .confirm-summary {
+    padding: 1.5rem 0;
+}
+
+.confirm-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.confirm-location,
+.confirm-datetime,
+.confirm-invited {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+
+.skill-badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    margin-right: 0.5rem;
+}
+
+.skill-badge--beginner {
+    background: #e6f4ea;
+    color: var(--color-success);
+}
+
+.skill-badge--intermediate {
+    background: #fef7e0;
+    color: #b8860b;
+}
+
+.skill-badge--advanced {
+    background: #fce8e6;
+    color: var(--color-error);
+}
+
+.privacy-badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.privacy-badge--public {
+    background: #e8f0fe;
+    color: #1967d2;
+}
+
+.privacy-badge--private {
+    background: #f3e8fd;
+    color: #7627bb;
+}
+
+/* Error messages */
+.step-error {
+    background: #fce8e6;
+    color: var(--color-error);
+    border: 1px solid var(--color-error);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+/* Header back button */
+.app-header {
+    position: relative;
+}
+
+.app-header__back {
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+}
+
+.app-header__back:focus-visible {
+    outline: 3px solid var(--color-primary-light);
+    outline-offset: 2px;
+    border-radius: 50%;
+}
+
+/* ============================================================
+   RESPONSIVE - CREATE LISTING
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .form-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .form-label {
+        min-width: auto;
+    }
+
+    .form-select,
+    .step-card .form-input {
+        width: 100%;
+    }
+
+    .step-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .radio-group {
+        gap: 1.5rem;
+    }
+}

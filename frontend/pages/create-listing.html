@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Listing - GameOn</title>
+    <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="create-listing-page">
+    <header class="app-header">
+        <a href="../pages/dashboard.html" class="app-header__back" aria-label="Go back">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" fill="#333" stroke="none"/>
+                <path d="M15 18l-6-6 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+            </svg>
+        </a>
+        <h1 class="app-header__title">Game On</h1>
+    </header>
+
+    <main class="create-listing-content">
+        <!-- Step 1: Create Listing Details -->
+        <section id="step-1" class="step-section active" aria-label="Step 1: Listing Details">
+            <h2 class="step-title">Create Listing</h2>
+            <div class="step-card">
+                <!-- Privacy -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Listing Privacy</legend>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="privacy" value="public" checked>
+                            <span class="radio-indicator"></span>
+                            Public
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="privacy" value="private">
+                            <span class="radio-indicator"></span>
+                            Private
+                        </label>
+                    </div>
+                </fieldset>
+
+                <!-- Sport -->
+                <div class="form-row">
+                    <label for="sport-select" class="form-label">Sport:</label>
+                    <select id="sport-select" class="form-select" required>
+                        <option value="">Select a sport</option>
+                    </select>
+                </div>
+
+                <!-- Format -->
+                <div class="form-row">
+                    <label for="format-select" class="form-label">Format:</label>
+                    <select id="format-select" class="form-select" required disabled>
+                        <option value="">Select a format</option>
+                    </select>
+                </div>
+
+                <!-- Skill Level -->
+                <div class="form-row">
+                    <label for="skill-select" class="form-label">Suggested Skill Level:</label>
+                    <select id="skill-select" class="form-select" required>
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                    </select>
+                </div>
+
+                <!-- Date -->
+                <div class="form-row">
+                    <label for="date-input" class="form-label">Date:</label>
+                    <input type="date" id="date-input" class="form-input" required>
+                </div>
+
+                <!-- Time -->
+                <div class="form-row">
+                    <label for="time-input" class="form-label">Time:</label>
+                    <input type="time" id="time-input" class="form-input" required>
+                </div>
+
+                <!-- Location -->
+                <div class="form-row">
+                    <label for="location-input" class="form-label">Location:</label>
+                    <input type="text" id="location-input" class="form-input" placeholder="Enter venue" required>
+                </div>
+
+                <div id="step1-error" class="step-error hidden" role="alert"></div>
+
+                <button type="button" id="btn-next-1" class="btn-primary">Next &#10132;</button>
+            </div>
+        </section>
+
+        <!-- Step 2: Positions -->
+        <section id="step-2" class="step-section hidden" aria-label="Step 2: Your Positions">
+            <h2 class="step-title">Your positions</h2>
+            <div class="step-card">
+                <p class="step-instruction">Select your preferred position (up to 2) or choose "Any Position"</p>
+                <div id="positions-list" class="checkbox-list">
+                    <!-- Dynamically populated -->
+                </div>
+
+                <div id="step2-error" class="step-error hidden" role="alert"></div>
+
+                <div class="step-buttons">
+                    <button type="button" id="btn-back-2" class="btn-back">Back</button>
+                    <button type="button" id="btn-next-2" class="btn-primary">Next &#10132;</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: Invite Friends -->
+        <section id="step-3" class="step-section hidden" aria-label="Step 3: Invite Friends">
+            <h2 class="step-title">Invite Friends</h2>
+            <div class="step-card">
+                <p class="step-instruction">Select friends to invite to listing</p>
+                <div id="friends-list" class="checkbox-list">
+                    <!-- Dynamically populated -->
+                </div>
+                <p id="invite-counter" class="invite-counter">0 selected · 0 spaces available</p>
+
+                <div id="step3-error" class="step-error hidden" role="alert"></div>
+
+                <div class="step-buttons">
+                    <button type="button" id="btn-back-3" class="btn-back">Back</button>
+                    <button type="button" id="btn-next-3" class="btn-primary">Next &#10132;</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4: Confirm -->
+        <section id="step-4" class="step-section hidden" aria-label="Step 4: Confirm">
+            <h2 class="step-title">Confirm</h2>
+            <div class="step-card confirm-card">
+                <div class="confirm-summary">
+                    <div class="confirm-header">
+                        <h3 id="confirm-title" class="confirm-title">Basketball 3v3</h3>
+                        <p id="confirm-location" class="confirm-location"></p>
+                        <p id="confirm-datetime" class="confirm-datetime"></p>
+                        <p id="confirm-invited" class="confirm-invited"></p>
+                    </div>
+                    <span id="confirm-skill" class="skill-badge"></span>
+                    <span id="confirm-privacy" class="privacy-badge"></span>
+                </div>
+
+                <div id="step4-error" class="step-error hidden" role="alert"></div>
+
+                <div class="step-buttons">
+                    <button type="button" id="btn-back-4" class="btn-back">Back</button>
+                    <button type="button" id="btn-create" class="btn-primary btn-create">Create Listing</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- No sports warning -->
+        <section id="no-sports-warning" class="step-section hidden" aria-label="No sports registered">
+            <h2 class="step-title">Create Listing</h2>
+            <div class="step-card">
+                <p class="no-sports-message">You don't have any sports on your profile yet. Please add a sport to your profile before creating a listing.</p>
+                <a href="../pages/dashboard.html" class="btn-primary" style="display:inline-block; text-decoration:none; text-align:center;">Back to Dashboard</a>
+            </div>
+        </section>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/createListing.js"></script>
+</body>
+</html>

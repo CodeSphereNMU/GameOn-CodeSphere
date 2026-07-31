@@ -1,10 +1,10 @@
 package com.codesphere.gameon.config;
 
-import com.codesphere.gameon.controller.AuthController;
-import com.codesphere.gameon.controller.HealthController;
-import com.codesphere.gameon.dao.UserDao;
+import com.codesphere.gameon.controller.*;
+import com.codesphere.gameon.dao.*;
 import com.codesphere.gameon.exception.ApiException;
 import com.codesphere.gameon.service.AuthService;
+import com.codesphere.gameon.service.GameListingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -84,9 +84,27 @@ public class JavalinConfig {
         AuthService authService = new AuthService(userDao);
         new AuthController(authService, userDao).register(app);
 
-        // Future route registrations:
-        // new ProfileController(...).register(app);
-        // new ListingController(...).register(app);
+        // User sports (for Create Listing dropdown)
+        SportDao sportDao = new SportDao(databaseConfig.getDataSource());
+        new UserSportController(sportDao).register(app);
+
+        // Sport formats and positions lookups
+        SportFormatDao sportFormatDao = new SportFormatDao(databaseConfig.getDataSource());
+        PositionDao positionDao = new PositionDao(databaseConfig.getDataSource());
+        new SportController(sportFormatDao, positionDao).register(app);
+
+        // Friends (mutual followers)
+        FollowDao followDao = new FollowDao(databaseConfig.getDataSource());
+        new FriendController(followDao).register(app);
+
+        // Game Listings
+        GameListingDao gameListingDao = new GameListingDao(databaseConfig.getDataSource());
+        GameJoinerDao gameJoinerDao = new GameJoinerDao(databaseConfig.getDataSource());
+        NotificationDao notificationDao = new NotificationDao(databaseConfig.getDataSource());
+        GameListingService gameListingService = new GameListingService(
+                databaseConfig.getDataSource(), sportDao, sportFormatDao, positionDao,
+                gameListingDao, gameJoinerDao, followDao, notificationDao);
+        new GameListingController(gameListingService).register(app);
     }
 
     /**
