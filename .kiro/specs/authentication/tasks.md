@@ -14,12 +14,7 @@
 - **Blocked by:** Group decision on username length/character constraints
 - **Traces to:** REQ-AUTH-1
 
-### Task 2: Add password hashing dependency
-- [ ] Add BCrypt (or group-chosen) dependency to `backend/pom.xml`
-- [ ] Verify build still compiles
-- **Traces to:** REQ-AUTH-1, REQ-AUTH-3
-
-### Task 3: Create User model
+### Task 2: Create User model
 - [ ] Create `User.java` in `model/` with fields matching the table
 - [ ] Include constructor, getters (no password in responses)
 - **Traces to:** REQ-AUTH-1
@@ -27,15 +22,15 @@
 ### Task 4: Create UserDao
 - [ ] Create `UserDao.java` extending `BaseDao`
 - [ ] Implement `findByUsername(String username)` → `Optional<User>`
-- [ ] Implement `create(String username, String hashedPassword, String typeOfUser)` → `User`
+- [ ] Implement `create(String username, String password, String typeOfUser)` → `User`
 - [ ] Implement `existsByUsername(String username)` → `boolean`
 - [ ] All queries use parameterised SQL
 - **Traces to:** REQ-AUTH-1, REQ-AUTH-3
 
-### Task 5: Create AuthService
+### Task 4: Create AuthService
 - [ ] Create `AuthService.java` in `service/`
 - [ ] Implement `register(...)` with validation (rules per group decision)
-- [ ] Implement `login(...)` with hash verification
+- [ ] Implement `login(...)` with plain text password comparison
 - [ ] Throw `ApiException` for validation failures and credential errors
 - **Blocked by:** Group decision on validation rules (username length, password length)
 - **Traces to:** REQ-AUTH-1, REQ-AUTH-3

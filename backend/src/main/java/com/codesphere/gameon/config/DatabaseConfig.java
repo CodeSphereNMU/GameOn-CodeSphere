@@ -39,6 +39,8 @@ public class DatabaseConfig {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .baselineDescription("Empty database baseline")
                 .load();
         flyway.migrate();
         logger.info("Database migrations complete.");

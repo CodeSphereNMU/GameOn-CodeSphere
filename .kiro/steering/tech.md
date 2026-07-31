@@ -70,5 +70,5 @@ These technologies are explicitly excluded unless the group changes direction:
 - Never commit `.env` or real credentials.
 - All SQL uses parameterised queries (PreparedStatement).
 - Error responses never expose stack traces or internal details.
-- Passwords will be hashed (BCrypt) when auth is implemented.
+- Passwords stored as plain text (university project requirement; hashing is prohibited).
 - Server-side validation backs all frontend checks.

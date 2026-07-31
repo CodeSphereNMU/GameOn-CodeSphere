@@ -9,7 +9,7 @@
 ## Authentication (Planned)
 
 - Server-side sessions (Javalin session handling or a simple session token table).
-- Passwords hashed with BCrypt (minimum cost factor 10).
+- Passwords stored as plain text (university project requirement; hashing is prohibited).
 - Session tokens should be random, unguessable, and expire.
 - No JWT unless the group explicitly decides otherwise.
 

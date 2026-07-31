@@ -6,7 +6,7 @@
 Frontend (login.html, register.html)
   → fetch() POST /api/auth/login or /api/auth/register
     → AuthController
-      → AuthService (validates input, hashes passwords, manages sessions)
+      → AuthService (validates input, compares passwords, manages sessions)
         → UserDao (CRUD on [User] table)
 ```
 
@@ -17,7 +17,7 @@ Frontend (login.html, register.html)
 |--------|------|-------|
 | userId | INT IDENTITY(1,1) PK | |
 | userName | NVARCHAR(50) UNIQUE | Case-insensitive unique; length TBD by group |
-| password | NVARCHAR(255) | BCrypt hash (proposed) |
+| password | NVARCHAR(255) | Plain text (university project; hashing prohibited) |
 | typeOfUser | NVARCHAR(20) | 'player' or 'moderator' (from FSSB) |
 | createdAt | DATETIME2 | |
 
@@ -90,7 +90,7 @@ Returns the currently authenticated user (for frontend session checks).
 | Class | Package | Responsibility |
 |-------|---------|---------------|
 | AuthController | controller | Routes, request parsing, response formatting |
-| AuthService | service | Validation, password hashing/verification, session logic |
+| AuthService | service | Validation, password comparison, session logic |
 | UserDao | dao | SQL queries for [User] table |
 | User | model | Domain entity |
 | RegisterRequest | dto | Incoming registration payload |
@@ -103,9 +103,9 @@ A Javalin `before` handler on `/api/*` that:
 2. Checks session attribute for authenticated user ID.
 3. If missing, throws `ApiException.unauthorized(...)`.
 
-## Password Hashing (Proposed)
+## Password Storage
 
-Use BCrypt via `org.mindrot.jbcrypt` or similar library. Cost factor pending (proposed: 10).
+Passwords are stored and compared as plain text (university project requirement; hashing is prohibited). The `password` column in the `users` table holds the password directly. Login verification is a simple string comparison.
 
 ## Proposed Validation Rules (Pending Group Confirmation)
 

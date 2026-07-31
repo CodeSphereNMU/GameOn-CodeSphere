@@ -50,7 +50,7 @@ Users must be able to register for a new account, log in, log out, and have thei
 
 **Acceptance Criteria (confirmed by FSSB):**
 - User provides username and password.
-- System validates credentials against stored (hashed) password.
+- System validates credentials against stored password (plain text comparison).
 - On success, a session is created and the user gains access to the application.
 - On failure, the system does not reveal which field (username or password) was incorrect.
 
@@ -97,8 +97,8 @@ Users must be able to register for a new account, log in, log out, and have thei
 
 ## Non-Functional Requirements
 
-- Passwords must be stored hashed (FSSB implies this; BCrypt is a proposed choice).
-- No plaintext passwords in logs, responses, or error messages.
+- Passwords are stored as plain text (university project requirement; hashing is prohibited).
+- No plaintext passwords in API responses or log output.
 
 ## Unresolved Questions
 
