@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Social')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('social')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('social')}"></div>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <!-- Header + Create -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4>Social Feed</h4>
+                    <a th:href="@{/social/create}" class="btn btn-gameon">
+                        <i class="bi bi-plus-lg me-1"></i>Create Post
+                    </a>
+                </div>
+
+                <!-- Flash Messages -->
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                    <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- Posts -->
+                <div th:if="${posts.isEmpty()}" class="text-center text-muted py-5">
+                    <i class="bi bi-chat-square-text" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No posts yet. Create one or follow other users to see their posts!</p>
+                </div>
+
+                <div th:each="post : ${posts}" class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <!-- Post Header -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle fs-4 me-2 text-muted"></i>
+                                <div>
+                                    <a th:href="@{'/profile/' + ${post.user.userId}}"
+                                       class="fw-bold text-decoration-none text-dark"
+                                       th:text="${post.user.username}">Username</a>
+                                    <br>
+                                    <small class="text-muted" th:text="${#temporals.format(post.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
+                                </div>
+                            </div>
+                            <!-- Post Actions (own post) -->
+                            <div th:if="${post.user.userId == currentUserId}" class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" th:href="@{'/social/edit/' + ${post.postId}}">
+                                        <i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                    <li>
+                                        <form th:action="@{'/social/delete/' + ${post.postId}}" method="post"
+                                              onsubmit="return confirm('Delete this post?')">
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="bi bi-trash me-2"></i>Delete
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                            <!-- Report (other's post) -->
+                            <div th:unless="${post.user.userId == currentUserId}">
+                                <a th:href="@{'/report/post/' + ${post.postId}}" class="btn btn-sm btn-link text-muted" title="Report">
+                                    <i class="bi bi-flag"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Post Content -->
+                        <p class="card-text" th:text="${post.content}">Content here</p>
+
+                        <!-- Privacy badge -->
+                        <small class="text-muted">
+                            <i th:classappend="${post.privacySetting.name() == 'PUBLIC'} ? 'bi-globe' : 'bi-people'"
+                               class="bi me-1"></i>
+                            <span th:text="${post.privacySetting}">Public</span>
+                        </small>
+
+                        <!-- Like + Comment bar -->
+                        <hr class="my-2">
+                        <div class="d-flex gap-3 align-items-center">
+                            <form th:action="@{'/social/like/' + ${post.postId}}" method="post" class="d-inline">
+                                <input type="hidden" name="page" th:value="${posts.number}">
+                                <button type="submit" class="btn btn-sm btn-link text-decoration-none p-0">
+                                    <i class="bi bi-heart-fill text-danger me-1"></i>
+                                    <span th:text="${post.likes.size()}">0</span>
+                                </button>
+                            </form>
+                            <a th:href="@{'/social/post/' + ${post.postId}}" class="btn btn-sm btn-link text-decoration-none text-muted p-0">
+                                <i class="bi bi-chat me-1"></i>
+                                <span th:text="${post.comments.size()}">0</span> Comments
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <nav th:if="${posts.totalPages > 1}" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" th:classappend="${posts.first} ? 'disabled'">
+                            <a class="page-link" th:href="@{/social(page=${posts.number - 1})}">Previous</a>
+                        </li>
+                        <li th:each="i : ${#numbers.sequence(0, posts.totalPages - 1)}"
+                            class="page-item" th:classappend="${i == posts.number} ? 'active'">
+                            <a class="page-link" th:href="@{/social(page=${i})}" th:text="${i + 1}">1</a>
+                        </li>
+                        <li class="page-item" th:classappend="${posts.last} ? 'disabled'">
+                            <a class="page-link" th:href="@{/social(page=${posts.number + 1})}">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -83,8 +83,10 @@ public class SecurityConfig {
 
             // Session Management
             .sessionManagement(session -> session
+                .sessionFixation(fix -> fix.migrateSession())
                 .maximumSessions(1)
                 .expiredUrl("/login?expired=true")
+                .invalidSessionUrl("/login?invalid=true")
             )
 
             // Exception Handling

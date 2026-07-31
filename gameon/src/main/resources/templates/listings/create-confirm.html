@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Confirm Listing')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-7">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-check-circle me-2 text-success"></i>Confirm Listing</h5>
+                        <small class="text-muted">Review your listing and invite friends</small>
+                    </div>
+                    <div class="card-body">
+                        <!-- Preview Card -->
+                        <div class="card bg-light mb-4">
+                            <div class="card-body">
+                                <h6 th:text="${format.sport.sportName + ' - ' + format.formatName}">Sport Format</h6>
+                                <p class="mb-1 small"><i class="bi bi-people me-1"></i><span th:text="${format.noPlayers}">0</span> players</p>
+                                <p class="mb-1 small"><i class="bi bi-bar-chart me-1"></i>Skill: <span th:text="${skillLevel}">Level</span></p>
+                                <p class="mb-1 small"><i class="bi bi-calendar me-1"></i><span th:text="${scheduledDate}">Date</span></p>
+                                <p class="mb-1 small"><i class="bi bi-geo-alt me-1"></i><span th:text="${location}">Location</span></p>
+                                <p class="mb-0 small"><i class="bi bi-eye me-1"></i><span th:text="${privacySetting}">Privacy</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Invite Friends -->
+                        <form th:action="@{/listings/confirm}" method="post">
+                            <input type="hidden" name="formatId" th:value="${formatId}">
+                            <input type="hidden" name="skillLevel" th:value="${skillLevel}">
+                            <input type="hidden" name="scheduledDate" th:value="${scheduledDate}">
+                            <input type="hidden" name="location" th:value="${location}">
+                            <input type="hidden" name="privacySetting" th:value="${privacySetting}">
+
+                            <div th:if="${friends != null && !friends.isEmpty()}" class="mb-4">
+                                <label class="form-label">Invite friends (optional):</label>
+                                <div class="list-group">
+                                    <label th:each="friend : ${friends}" class="list-group-item d-flex align-items-center">
+                                        <input class="form-check-input me-3" type="checkbox"
+                                               name="invitedFriendIds" th:value="${friend.userId}">
+                                        <i class="bi bi-person-circle me-2 text-muted"></i>
+                                        <span th:text="${friend.username}">Friend</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-gameon">
+                                    <i class="bi bi-check-lg me-1"></i>Create Listing
+                                </button>
+                                <a th:href="@{/listings/create}" class="btn btn-outline-secondary">Back</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

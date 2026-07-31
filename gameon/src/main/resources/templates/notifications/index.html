@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Notifications')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>
+                Notifications
+                <span th:if="${unreadCount > 0}" class="badge bg-danger ms-2" th:text="${unreadCount}">0</span>
+            </h4>
+            <form th:if="${unreadCount > 0}" th:action="@{/notifications/mark-all-read}" method="post">
+                <button type="submit" class="btn btn-outline-gameon btn-sm">
+                    <i class="bi bi-check2-all me-1"></i>Mark All Read
+                </button>
+            </form>
+        </div>
+
+        <!-- Flash Messages -->
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Notification List -->
+        <div th:if="${notifications.isEmpty()}" class="text-center text-muted py-5">
+            <i class="bi bi-bell-slash" style="font-size: 3rem;"></i>
+            <p class="mt-2">No notifications yet</p>
+        </div>
+
+        <div class="list-group">
+            <div th:each="notif : ${notifications}"
+                 class="list-group-item d-flex justify-content-between align-items-start"
+                 th:classappend="${!notif.isRead} ? 'list-group-item-light border-start border-danger border-3'">
+                <div class="ms-2 me-auto">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="badge bg-secondary me-2 badge-skill" th:text="${notif.notificationType.name().replace('_', ' ')}">TYPE</span>
+                        <small class="text-muted" th:text="${#temporals.format(notif.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
+                    </div>
+                    <p class="mb-0" th:text="${notif.text}">Notification text</p>
+                </div>
+                <form th:if="${!notif.isRead}" th:action="@{'/notifications/mark-read/' + ${notif.notificationId}}" method="post">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Mark as read">
+                        <i class="bi bi-check2"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <nav th:if="${notifications.totalPages > 1}" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" th:classappend="${notifications.first} ? 'disabled'">
+                    <a class="page-link" th:href="@{/notifications(page=${notifications.number - 1})}">Previous</a>
+                </li>
+                <li th:each="i : ${#numbers.sequence(0, notifications.totalPages - 1)}"
+                    class="page-item" th:classappend="${i == notifications.number} ? 'active'">
+                    <a class="page-link" th:href="@{/notifications(page=${i})}" th:text="${i + 1}">1</a>
+                </li>
+                <li class="page-item" th:classappend="${notifications.last} ? 'disabled'">
+                    <a class="page-link" th:href="@{/notifications(page=${notifications.number + 1})}">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

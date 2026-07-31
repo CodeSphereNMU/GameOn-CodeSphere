@@ -52,6 +52,7 @@ public class AuthController {
     public String showLogin(@RequestParam(value = "error", required = false) String error,
                             @RequestParam(value = "logout", required = false) String logout,
                             @RequestParam(value = "expired", required = false) String expired,
+                            @RequestParam(value = "invalid", required = false) String invalid,
                             Model model) {
         if (error != null) {
             model.addAttribute("error", "Invalid username or password");
@@ -61,6 +62,9 @@ public class AuthController {
         }
         if (expired != null) {
             model.addAttribute("error", "Your session has expired. Please login again");
+        }
+        if (invalid != null) {
+            model.addAttribute("error", "Your session is invalid. Please login again");
         }
         return "auth/login";
     }
