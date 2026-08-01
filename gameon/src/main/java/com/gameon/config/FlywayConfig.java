@@ -1,6 +1,5 @@
 package com.gameon.config;
 
-import org.flywaydb.core.api.callback.BaseCallback;
 import org.flywaydb.core.api.callback.Callback;
 import org.flywaydb.core.api.callback.Context;
 import org.flywaydb.core.api.callback.Event;
@@ -16,11 +15,11 @@ import org.springframework.context.annotation.Configuration;
  * V{version}__{description}.sql
  *
  * Existing migrations:
- * - V1__Create_Tables.sql       → All 16 tables with PKs, FKs, and constraints
- * - V2__Seed_Data.sql           → Reference data: Sports, Formats, Positions
- * - V3__Security_Data.sql       → Test user accounts and sport profiles
- * - V4__Indexes.sql             → Performance indexes for all tables
- * - V5__Constraints.sql         → Additional constraints, stored procs, views, triggers
+ * - V1__Create_Tables.sql       - All 16 tables with PKs, FKs, and constraints
+ * - V2__Seed_Data.sql           - Reference data: Sports, Formats, Positions
+ * - V3__Security_Data.sql       - Test user accounts and sport profiles
+ * - V4__Indexes.sql             - Performance indexes for all tables
+ * - V5__Constraints.sql         - Additional constraints, stored procs, views, triggers
  */
 @Configuration
 public class FlywayConfig {
@@ -46,7 +45,7 @@ public class FlywayConfig {
      */
     @Bean
     public Callback flywayCallback() {
-        return new BaseCallback() {
+        return new Callback() {
             @Override
             public boolean supports(Event event, Context context) {
                 return event == Event.AFTER_EACH_MIGRATE
@@ -57,6 +56,11 @@ public class FlywayConfig {
             @Override
             public boolean canHandleInTransaction(Event event, Context context) {
                 return true;
+            }
+
+            @Override
+            public String getCallbackName() {
+                return "GameOnFlywayCallback";
             }
 
             @Override

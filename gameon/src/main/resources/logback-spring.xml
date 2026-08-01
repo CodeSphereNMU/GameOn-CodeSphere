@@ -115,7 +115,7 @@
     <!-- ============================================================
          DEVELOPMENT PROFILE
          ============================================================ -->
-    <springProfile name="dev,local">
+    <springProfile name="dev">
         <logger name="com.gameon" level="DEBUG" />
         <logger name="org.springframework.security" level="DEBUG" />
         <logger name="org.hibernate.SQL" level="DEBUG" />
