@@ -101,7 +101,8 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.sameOrigin())
                 .xssProtection(xss -> xss.disable())
                 .contentSecurityPolicy(csp -> csp
-                    .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+                    .policyDirectives("default-src 'self'; " +
+                                      "script-src 'self' 'unsafe-inline'; https://cdn.jsdelivr.net" +
                                      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
                                      "font-src 'self' https://cdn.jsdelivr.net;")
                 )
