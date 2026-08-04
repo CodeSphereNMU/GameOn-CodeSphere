@@ -39,17 +39,12 @@ Questions that require group discussion before implementation. These affect requ
 **Affects:** Authentication spec (REQ-AUTH-6), Game Listings (REQ-LIST-2).
 
 ### 7. Listing Lifecycle: What Happens if Not Full at 2 Hours Before?
-**Context:** FSSB says sessions are "confirmed" 2 hours before when full. But what if not full?  
-**Option A:** Leave as active. Players can still join. Confirm only when full.  
-**Option B:** Auto-cancel if minimum players not met.  
-**Option C:** Confirm anyway with whoever is in (partial teams allowed).  
-**Affects:** Game Listings (REQ-LIST-9), Reminders (REQ-LIST-10).
+**Status:** RESOLVED
+**Answer:** An underfilled listing becomes CANCELLED_INSUFFICIENT_PLAYERS at lock-in (2 hours before start). A full listing becomes CONFIRMED. Implementation belongs to Phase 4 (Listing Lifecycle).
 
 ### 8. Can Users Leave After Confirmation?
-**Context:** FSSB says participants are "locked in" after confirmation. Does that mean they literally cannot leave?  
-**Option A:** Strict lock — leave button disappears after confirmation.  
-**Option B:** Soft lock — user can leave but gets a warning and it affects their stats/reputation.  
-**Affects:** Game Listings (REQ-LIST-6, REQ-LIST-9).
+**Status:** RESOLVED
+**Answer:** Strict lock. No withdrawal after lock-in (2 hours before start). No new requests, no cancellation, no edits after lock-in.
 
 ### 9. Position Assignment: Creator or Requester Decides?
 **Context:** When a player joins, they select preferred positions. Does the creator assign the final position, or is the preferred position automatically used?  
@@ -58,11 +53,8 @@ Questions that require group discussion before implementation. These affect requ
 **Affects:** Game Listings (REQ-LIST-4, REQ-LIST-5).
 
 ### 10. How "Friends" Are Defined for Invitations
-**Context:** The FSSB mentions inviting "friends" when creating a listing. But what constitutes a friend?  
-**Option A:** Users you follow.  
-**Option B:** Users who follow you back (mutual follow).  
-**Option C:** A separate friend/connection system.  
-**Affects:** Game Listings (REQ-LIST-1).
+**Status:** RESOLVED
+**Answer:** Mutual follow (Option B). A "friend" exists when user A follows user B AND user B follows user A. This is implemented in `FollowDao.findMutualFollowerIds()`.
 
 ### 11. Private Listing Access
 **Context:** Listings can be public or private. How do users access private listings?  
@@ -70,24 +62,21 @@ Questions that require group discussion before implementation. These affect requ
 **Option B:** Via a direct link (shareable URL).  
 **Option C:** Both.  
 **Affects:** Game Listings (REQ-LIST-2).
+**Note:** Only invited users may submit join requests for a private listing. Visibility/access implementation belongs to the Browse Listings use case.
 
 ## Priority: Medium (Should Decide Before Feature is Complete)
 
 ### 12. Active Listing Limit Scope
-**Context:** Business rule says "one active game listing at a time." Does "active" include confirmed listings (waiting to be played)?  
-**Proposed:** One listing in `active` status. Once confirmed, the user could create a new listing.  
-**Affects:** Game Listings (REQ-LIST-1).
+**Status:** RESOLVED
+**Answer:** There is no one-active-listing restriction. A user may create and participate in multiple listings subject only to scheduling conflicts (session + 60-min buffer overlap).
 
 ### 13. Scheduling Conflict: Duration Consideration
-**Context:** Rule says "cannot join two listings less than 3 hours apart." But games have different durations. Is the 3-hour window always from start time, regardless of sport/format?  
-**Current assumption:** 3-hour window from scheduled start time, regardless of duration.  
-**Affects:** Game Listings (REQ-LIST-4).
+**Status:** RESOLVED
+**Answer:** Scheduling conflicts use format duration to calculate session end time, plus a 60-minute travel buffer. The old "3-hour absolute start-time difference" rule has been replaced. Conflict = overlap between `[start, end + 60 min]` zones.
 
 ### 14. Removing a Sport from Profile While in Active Listing
-**Context:** If a user removes Soccer from their profile but is in a Soccer listing, what happens?  
-**Option A:** Block removal while in active listing for that sport.  
-**Option B:** Auto-leave the listing, then remove sport.  
-**Affects:** Player Profiles (REQ-PROF-4).
+**Status:** RESOLVED
+**Answer:** Block removal while the user has a pending join request or accepted place in an upcoming/confirmed listing for that sport. Implementation belongs to Player Profiles use case.
 
 ### 15. Win/Loss Tracking: Derived or Cached?
 **Context:** `UserSportProfile` has `wins` and `losses` columns. Should these be:  
@@ -96,9 +85,10 @@ Questions that require group discussion before implementation. These affect requ
 **Affects:** Player Profiles, Match Results, Leaderboards.
 
 ### 16. Listing Lifecycle States and Transitions
-**Context:** What are the exact valid states and transitions?  
-**Proposed:** Active → Confirmed → Completed; Active → Expired; Active → Cancelled.  
-**Open question:** Can a listing go from Active to Expired without ever being Confirmed?  
+**Status:** PARTIALLY RESOLVED
+**Confirmed statuses:** OPEN, CONFIRMED, CANCELLED_INSUFFICIENT_PLAYERS, CANCELLED_BY_CREATOR, COMPLETED (CHECK constraint in V3).
+**Confirmed transitions:** OPEN → CONFIRMED (full at lock-in), OPEN → CANCELLED_INSUFFICIENT_PLAYERS (underfilled at lock-in), OPEN → CANCELLED_BY_CREATOR (before lock-in), CONFIRMED → COMPLETED (after session end time).
+**Open question:** Exact lock-in automation mechanism (scheduled job, on-demand check) is undecided. Implementation belongs to Phase 4.
 **Affects:** Game Listings (REQ-LIST-8, REQ-LIST-9).
 
 ## Priority: Lower (Can Defer)

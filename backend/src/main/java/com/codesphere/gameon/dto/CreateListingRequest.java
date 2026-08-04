@@ -14,6 +14,7 @@ public class CreateListingRequest {
     private String time;
     private String location;
     private Boolean isPrivate;
+    private String team;
     private Boolean anyPosition;
     private Long positionId;
     private Long alternatePositionId;
@@ -76,6 +77,14 @@ public class CreateListingRequest {
 
     public void setIsPrivate(Boolean isPrivate) {
         this.isPrivate = isPrivate;
+    }
+
+    public String getTeam() {
+        return team;
+    }
+
+    public void setTeam(String team) {
+        this.team = team;
     }
 
     public Boolean getAnyPosition() {

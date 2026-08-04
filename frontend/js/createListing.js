@@ -1,6 +1,6 @@
 /**
  * GameOn - Create Listing multi-step form logic.
- * Handles the 4-step creation flow: Details → Positions → Invite Friends → Confirm.
+ * Handles the 4-step creation flow: Details → Team & Positions → Invite Friends → Confirm.
  */
 (function () {
     'use strict';
@@ -11,7 +11,6 @@
     let selectedFormat = null;
     let positions = [];
     let friends = [];
-    let maxInvitations = 0;
 
     // DOM references
     const steps = {
@@ -47,7 +46,6 @@
 
             userSports = res.data || [];
             if (userSports.length === 0) {
-                // Show no-sports warning, hide step 1
                 steps[1].classList.add('hidden');
                 noSportsWarning.classList.remove('hidden');
                 return;
@@ -77,17 +75,13 @@
     }
 
     function bindEvents() {
-        // Sport change → load formats
         sportSelect.addEventListener('change', onSportChange);
-
-        // Format change → store selection
         formatSelect.addEventListener('change', onFormatChange);
 
-        // Navigation buttons
         document.getElementById('btn-next-1').addEventListener('click', goToStep2);
         document.getElementById('btn-back-2').addEventListener('click', function () { showStep(1); });
         document.getElementById('btn-next-2').addEventListener('click', goToStep3);
-        document.getElementById('btn-back-3').addEventListener('click', goBackFromStep3);
+        document.getElementById('btn-back-3').addEventListener('click', function () { showStep(2); });
         document.getElementById('btn-next-3').addEventListener('click', goToStep4);
         document.getElementById('btn-back-4').addEventListener('click', function () { showStep(3); });
         document.getElementById('btn-create').addEventListener('click', submitListing);
@@ -101,7 +95,6 @@
 
         if (!sportId) return;
 
-        // Set default skill level from user's profile
         const sport = userSports.find(function (s) { return String(s.sportId) === sportId; });
         if (sport && sport.skillLevel) {
             skillSelect.value = sport.skillLevel;
@@ -116,6 +109,7 @@
                     opt.textContent = f.formatName;
                     opt.dataset.hasPositions = f.hasPositions;
                     opt.dataset.noPlayers = f.noPlayers;
+                    opt.dataset.durationMinutes = f.durationMinutes;
                     formatSelect.appendChild(opt);
                 });
                 formatSelect.disabled = false;
@@ -132,12 +126,11 @@
                 formatId: parseInt(opt.value),
                 formatName: opt.textContent,
                 hasPositions: opt.dataset.hasPositions === 'true',
-                noPlayers: parseInt(opt.dataset.noPlayers)
+                noPlayers: parseInt(opt.dataset.noPlayers),
+                durationMinutes: parseInt(opt.dataset.durationMinutes)
             };
-            maxInvitations = selectedFormat.noPlayers - 1;
         } else {
             selectedFormat = null;
-            maxInvitations = 0;
         }
     }
 
@@ -146,28 +139,28 @@
     function goToStep2() {
         hideError('step1-error');
 
-        // Validate step 1
         if (!sportSelect.value) { showError('step1-error', 'Please select a sport'); return; }
         if (!formatSelect.value || !selectedFormat) { showError('step1-error', 'Please select a format'); return; }
         if (!dateInput.value) { showError('step1-error', 'Please select a date'); return; }
         if (!timeInput.value) { showError('step1-error', 'Please select a time'); return; }
         if (!locationInput.value.trim()) { showError('step1-error', 'Please enter a location'); return; }
 
-        // Validate future date/time
         const dt = new Date(dateInput.value + 'T' + timeInput.value);
         if (dt <= new Date()) {
             showError('step1-error', 'Date and time must be in the future');
             return;
         }
 
+        // Show/hide positions section based on format
+        const positionsSection = document.getElementById('positions-section');
         if (selectedFormat.hasPositions) {
+            positionsSection.classList.remove('hidden');
             loadPositions();
-            showStep(2);
         } else {
-            // Skip positions step, go to friends
-            loadFriends();
-            showStep(3);
+            positionsSection.classList.add('hidden');
         }
+
+        showStep(2);
     }
 
     async function loadPositions() {
@@ -179,7 +172,6 @@
             if (res.success && res.data) {
                 positions = res.data;
 
-                // Add "Any Position" option
                 const anyLabel = createCheckbox('pos-any', 'any', 'Any Position');
                 positionsList.appendChild(anyLabel);
 
@@ -188,7 +180,6 @@
                     positionsList.appendChild(label);
                 });
 
-                // Bind mutual exclusivity and max-2 enforcement
                 positionsList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
                     cb.addEventListener('change', onPositionChange);
                 });
@@ -222,23 +213,17 @@
     function goToStep3() {
         hideError('step2-error');
 
-        // Validate: at least one checkbox must be selected (real position or "Any Position")
-        const checked = document.querySelectorAll('#positions-list input[type="checkbox"]:checked');
-        if (checked.length === 0) {
-            showError('step2-error', 'Please select a position or choose "Any Position"');
-            return;
+        // Validate positions if format uses them
+        if (selectedFormat && selectedFormat.hasPositions) {
+            const checked = document.querySelectorAll('#positions-list input[type="checkbox"]:checked');
+            if (checked.length === 0) {
+                showError('step2-error', 'Please select a position or choose "Any Position"');
+                return;
+            }
         }
 
         loadFriends();
         showStep(3);
-    }
-
-    function goBackFromStep3() {
-        if (selectedFormat && selectedFormat.hasPositions) {
-            showStep(2);
-        } else {
-            showStep(1);
-        }
     }
 
     async function loadFriends() {
@@ -259,9 +244,8 @@
                         friendsList.appendChild(label);
                     });
 
-                    // Bind counter update and capacity limit
                     friendsList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-                        cb.addEventListener('change', onFriendChange);
+                        cb.addEventListener('change', updateInviteCounter);
                     });
                 }
             }
@@ -271,20 +255,11 @@
         }
     }
 
-    function onFriendChange() {
-        const checked = document.querySelectorAll('#friends-list input[type="checkbox"]:checked');
-        if (checked.length > maxInvitations) {
-            this.checked = false;
-        }
-        updateInviteCounter();
-    }
-
     function updateInviteCounter() {
         const checked = document.querySelectorAll('#friends-list input[type="checkbox"]:checked');
         const numSelected = checked ? checked.length : 0;
-        const spacesAvailable = maxInvitations - numSelected;
         const counter = document.getElementById('invite-counter');
-        counter.textContent = numSelected + ' selected \u00B7 ' + spacesAvailable + ' spaces available';
+        counter.textContent = numSelected + ' selected';
     }
 
     function goToStep4() {
@@ -298,11 +273,19 @@
         const formatName = selectedFormat.formatName;
         const skill = skillSelect.value;
         const privacy = document.querySelector('input[name="privacy"]:checked').value;
+        const team = document.querySelector('input[name="team"]:checked').value;
 
         document.getElementById('confirm-title').textContent = sportName + ' ' + formatName;
         document.getElementById('confirm-location').textContent = locationInput.value.trim();
-        document.getElementById('confirm-datetime').textContent = formatDate(dateInput.value) + ' - ' + timeInput.value;
-        document.getElementById('confirm-invited').textContent = 'Players: 1/' + selectedFormat.noPlayers;
+
+        // Session window display
+        const sessionWindow = calculateSessionWindow();
+        document.getElementById('confirm-datetime').textContent = formatDate(dateInput.value) + ' ' + sessionWindow;
+        document.getElementById('confirm-session-window').textContent = 'Session: ' + sessionWindow + ' (' + selectedFormat.durationMinutes + ' min)';
+        document.getElementById('confirm-team').textContent = 'Your team: Team ' + team;
+
+        const invitedCount = document.querySelectorAll('#friends-list input[type="checkbox"]:checked').length;
+        document.getElementById('confirm-invited').textContent = 'Players: 1/' + selectedFormat.noPlayers + (invitedCount > 0 ? ' (' + invitedCount + ' invited)' : '');
 
         const skillBadge = document.getElementById('confirm-skill');
         skillBadge.textContent = skill;
@@ -311,6 +294,21 @@
         const privacyBadge = document.getElementById('confirm-privacy');
         privacyBadge.textContent = privacy === 'public' ? 'Public' : 'Private';
         privacyBadge.className = 'privacy-badge privacy-badge--' + privacy;
+    }
+
+    function calculateSessionWindow() {
+        if (!timeInput.value || !selectedFormat) return '';
+        const parts = timeInput.value.split(':');
+        const startHour = parseInt(parts[0]);
+        const startMin = parseInt(parts[1]);
+        const totalMinutes = startHour * 60 + startMin + selectedFormat.durationMinutes;
+        const endHour = Math.floor(totalMinutes / 60) % 24;
+        const endMin = totalMinutes % 60;
+        return pad(startHour) + ':' + pad(startMin) + '\u2013' + pad(endHour) + ':' + pad(endMin);
+    }
+
+    function pad(n) {
+        return n < 10 ? '0' + n : '' + n;
     }
 
     async function submitListing() {
@@ -324,7 +322,6 @@
             const res = await Api.post('/api/game-listings', payload);
 
             if (res.success) {
-                // Show success and redirect
                 createBtn.textContent = 'Created!';
                 createBtn.classList.add('btn-success');
                 setTimeout(function () {
@@ -344,6 +341,7 @@
 
     function buildPayload() {
         const privacy = document.querySelector('input[name="privacy"]:checked').value;
+        const team = document.querySelector('input[name="team"]:checked').value;
         const positionData = getSelectedPositions();
         const invitedIds = getSelectedFriendIds();
 
@@ -355,6 +353,7 @@
             time: timeInput.value,
             location: locationInput.value.trim(),
             isPrivate: privacy === 'private',
+            team: team,
             anyPosition: positionData.anyPosition,
             positionId: positionData.positionId,
             alternatePositionId: positionData.alternatePositionId,

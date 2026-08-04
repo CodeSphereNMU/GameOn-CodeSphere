@@ -9,7 +9,8 @@ public class GameListing {
 
     private long gameListingId;
     private LocalDateTime date;
-    private boolean isCompleted;
+    private LocalDateTime endTime;
+    private String status;
     private boolean isPrivate;
     private String location;
     private String skillLevel;
@@ -19,11 +20,12 @@ public class GameListing {
     public GameListing() {
     }
 
-    public GameListing(long gameListingId, LocalDateTime date, boolean isCompleted, boolean isPrivate,
-                       String location, String skillLevel, long creatorId, long formatId) {
+    public GameListing(long gameListingId, LocalDateTime date, LocalDateTime endTime, String status,
+                       boolean isPrivate, String location, String skillLevel, long creatorId, long formatId) {
         this.gameListingId = gameListingId;
         this.date = date;
-        this.isCompleted = isCompleted;
+        this.endTime = endTime;
+        this.status = status;
         this.isPrivate = isPrivate;
         this.location = location;
         this.skillLevel = skillLevel;
@@ -47,12 +49,20 @@ public class GameListing {
         this.date = date;
     }
 
-    public boolean isCompleted() {
-        return isCompleted;
+    public LocalDateTime getEndTime() {
+        return endTime;
     }
 
-    public void setCompleted(boolean completed) {
-        isCompleted = completed;
+    public void setEndTime(LocalDateTime endTime) {
+        this.endTime = endTime;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public boolean isPrivate() {

@@ -89,13 +89,33 @@
             </div>
         </section>
 
-        <!-- Step 2: Positions -->
-        <section id="step-2" class="step-section hidden" aria-label="Step 2: Your Positions">
-            <h2 class="step-title">Your positions</h2>
+        <!-- Step 2: Team & Positions -->
+        <section id="step-2" class="step-section hidden" aria-label="Step 2: Team and Positions">
+            <h2 class="step-title">Team &amp; Positions</h2>
             <div class="step-card">
-                <p class="step-instruction">Select your preferred position (up to 2) or choose "Any Position"</p>
-                <div id="positions-list" class="checkbox-list">
-                    <!-- Dynamically populated -->
+                <!-- Team Selection -->
+                <fieldset class="form-fieldset">
+                    <legend class="form-legend">Your Team</legend>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="team" value="A" checked>
+                            <span class="radio-indicator"></span>
+                            Team A
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="team" value="B">
+                            <span class="radio-indicator"></span>
+                            Team B
+                        </label>
+                    </div>
+                </fieldset>
+
+                <!-- Positions (conditionally shown) -->
+                <div id="positions-section">
+                    <p class="step-instruction" id="positions-instruction">Select your preferred position (up to 2) or choose "Any Position"</p>
+                    <div id="positions-list" class="checkbox-list">
+                        <!-- Dynamically populated -->
+                    </div>
                 </div>
 
                 <div id="step2-error" class="step-error hidden" role="alert"></div>
@@ -111,11 +131,11 @@
         <section id="step-3" class="step-section hidden" aria-label="Step 3: Invite Friends">
             <h2 class="step-title">Invite Friends</h2>
             <div class="step-card">
-                <p class="step-instruction">Select friends to invite to listing</p>
+                <p class="step-instruction">Select friends to invite (courtesy invitations — no capacity limit)</p>
                 <div id="friends-list" class="checkbox-list">
                     <!-- Dynamically populated -->
                 </div>
-                <p id="invite-counter" class="invite-counter">0 selected · 0 spaces available</p>
+                <p id="invite-counter" class="invite-counter">0 selected</p>
 
                 <div id="step3-error" class="step-error hidden" role="alert"></div>
 
@@ -135,6 +155,8 @@
                         <h3 id="confirm-title" class="confirm-title">Basketball 3v3</h3>
                         <p id="confirm-location" class="confirm-location"></p>
                         <p id="confirm-datetime" class="confirm-datetime"></p>
+                        <p id="confirm-session-window" class="confirm-session-window"></p>
+                        <p id="confirm-team" class="confirm-team"></p>
                         <p id="confirm-invited" class="confirm-invited"></p>
                     </div>
                     <span id="confirm-skill" class="skill-badge"></span>

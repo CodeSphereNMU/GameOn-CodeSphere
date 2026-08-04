@@ -10,9 +10,12 @@ public class CreateListingResponse {
     private String formatName;
     private String skillLevel;
     private String date;
+    private String endTime;
+    private String sessionWindow;
     private String location;
     private boolean isPrivate;
     private int capacity;
+    private String team;
     private int invitedCount;
 
     public CreateListingResponse() {
@@ -58,6 +61,22 @@ public class CreateListingResponse {
         this.date = date;
     }
 
+    public String getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(String endTime) {
+        this.endTime = endTime;
+    }
+
+    public String getSessionWindow() {
+        return sessionWindow;
+    }
+
+    public void setSessionWindow(String sessionWindow) {
+        this.sessionWindow = sessionWindow;
+    }
+
     public String getLocation() {
         return location;
     }
@@ -80,6 +99,14 @@ public class CreateListingResponse {
 
     public void setCapacity(int capacity) {
         this.capacity = capacity;
+    }
+
+    public String getTeam() {
+        return team;
+    }
+
+    public void setTeam(String team) {
+        this.team = team;
     }
 
     public int getInvitedCount() {

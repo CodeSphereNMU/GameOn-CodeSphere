@@ -18,16 +18,16 @@ import java.util.*;
 /**
  * Business logic for creating game listings (A100).
  * Performs all validation and executes the transactional insert of:
- * game_listing + creator game_joiner + invitation notifications.
+ * game_listing + creator game_joiner + invitation records + notification records.
  */
 public class GameListingService {
 
     private static final Logger logger = LoggerFactory.getLogger(GameListingService.class);
     private static final Set<String> VALID_SKILL_LEVELS = Set.of("Beginner", "Intermediate", "Advanced");
+    private static final Set<String> VALID_TEAMS = Set.of("A", "B");
 
     /**
-     * Provisional: minimum hours before a listing's start time that it must be created.
-     * Awaiting group confirmation — the value may change.
+     * Minimum hours before a listing's start time that it must be created.
      */
     static final long MINIMUM_LISTING_LEAD_TIME_HOURS = 3;
 
@@ -39,6 +39,7 @@ public class GameListingService {
     private final GameJoinerDao gameJoinerDao;
     private final FollowDao followDao;
     private final NotificationDao notificationDao;
+    private final InvitationDao invitationDao;
     private final Clock clock;
 
     /**
@@ -47,9 +48,9 @@ public class GameListingService {
     public GameListingService(DataSource dataSource, SportDao sportDao, SportFormatDao sportFormatDao,
                               PositionDao positionDao, GameListingDao gameListingDao,
                               GameJoinerDao gameJoinerDao, FollowDao followDao,
-                              NotificationDao notificationDao) {
+                              NotificationDao notificationDao, InvitationDao invitationDao) {
         this(dataSource, sportDao, sportFormatDao, positionDao, gameListingDao,
-                gameJoinerDao, followDao, notificationDao, Clock.systemDefaultZone());
+                gameJoinerDao, followDao, notificationDao, invitationDao, Clock.systemDefaultZone());
     }
 
     /**
@@ -58,7 +59,7 @@ public class GameListingService {
     public GameListingService(DataSource dataSource, SportDao sportDao, SportFormatDao sportFormatDao,
                               PositionDao positionDao, GameListingDao gameListingDao,
                               GameJoinerDao gameJoinerDao, FollowDao followDao,
-                              NotificationDao notificationDao, Clock clock) {
+                              NotificationDao notificationDao, InvitationDao invitationDao, Clock clock) {
         this.dataSource = dataSource;
         this.sportDao = sportDao;
         this.sportFormatDao = sportFormatDao;
@@ -67,6 +68,7 @@ public class GameListingService {
         this.gameJoinerDao = gameJoinerDao;
         this.followDao = followDao;
         this.notificationDao = notificationDao;
+        this.invitationDao = invitationDao;
         this.clock = clock;
     }
 
@@ -86,6 +88,15 @@ public class GameListingService {
             throw ApiException.badRequest("Invalid skill level. Must be one of: Beginner, Intermediate, Advanced");
         }
 
+        // Validate team selection
+        if (request.getTeam() == null || request.getTeam().isBlank()) {
+            throw ApiException.badRequest("Team selection is required (A or B)");
+        }
+        if (!VALID_TEAMS.contains(request.getTeam().trim().toUpperCase())) {
+            throw ApiException.badRequest("Invalid team. Must be A or B");
+        }
+        String selectedTeam = request.getTeam().trim().toUpperCase();
+
         // Validate location
         if (request.getLocation() == null || request.getLocation().isBlank()) {
             throw ApiException.badRequest("Location is required");
@@ -99,7 +110,7 @@ public class GameListingService {
             throw ApiException.badRequest("Date and time must be in the future");
         }
 
-        // Minimum advance-booking rule (provisional — awaiting group confirmation)
+        // Minimum advance-booking rule
         long secondsUntilStart = Duration.between(now, dateTime).getSeconds();
         long minimumLeadTimeSeconds = MINIMUM_LISTING_LEAD_TIME_HOURS * 3600;
         if (secondsUntilStart < minimumLeadTimeSeconds) {
@@ -119,27 +130,30 @@ public class GameListingService {
             throw ApiException.badRequest("Selected format does not belong to the selected sport");
         }
 
+        // Calculate end time from format duration
+        LocalDateTime endTime = dateTime.plusMinutes(format.getDurationMinutes());
+
         // Validate positions
         validatePositions(request, format);
 
-        // Validate invitations
-        int maxInvitations = format.getNoPlayers() - 1; // creator occupies one slot
-        List<Long> invitedFriendIds = validateInvitations(request, userId, maxInvitations);
+        // Validate invitations (no capacity limit — courtesy invitations)
+        List<Long> invitedFriendIds = validateInvitations(request, userId);
 
         // --- Transactional creation ---
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
             try {
                 // Check scheduling conflict within transaction
-                boolean hasConflict = gameListingDao.hasSchedulingConflict(conn, userId, dateTime);
+                boolean hasConflict = gameListingDao.hasSchedulingConflict(conn, userId, dateTime, endTime);
                 if (hasConflict) {
-                    throw ApiException.badRequest("Scheduling conflict: you have an incomplete listing within 2 hours of this time");
+                    throw ApiException.badRequest("Scheduling conflict: the proposed session overlaps with an existing session and its travel buffer");
                 }
 
                 // Insert game_listing
                 GameListing listing = new GameListing();
                 listing.setDate(dateTime);
-                listing.setCompleted(false);
+                listing.setEndTime(endTime);
+                listing.setStatus("OPEN");
                 listing.setPrivate(request.getIsPrivate() != null && request.getIsPrivate());
                 listing.setLocation(request.getLocation().trim());
                 listing.setSkillLevel(request.getSkillLevel());
@@ -152,30 +166,39 @@ public class GameListingService {
                 GameJoiner creatorJoiner = new GameJoiner();
                 creatorJoiner.setGameListingId(listingId);
                 creatorJoiner.setUserId(userId);
-                creatorJoiner.setTeam("A");
-                creatorJoiner.setStatus("accepted");
+                creatorJoiner.setTeam(selectedTeam);
+                creatorJoiner.setStatus("ACCEPTED");
                 creatorJoiner.setFormatId(format.getFormatId());
+                creatorJoiner.setJoinRequestId(null); // Creator never applies
 
                 if (request.getPositionId() != null) {
                     creatorJoiner.setPositionId(request.getPositionId());
                 }
                 if (request.getAlternatePositionId() != null) {
-                    creatorJoiner.setAlternateFormatPosition(String.valueOf(request.getAlternatePositionId()));
+                    creatorJoiner.setAlternatePositionId(request.getAlternatePositionId());
                 }
 
                 gameJoinerDao.insertCreator(conn, creatorJoiner);
 
-                // Insert invitation notifications
+                // Derive sport name before commit (no DB calls after commit)
+                String sportName = getSportName(userId, request.getSportId());
+
+                // Insert invitation records and notifications
                 if (!invitedFriendIds.isEmpty()) {
-                    // Derive listing title
-                    List<Sport> userSports = sportDao.findSportsByUserId(userId);
-                    String sportName = userSports.stream()
-                            .filter(s -> s.getSportId() == request.getSportId())
-                            .map(Sport::getSportName)
-                            .findFirst()
-                            .orElse("Unknown");
                     String listingTitle = sportName + " " + format.getFormatName();
 
+                    // Insert PENDING invitation records
+                    List<Invitation> invitations = new ArrayList<>();
+                    for (Long friendId : invitedFriendIds) {
+                        Invitation inv = new Invitation();
+                        inv.setGameListingId(listingId);
+                        inv.setInviteeId(friendId);
+                        inv.setStatus("PENDING");
+                        invitations.add(inv);
+                    }
+                    invitationDao.insertBatch(conn, invitations);
+
+                    // Insert corresponding notifications
                     List<Notification> notifications = new ArrayList<>();
                     for (Long friendId : invitedFriendIds) {
                         Notification n = new Notification();
@@ -183,6 +206,7 @@ public class GameListingService {
                         n.setText("You've been invited to " + listingTitle + " at " + listing.getLocation());
                         n.setTypeOfNotification("game_invitation");
                         n.setRecipientId(friendId);
+                        n.setGameListingId(listingId);
                         notifications.add(n);
                     }
                     notificationDao.insertBatch(conn, notifications);
@@ -190,27 +214,24 @@ public class GameListingService {
 
                 conn.commit();
 
-                // Build response
-                List<Sport> userSports = sportDao.findSportsByUserId(userId);
-                String sportName = userSports.stream()
-                        .filter(s -> s.getSportId() == request.getSportId())
-                        .map(Sport::getSportName)
-                        .findFirst()
-                        .orElse("Unknown");
-
+                // Build response (no DB calls — sportName already resolved)
                 CreateListingResponse response = new CreateListingResponse();
                 response.setGameListingId(listingId);
                 response.setSportName(sportName);
                 response.setFormatName(format.getFormatName());
                 response.setSkillLevel(request.getSkillLevel());
                 response.setDate(dateTime.toString());
+                response.setEndTime(endTime.toString());
+                response.setSessionWindow(formatSessionWindow(dateTime, endTime));
                 response.setLocation(listing.getLocation());
                 response.setPrivate(listing.isPrivate());
                 response.setCapacity(format.getNoPlayers());
+                response.setTeam(selectedTeam);
                 response.setInvitedCount(invitedFriendIds.size());
 
-                logger.info("Game listing created: id={}, creator={}, sport={} {}",
-                        listingId, userId, sportName, format.getFormatName());
+                logger.info("Game listing created: id={}, creator={}, sport={} {}, session={}-{}",
+                        listingId, userId, sportName, format.getFormatName(),
+                        dateTime.toLocalTime(), endTime.toLocalTime());
                 return response;
 
             } catch (ApiException e) {
@@ -275,7 +296,7 @@ public class GameListingService {
 
         // Positional format: user must explicitly choose "Any Position" OR at least one real position
         if (anyPos) {
-            // "Any Position" must be mutually exclusive with real positions
+            // "Any Position" is mutually exclusive with real positions
             if (posId != null || altPosId != null) {
                 throw ApiException.badRequest("Cannot select both 'Any Position' and a specific position");
             }
@@ -304,7 +325,7 @@ public class GameListingService {
         }
     }
 
-    private List<Long> validateInvitations(CreateListingRequest request, long userId, int maxInvitations) {
+    private List<Long> validateInvitations(CreateListingRequest request, long userId) {
         List<Long> invitedFriendIds = request.getInvitedFriendIds();
         if (invitedFriendIds == null || invitedFriendIds.isEmpty()) {
             return List.of();
@@ -321,11 +342,6 @@ public class GameListingService {
             throw ApiException.badRequest("Cannot invite yourself to your own listing");
         }
 
-        // Check capacity
-        if (invitedFriendIds.size() > maxInvitations) {
-            throw ApiException.badRequest("Too many invitations. Maximum is " + maxInvitations);
-        }
-
         // All invited IDs must be mutual friends
         Set<Long> mutualFriendIds = followDao.findMutualFollowerIds(userId);
         for (Long friendId : invitedFriendIds) {
@@ -335,5 +351,20 @@ public class GameListingService {
         }
 
         return invitedFriendIds;
+    }
+
+    private String getSportName(long userId, long sportId) {
+        List<Sport> userSports = sportDao.findSportsByUserId(userId);
+        return userSports.stream()
+                .filter(s -> s.getSportId() == sportId)
+                .map(Sport::getSportName)
+                .findFirst()
+                .orElse("Unknown");
+    }
+
+    private String formatSessionWindow(LocalDateTime start, LocalDateTime end) {
+        return String.format("%02d:%02d\u2013%02d:%02d",
+                start.getHour(), start.getMinute(),
+                end.getHour(), end.getMinute());
     }
 }

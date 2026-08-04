@@ -24,7 +24,7 @@ public class SportFormatDao extends BaseDao {
      * Returns all formats for a given sport.
      */
     public List<SportFormat> findFormatsBySportId(long sportId) {
-        String sql = "SELECT [format_id], [format_name], [has_positions], [no_players], [sport_id] " +
+        String sql = "SELECT [format_id], [format_name], [has_positions], [no_players], [duration_minutes], [sport_id] " +
                 "FROM [dbo].[sport_format] WHERE [sport_id] = ? ORDER BY [format_name]";
         List<SportFormat> formats = new ArrayList<>();
         try (Connection conn = getConnection();
@@ -46,7 +46,7 @@ public class SportFormatDao extends BaseDao {
      * Finds a format by its ID.
      */
     public Optional<SportFormat> findById(long formatId) {
-        String sql = "SELECT [format_id], [format_name], [has_positions], [no_players], [sport_id] " +
+        String sql = "SELECT [format_id], [format_name], [has_positions], [no_players], [duration_minutes], [sport_id] " +
                 "FROM [dbo].[sport_format] WHERE [format_id] = ?";
         try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -69,6 +69,7 @@ public class SportFormatDao extends BaseDao {
                 rs.getString("format_name"),
                 rs.getBoolean("has_positions"),
                 rs.getInt("no_players"),
+                rs.getInt("duration_minutes"),
                 rs.getLong("sport_id")
         );
     }

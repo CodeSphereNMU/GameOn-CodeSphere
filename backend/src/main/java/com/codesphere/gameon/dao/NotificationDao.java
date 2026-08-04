@@ -6,6 +6,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 
 /**
@@ -24,14 +25,19 @@ public class NotificationDao extends BaseDao {
         if (notifications == null || notifications.isEmpty()) {
             return;
         }
-        String sql = "INSERT INTO [dbo].[notification] ([is_read], [text], [type_of_notification], [recipient_id]) " +
-                "VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO [dbo].[notification] ([is_read], [text], [type_of_notification], [recipient_id], [game_listing_id]) " +
+                "VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Notification n : notifications) {
                 ps.setBoolean(1, n.isRead());
                 ps.setString(2, n.getText());
                 ps.setString(3, n.getTypeOfNotification());
                 ps.setLong(4, n.getRecipientId());
+                if (n.getGameListingId() != null) {
+                    ps.setLong(5, n.getGameListingId());
+                } else {
+                    ps.setNull(5, Types.BIGINT);
+                }
                 ps.addBatch();
             }
             ps.executeBatch();

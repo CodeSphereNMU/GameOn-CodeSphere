@@ -9,22 +9,24 @@ public class GameJoiner {
     private long userId;
     private String team;
     private String status;
-    private Long positionId;       // nullable
-    private Long formatId;         // nullable
-    private String alternateFormatPosition; // nullable — second preferred position
+    private Long positionId;           // nullable
+    private Long formatId;             // nullable
+    private Long alternatePositionId;  // nullable — second preferred position
+    private Long joinRequestId;        // nullable — NULL for creator
 
     public GameJoiner() {
     }
 
     public GameJoiner(long gameListingId, long userId, String team, String status,
-                      Long positionId, Long formatId, String alternateFormatPosition) {
+                      Long positionId, Long formatId, Long alternatePositionId, Long joinRequestId) {
         this.gameListingId = gameListingId;
         this.userId = userId;
         this.team = team;
         this.status = status;
         this.positionId = positionId;
         this.formatId = formatId;
-        this.alternateFormatPosition = alternateFormatPosition;
+        this.alternatePositionId = alternatePositionId;
+        this.joinRequestId = joinRequestId;
     }
 
     public long getGameListingId() {
@@ -75,11 +77,19 @@ public class GameJoiner {
         this.formatId = formatId;
     }
 
-    public String getAlternateFormatPosition() {
-        return alternateFormatPosition;
+    public Long getAlternatePositionId() {
+        return alternatePositionId;
     }
 
-    public void setAlternateFormatPosition(String alternateFormatPosition) {
-        this.alternateFormatPosition = alternateFormatPosition;
+    public void setAlternatePositionId(Long alternatePositionId) {
+        this.alternatePositionId = alternatePositionId;
+    }
+
+    public Long getJoinRequestId() {
+        return joinRequestId;
+    }
+
+    public void setJoinRequestId(Long joinRequestId) {
+        this.joinRequestId = joinRequestId;
     }
 }

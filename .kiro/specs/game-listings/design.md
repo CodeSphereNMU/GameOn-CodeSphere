@@ -9,57 +9,100 @@ Frontend (create-listing.html + createListing.js)
               POST /api/game-listings
     → GameListingController (+ lookup controllers)
       → GameListingService (validation + transactional insert)
-        → GameListingDao, GameJoinerDao, NotificationDao
+        → GameListingDao, GameJoinerDao, InvitationDao, NotificationDao
 ```
 
-## Database Tables Used (Existing — No Schema Changes)
+## Database Tables Used
 
-### dbo.game_listing
+### dbo.game_listing (V3 schema)
 | Column | Type | Notes |
 |--------|------|-------|
 | game_listing_id | bigint IDENTITY PK | |
-| date | datetime2(7) | Combined date+time |
-| is_completed | bit NOT NULL | false for new listings |
-| is_private | bit NOT NULL | true=private, false=public |
+| date | datetime2(7) | Session start time |
+| end_time | datetime2(7) NOT NULL | Calculated: date + duration_minutes |
+| status | varchar(50) NOT NULL | CHECK: OPEN, CONFIRMED, CANCELLED_*, COMPLETED |
+| is_private | bit NOT NULL | |
 | location | varchar(255) | |
-| skill_level | varchar(255) | Beginner/Intermediate/Advanced |
-| creator_id | bigint FK→users | From session userId |
+| skill_level | varchar(255) | |
+| creator_id | bigint FK→users | |
 | format_id | bigint FK→sport_format | |
 
-### dbo.game_joiner
+### dbo.sport_format (V3 schema)
+| Column | Type | Notes |
+|--------|------|-------|
+| format_id | bigint IDENTITY PK | |
+| format_name | varchar(255) | |
+| has_positions | bit NOT NULL | |
+| no_players | int | Total capacity (both teams) |
+| duration_minutes | int NOT NULL | Game On session duration |
+| sport_id | bigint FK→sport | |
+
+### dbo.game_joiner (V3 schema)
 | Column | Type | Notes |
 |--------|------|-------|
 | game_listing_id | bigint (composite PK) | |
 | user_id | bigint (composite PK) | |
-| team | varchar(255) | Creator gets 'A' |
-| status | varchar(255) | 'accepted' for creator |
-| position_id | bigint (nullable FK) | Required when has_positions=true; NULL for non-positional formats |
-| format_id | bigint (nullable) | Same as listing format |
-| alternate_format_position | varchar(255) | Second preferred position (name/id as string) |
+| team | varchar(10) NOT NULL | CHECK: A, B |
+| status | varchar(20) NOT NULL | CHECK: ACCEPTED, WITHDRAWN |
+| position_id | bigint (nullable) | First position preference |
+| format_id | bigint NOT NULL | Must match listing's format_id |
+| alternate_position_id | bigint (nullable) | Second position preference |
+| join_request_id | bigint (nullable) | NULL for creator |
 
-### dbo.notification
+**Composite foreign keys on game_joiner:**
+- `(game_listing_id, format_id) → game_listing.(game_listing_id, format_id)` — enforces format consistency
+- `(format_id, position_id) → format_position.(format_id, position_id)` — primary position belongs to format
+- `(format_id, alternate_position_id) → format_position.(format_id, position_id)` — alternate position belongs to format
+- `(join_request_id, game_listing_id, user_id) → join_request.(join_request_id, game_listing_id, user_id)` — identity: same listing and user
+
+### dbo.invitation (V3 — new)
+| Column | Type | Notes |
+|--------|------|-------|
+| invitation_id | bigint IDENTITY PK | |
+| game_listing_id | bigint FK | |
+| invitee_id | bigint FK→users | |
+| status | varchar(20) NOT NULL | CHECK: PENDING, ACCEPTED, DECLINED, EXPIRED |
+| created_at | datetime2(7) | |
+| UNIQUE(game_listing_id, invitee_id) | | One invitation per user per listing |
+| UNIQUE(invitation_id, game_listing_id, invitee_id) | | Supports composite FK from join_request |
+
+### dbo.join_request (V3 — new, future use case foundation)
+| Column | Type | Notes |
+|--------|------|-------|
+| join_request_id | bigint IDENTITY PK | |
+| game_listing_id | bigint NOT NULL | |
+| user_id | bigint FK→users | |
+| format_id | bigint NOT NULL | Must match listing's format_id |
+| team | varchar(10) NOT NULL | CHECK: A, B |
+| position_id | bigint NULL | |
+| alternate_position_id | bigint NULL | |
+| invitation_id | bigint NULL | Non-null = invited-user request |
+| status | varchar(20) NOT NULL | CHECK: PENDING, ACCEPTED, REJECTED, WITHDRAWN, EXPIRED |
+| created_at | datetime2(7) | |
+| updated_at | datetime2(7) | |
+| Filtered unique index | (listing, user) WHERE status='PENDING' | One pending per user per listing |
+
+**Composite foreign keys on join_request:**
+- `(game_listing_id, format_id) → game_listing.(game_listing_id, format_id)` — format consistency
+- `(format_id, position_id) → format_position.(format_id, position_id)` — position belongs to format
+- `(format_id, alternate_position_id) → format_position.(format_id, position_id)` — alternate belongs to format
+- `(invitation_id, game_listing_id, user_id) → invitation.(invitation_id, game_listing_id, invitee_id)` — identity: same listing and user
+
+### dbo.notification (V3 enhanced)
 | Column | Type | Notes |
 |--------|------|-------|
 | notification_id | bigint IDENTITY PK | |
-| is_read | bit | false for new |
-| text | varchar(255) | Invitation message |
+| is_read | bit | |
+| text | varchar(255) | |
 | type_of_notification | varchar(255) | 'game_invitation' |
-| recipient_id | bigint FK→users | Invited friend |
-
-**Note:** The notification table has no `game_listing_id` column. Invitation notifications will encode the listing ID in the text field (e.g., "You've been invited to Basketball 3v3 at Lorraine Court"). No schema migration needed for A100 — a migration to add a reference column can be added in a later use case if needed.
-
-### Supporting lookup tables
-- dbo.sport (sport_id, sport_name)
-- dbo.sport_format (format_id, format_name, has_positions, no_players, sport_id)
-- dbo.position (position_id, position_name)
-- dbo.format_position (format_id, position_id)
-- dbo.user_sport_profile (sport_id, user_id, skill_level, wins, losses)
-- dbo.follow (followed_user_id, follower_user_id)
+| recipient_id | bigint FK→users | |
+| game_listing_id | bigint NULL FK→game_listing | Links to listing |
+| created_at | datetime2(7) | |
 
 ## API Design
 
 ### POST /api/game-listings
-Request body:
+Request:
 ```json
 {
   "sportId": 3,
@@ -69,6 +112,7 @@ Request body:
   "time": "14:00",
   "location": "University Fields",
   "isPrivate": false,
+  "team": "A",
   "anyPosition": false,
   "positionId": 5,
   "alternatePositionId": 8,
@@ -86,116 +130,55 @@ Response (201):
     "formatName": "3v3",
     "skillLevel": "Intermediate",
     "date": "2026-08-15T14:00:00",
+    "endTime": "2026-08-15T15:00:00",
+    "sessionWindow": "14:00–15:00",
     "location": "University Fields",
     "isPrivate": false,
     "capacity": 6,
+    "team": "A",
     "invitedCount": 3
   }
 }
 ```
 
-### GET /api/users/me/sports
-Response:
-```json
-{
-  "success": true,
-  "data": [
-    { "sportId": 1, "sportName": "Football", "skillLevel": "Intermediate" },
-    { "sportId": 3, "sportName": "Basketball", "skillLevel": "Advanced" }
-  ]
-}
-```
-
-### GET /api/sports/{sportId}/formats
-Response:
-```json
-{
-  "success": true,
-  "data": [
-    { "formatId": 7, "formatName": "3v3", "hasPositions": false, "noPlayers": 6 },
-    { "formatId": 8, "formatName": "5v5", "hasPositions": true, "noPlayers": 10 }
-  ]
-}
-```
-
-### GET /api/formats/{formatId}/positions
-Response:
-```json
-{
-  "success": true,
-  "data": [
-    { "positionId": 1, "positionName": "Goalkeeper" },
-    { "positionId": 2, "positionName": "Defender" }
-  ]
-}
-```
-
-### GET /api/users/me/friends
-Response:
-```json
-{
-  "success": true,
-  "data": [
-    { "userId": 2, "username": "Zane" },
-    { "userId": 4, "username": "Gerard" }
-  ]
-}
-```
-
-## Key Classes
-
-| Class | Package | Responsibility |
-|-------|---------|---------------|
-| GameListingController | controller | POST /api/game-listings |
-| SportController | controller | GET sports, formats, positions lookups |
-| FriendController | controller | GET /api/users/me/friends |
-| UserSportController | controller | GET /api/users/me/sports |
-| GameListingService | service | Validation (including 3-hour lead time, provisional) + transactional creation |
-| GameListingDao | dao | Insert game_listing, check scheduling conflict (DATEDIFF_BIG SECOND < 7200) |
-| GameJoinerDao | dao | Insert creator as participant |
-| SportDao | dao | Find sports by user |
-| SportFormatDao | dao | Find formats by sport |
-| PositionDao | dao | Find positions by format |
-| FollowDao | dao | Find mutual followers |
-| NotificationDao | dao | Insert invitation notifications |
-| GameListing | model | Domain entity |
-| GameJoiner | model | Domain entity |
-| Sport | model | Domain entity |
-| SportFormat | model | Domain entity |
-| Position | model | Domain entity |
-| CreateListingRequest | dto | Incoming request payload |
-
 ## Transaction Strategy
 
 ```java
-try (Connection conn = getConnection()) {
-    conn.setAutoCommit(false);
-    try {
-        long listingId = insertGameListing(conn, ...);
-        insertCreatorAsJoiner(conn, listingId, ...);
-        insertNotifications(conn, listingId, ...);
-        conn.commit();
-    } catch (Exception e) {
-        conn.rollback();
-        throw e;
-    }
-}
+conn.setAutoCommit(false);
+1. Check scheduling conflict (bidirectional session+buffer overlap)
+2. Insert game_listing (status=OPEN, end_time calculated)
+3. Insert creator game_joiner (ACCEPTED, selected team, positions)
+4. Insert PENDING invitation records
+5. Insert notification records (with game_listing_id)
+conn.commit();
 ```
-
-The service method receives a DataSource, obtains one connection, and passes it to DAO methods that accept a Connection parameter (overloaded or separate from the standard methods).
 
 ## Frontend Flow
 
-Single-page multi-step form (`create-listing.html`):
+4-step wizard (`create-listing.html`):
 - Step 1: Privacy, Sport, Format, Skill Level, Date, Time, Location
-- Step 2: Position selection (conditional on has_positions)
-- Step 3: Invite friends (optional; displays "[N] selected · [remaining] spaces available"; invitation limit = no_players - 1)
-- Step 4: Confirm summary + Create Listing button
+- Step 2: Team selection (A/B) + Position selection (conditional on has_positions)
+- Step 3: Invite friends (no capacity limit; shows "X selected")
+- Step 4: Confirm summary with session window (e.g. "14:00–15:00") + Create button
 
-### Capacity Display Rules
-- Listing cards and confirmation summary show: `accepted participants / sport_format.no_players`
-- The creator is the first accepted participant, so a newly created listing displays `1/[no_players]`
-- Pending invitation notifications do NOT increase the participant count
-- Invited users count only after they accept and are inserted into game_joiner with status='accepted'
+## Future Use Case Foundations (schema only, not implemented)
 
-JavaScript handles step navigation, API calls for dropdowns, and final submission.
+**V3 Status:** Created and implemented in code. Pending migration review before application to GameOnDB.
+
+- **join_request**: Tracks join request lifecycle. Not used by Create Listing.
+- **invitation response processing**: invitation.status transitions handled by future use cases.
+- **Participant withdrawal**: game_joiner.status → WITHDRAWN, row updated in place.
+- **Lock-in processing**: 2 hours before start, automatic CONFIRMED/CANCELLED transitions.
+- **Match results**: Only for COMPLETED listings. Scores non-negative, no winners column.
+
+## Cross-Table Identity (database-enforced)
+
+These relationships are enforced at the database level using composite UNIQUE keys and composite foreign keys:
+
+- **game_joiner → join_request identity:** `FK (join_request_id, game_listing_id, user_id) → join_request (join_request_id, game_listing_id, user_id)`. Prevents a game_joiner row from referencing a join request for a different listing or user.
+
+- **join_request → invitation identity:** `FK (invitation_id, game_listing_id, user_id) → invitation (invitation_id, game_listing_id, invitee_id)`. Prevents a join request from referencing another user's invitation or an invitation for another listing.
+
+- **game_joiner format consistency:** `FK (game_listing_id, format_id) → game_listing (game_listing_id, format_id)`. Prevents format_id from differing from the listing's format.
+
+- **Position format scoping:** Composite FKs `(format_id, position_id)` and `(format_id, alternate_position_id)` → `format_position` ensure both positions belong to the format. Applied to both game_joiner and join_request.

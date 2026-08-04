@@ -42,9 +42,8 @@ The game-organisation features are the core product. Social features support it 
 
 ## Key Business Rules (Confirmed)
 
-- A user can have only one active game listing at a time.
-- A user can join multiple listings (subject to scheduling constraints).
-- A user cannot join two listings whose scheduled times are less than 3 hours apart.
+- A user may create and participate in multiple upcoming listings, subject to scheduling constraints.
+- A user cannot create or be accepted into a listing if the new session (start to end) plus a 60-minute travel buffer overlaps with any existing session and buffer where they are an accepted participant.
 - A user can only create a listing for a sport they have on their profile.
 - A user can only join a listing for a sport they have on their profile.
 - Only the listing creator can accept/reject join requests.

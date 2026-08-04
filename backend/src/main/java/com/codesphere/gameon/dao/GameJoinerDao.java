@@ -23,8 +23,8 @@ public class GameJoinerDao extends BaseDao {
      */
     public void insertCreator(Connection conn, GameJoiner joiner) throws SQLException {
         String sql = "INSERT INTO [dbo].[game_joiner] " +
-                "([game_listing_id], [user_id], [team], [status], [position_id], [format_id], [alternate_format_position]) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                "([game_listing_id], [user_id], [team], [status], [position_id], [format_id], [alternate_position_id], [join_request_id]) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, joiner.getGameListingId());
             ps.setLong(2, joiner.getUserId());
@@ -43,7 +43,19 @@ public class GameJoinerDao extends BaseDao {
                 ps.setNull(6, Types.BIGINT);
             }
 
-            ps.setString(7, joiner.getAlternateFormatPosition());
+            if (joiner.getAlternatePositionId() != null) {
+                ps.setLong(7, joiner.getAlternatePositionId());
+            } else {
+                ps.setNull(7, Types.BIGINT);
+            }
+
+            // Creator has no join_request_id
+            if (joiner.getJoinRequestId() != null) {
+                ps.setLong(8, joiner.getJoinRequestId());
+            } else {
+                ps.setNull(8, Types.BIGINT);
+            }
+
             ps.executeUpdate();
         }
     }

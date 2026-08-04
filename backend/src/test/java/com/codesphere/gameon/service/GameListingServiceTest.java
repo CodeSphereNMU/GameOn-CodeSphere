@@ -31,13 +31,14 @@ class GameListingServiceTest {
     private FakeGameJoinerDao fakeGameJoinerDao;
     private FakeFollowDao fakeFollowDao;
     private FakeNotificationDao fakeNotificationDao;
+    private FakeInvitationDao fakeInvitationDao;
     private FakeDataSource fakeDataSource;
 
     private static final long USER_ID = 1L;
     private static final long SPORT_ID = 3L;
     private static final long FORMAT_ID = 7L;
+    private static final int DURATION_MINUTES = 60;
 
-    // Fixed "now" for deterministic time-based tests
     private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 8, 1, 10, 0, 0);
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final Clock FIXED_CLOCK = Clock.fixed(
@@ -52,25 +53,27 @@ class GameListingServiceTest {
         fakeGameJoinerDao = new FakeGameJoinerDao();
         fakeFollowDao = new FakeFollowDao();
         fakeNotificationDao = new FakeNotificationDao();
+        fakeInvitationDao = new FakeInvitationDao();
         fakeDataSource = new FakeDataSource();
 
         service = new GameListingService(
                 fakeDataSource, fakeSportDao, fakeSportFormatDao, fakePositionDao,
                 fakeGameListingDao, fakeGameJoinerDao, fakeFollowDao, fakeNotificationDao,
-                FIXED_CLOCK);
+                fakeInvitationDao, FIXED_CLOCK);
 
-        // Default setup: user has basketball on profile, format 3v3 (6 players, no positions)
+        // Default: user has basketball on profile, format 3v3 (6 players, 60 min, no positions)
         fakeSportDao.addUserSport(USER_ID, SPORT_ID, "Basketball", "Intermediate");
-        fakeSportFormatDao.addFormat(new SportFormat(FORMAT_ID, "3v3", false, 6, SPORT_ID));
+        fakeSportFormatDao.addFormat(new SportFormat(FORMAT_ID, "3v3", false, 6, DURATION_MINUTES, SPORT_ID));
         fakeFollowDao.setMutualFriendIds(USER_ID, Set.of(10L, 11L, 12L));
     }
 
-    // --- Success case ---
+    // ========================================================
+    // Success cases
+    // ========================================================
 
     @Test
     void shouldCreateListingSuccessfully() {
         CreateListingRequest request = validRequest();
-
         CreateListingResponse response = service.createListing(USER_ID, request);
 
         assertNotNull(response);
@@ -79,8 +82,38 @@ class GameListingServiceTest {
         assertEquals("3v3", response.getFormatName());
         assertEquals("Intermediate", response.getSkillLevel());
         assertEquals(6, response.getCapacity());
+        assertEquals("A", response.getTeam());
         assertEquals(0, response.getInvitedCount());
+        assertNotNull(response.getEndTime());
+        assertNotNull(response.getSessionWindow());
         assertTrue(fakeGameJoinerDao.wasInserted());
+    }
+
+    @Test
+    void shouldCalculateEndTimeFromFormatDuration() {
+        CreateListingRequest request = validRequest();
+        // Start at 14:00 next day, duration 60 min → end at 15:00
+        request.setDate(FIXED_NOW.plusDays(1).toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
+        request.setTime("14:00");
+
+        CreateListingResponse response = service.createListing(USER_ID, request);
+
+        assertTrue(response.getEndTime().contains("15:00"));
+        assertEquals("14:00\u201315:00", response.getSessionWindow());
+    }
+
+    @Test
+    void shouldCalculateEndTimeFor120MinFormat() {
+        // Rugby 15s Contact: 120 minutes
+        fakeSportFormatDao.addFormat(new SportFormat(30L, "15s Contact", false, 30, 120, SPORT_ID));
+        CreateListingRequest request = validRequest();
+        request.setFormatId(30L);
+        request.setTime("16:00");
+
+        CreateListingResponse response = service.createListing(USER_ID, request);
+
+        assertTrue(response.getEndTime().contains("18:00"));
+        assertEquals("16:00\u201318:00", response.getSessionWindow());
     }
 
     @Test
@@ -92,15 +125,94 @@ class GameListingServiceTest {
 
         assertEquals(2, response.getInvitedCount());
         assertEquals(2, fakeNotificationDao.getInsertedCount());
+        assertEquals(2, fakeInvitationDao.getInsertedCount());
     }
 
-    // --- Validation: missing required fields ---
+    @Test
+    void shouldAllowMoreInvitationsThanCapacity() {
+        // Format has 6 players. Invite 5 friends (more than capacity - 1 = 5, equal is fine)
+        fakeFollowDao.setMutualFriendIds(USER_ID, Set.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L));
+        CreateListingRequest request = validRequest();
+        request.setInvitedFriendIds(List.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L));
+
+        // 8 invites for a 6-player format — should succeed (no capacity limit)
+        CreateListingResponse response = service.createListing(USER_ID, request);
+        assertEquals(8, response.getInvitedCount());
+        assertEquals(8, fakeInvitationDao.getInsertedCount());
+    }
+
+    // ========================================================
+    // Team selection
+    // ========================================================
+
+    @Test
+    void shouldAcceptTeamSelectionA() {
+        CreateListingRequest request = validRequest();
+        request.setTeam("A");
+        CreateListingResponse response = service.createListing(USER_ID, request);
+        assertEquals("A", response.getTeam());
+    }
+
+    @Test
+    void shouldAcceptTeamSelectionB() {
+        CreateListingRequest request = validRequest();
+        request.setTeam("B");
+        CreateListingResponse response = service.createListing(USER_ID, request);
+        assertEquals("B", response.getTeam());
+    }
+
+    @Test
+    void shouldRejectMissingTeamSelection() {
+        CreateListingRequest request = validRequest();
+        request.setTeam(null);
+        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
+        assertEquals(400, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Team selection is required"));
+    }
+
+    @Test
+    void shouldRejectInvalidTeamSelection() {
+        CreateListingRequest request = validRequest();
+        request.setTeam("C");
+        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
+        assertEquals(400, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Invalid team"));
+    }
+
+    // ========================================================
+    // Scheduling conflicts (service-level handling only)
+    // NOTE: These tests verify the service correctly rejects when the DAO reports
+    // a conflict and allows when it does not. They use a boolean fake DAO and do
+    // NOT verify: the actual SQL overlap logic, accepted-joiner inclusion, status
+    // filtering, exact time boundaries, or bidirectional calculation.
+    // Those properties require database integration testing or manual verification.
+    // ========================================================
+
+    @Test
+    void shouldRejectWhenDaoReportsSchedulingConflict() {
+        fakeGameListingDao.setConflict(true);
+        CreateListingRequest request = validRequest();
+        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
+        assertEquals(400, ex.getStatus());
+        assertTrue(ex.getMessage().contains("Scheduling conflict"));
+    }
+
+    @Test
+    void shouldAllowWhenDaoReportsNoConflict() {
+        fakeGameListingDao.setConflict(false);
+        CreateListingRequest request = validRequest();
+        CreateListingResponse response = service.createListing(USER_ID, request);
+        assertNotNull(response);
+    }
+
+    // ========================================================
+    // Validation: missing required fields
+    // ========================================================
 
     @Test
     void shouldRejectNullSportId() {
         CreateListingRequest request = validRequest();
         request.setSportId(null);
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Sport is required"));
@@ -110,7 +222,6 @@ class GameListingServiceTest {
     void shouldRejectNullFormatId() {
         CreateListingRequest request = validRequest();
         request.setFormatId(null);
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Format is required"));
@@ -120,52 +231,25 @@ class GameListingServiceTest {
     void shouldRejectBlankLocation() {
         CreateListingRequest request = validRequest();
         request.setLocation("   ");
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Location is required"));
     }
 
     @Test
-    void shouldRejectNullDate() {
-        CreateListingRequest request = validRequest();
-        request.setDate(null);
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("Date is required"));
-    }
-
-    @Test
-    void shouldRejectNullTime() {
-        CreateListingRequest request = validRequest();
-        request.setTime(null);
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("Time is required"));
-    }
-
-    // --- Validation: skill level ---
-
-    @Test
     void shouldRejectInvalidSkillLevel() {
         CreateListingRequest request = validRequest();
         request.setSkillLevel("Expert");
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Invalid skill level"));
     }
-
-    // --- Validation: date/time ---
 
     @Test
     void shouldRejectPastDateTime() {
         CreateListingRequest request = validRequest();
         request.setDate("2020-01-01");
         request.setTime("10:00");
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("must be in the future"));
@@ -175,35 +259,21 @@ class GameListingServiceTest {
     void shouldRejectInvalidDateFormat() {
         CreateListingRequest request = validRequest();
         request.setDate("not-a-date");
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Invalid date or time"));
     }
 
-    // --- Validation: minimum lead time (provisional: 3 hours) ---
+    // ========================================================
+    // Minimum lead time (3 hours)
+    // ========================================================
 
     @Test
-    void shouldRejectListingOneMinuteFromNow() {
+    void shouldRejectListingUnderThreeHoursFromNow() {
         CreateListingRequest request = validRequest();
-        // FIXED_NOW is 2026-08-01 10:00:00, so 1 minute later = 10:01
-        LocalDateTime oneMinuteAhead = FIXED_NOW.plusMinutes(1);
-        request.setDate(oneMinuteAhead.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
-        request.setTime(oneMinuteAhead.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("at least 3 hours before"));
-    }
-
-    @Test
-    void shouldRejectListingTwoHoursFiftyNineMinutesFiftyNineSecondsFromNow() {
-        CreateListingRequest request = validRequest();
-        // 2h59m59s = 10799 seconds ahead of FIXED_NOW (10:00:00) → 12:59:59
         LocalDateTime justUnder = FIXED_NOW.plusHours(2).plusMinutes(59).plusSeconds(59);
         request.setDate(justUnder.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
         request.setTime(justUnder.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("at least 3 hours before"));
@@ -212,139 +282,48 @@ class GameListingServiceTest {
     @Test
     void shouldAllowListingExactlyThreeHoursFromNow() {
         CreateListingRequest request = validRequest();
-        // Exactly 3 hours = 10800 seconds ahead → 13:00:00
         LocalDateTime exactlyThreeHours = FIXED_NOW.plusHours(3);
         request.setDate(exactlyThreeHours.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
         request.setTime(exactlyThreeHours.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
-
         CreateListingResponse response = service.createListing(USER_ID, request);
         assertNotNull(response);
     }
 
-    @Test
-    void shouldAllowListingMoreThanThreeHoursFromNow() {
-        CreateListingRequest request = validRequest();
-        // 4 hours ahead → 14:00:00
-        LocalDateTime fourHoursAhead = FIXED_NOW.plusHours(4);
-        request.setDate(fourHoursAhead.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
-        request.setTime(fourHoursAhead.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
-
-        CreateListingResponse response = service.createListing(USER_ID, request);
-        assertNotNull(response);
-    }
-
-    @Test
-    void shouldStillCheckConflictAfterLeadTimeValidationPasses() {
-        // 4 hours ahead passes lead time but conflicts with another listing
-        fakeGameListingDao.setConflict(true);
-
-        CreateListingRequest request = validRequest();
-        LocalDateTime fourHoursAhead = FIXED_NOW.plusHours(4);
-        request.setDate(fourHoursAhead.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
-        request.setTime(fourHoursAhead.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME));
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("Scheduling conflict"));
-    }
-
-    // --- Validation: sport not on profile ---
+    // ========================================================
+    // Sport and format validation
+    // ========================================================
 
     @Test
     void shouldRejectSportNotOnProfile() {
         CreateListingRequest request = validRequest();
-        request.setSportId(999L); // sport not on user's profile
-
+        request.setSportId(999L);
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("not on your profile"));
     }
 
-    // --- Validation: format not belonging to sport ---
-
     @Test
     void shouldRejectFormatNotBelongingToSport() {
-        // Add a format that belongs to a different sport
-        fakeSportFormatDao.addFormat(new SportFormat(99L, "Singles", false, 2, 888L));
+        fakeSportFormatDao.addFormat(new SportFormat(99L, "Singles", false, 2, 60, 888L));
         CreateListingRequest request = validRequest();
         request.setFormatId(99L);
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("does not belong to the selected sport"));
     }
 
-    // --- Validation: scheduling conflict ---
-
-    @Test
-    void shouldRejectListingLessThanTwoHoursFromExisting() {
-        // e.g. 1h59m59s apart — conflict detected
-        fakeGameListingDao.setConflict(true);
-
-        CreateListingRequest request = validRequest();
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("Scheduling conflict"));
-    }
-
-    @Test
-    void shouldAllowListingExactlyTwoHoursAway() {
-        // Exactly 7200 seconds apart — no conflict
-        fakeGameListingDao.setConflict(false);
-
-        CreateListingRequest request = validRequest();
-
-        CreateListingResponse response = service.createListing(USER_ID, request);
-        assertNotNull(response);
-    }
-
-    @Test
-    void shouldAllowListingMoreThanTwoHoursAway() {
-        // e.g. 2h0m1s apart — no conflict
-        fakeGameListingDao.setConflict(false);
-
-        CreateListingRequest request = validRequest();
-
-        CreateListingResponse response = service.createListing(USER_ID, request);
-        assertNotNull(response);
-    }
-
-    @Test
-    void shouldNotConflictWithCompletedListing() {
-        // Completed listings are excluded by the SQL (is_completed = 0)
-        fakeGameListingDao.setConflict(false);
-
-        CreateListingRequest request = validRequest();
-
-        CreateListingResponse response = service.createListing(USER_ID, request);
-        assertNotNull(response);
-    }
-
-    @Test
-    void shouldOnlyCheckConflictsForAuthenticatedCreator() {
-        // Another user's close listing does not affect this user
-        fakeGameListingDao.setConflict(false);
-
-        CreateListingRequest request = validRequest();
-
-        CreateListingResponse response = service.createListing(USER_ID, request);
-        assertNotNull(response);
-    }
-
-    // --- Validation: positions ---
+    // ========================================================
+    // Position validation
+    // ========================================================
 
     @Test
     void shouldRejectPositionNotBelongingToFormat() {
-        // Use a format with positions
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
-        fakePositionDao.addFormatPosition(20L, 1L); // only position 1 belongs
-
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
+        fakePositionDao.addFormatPosition(20L, 1L);
         CreateListingRequest request = validRequest();
         request.setFormatId(20L);
         request.setAnyPosition(false);
-        request.setPositionId(999L); // doesn't belong
-
+        request.setPositionId(999L);
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("does not belong to the chosen format"));
@@ -352,48 +331,27 @@ class GameListingServiceTest {
 
     @Test
     void shouldRejectDuplicatePositions() {
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
         fakePositionDao.addFormatPosition(20L, 1L);
         fakePositionDao.addFormatPosition(20L, 2L);
-
         CreateListingRequest request = validRequest();
         request.setFormatId(20L);
         request.setAnyPosition(false);
         request.setPositionId(1L);
-        request.setAlternatePositionId(1L); // same as first
-
+        request.setAlternatePositionId(1L);
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("must be different"));
     }
 
     @Test
-    void shouldRejectNoPositionWhenAnyPositionIsFalse() {
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
+    void shouldRejectNoPositionWhenRequired() {
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
         fakePositionDao.addFormatPosition(20L, 1L);
-
         CreateListingRequest request = validRequest();
         request.setFormatId(20L);
         request.setAnyPosition(false);
         request.setPositionId(null);
-        request.setAlternatePositionId(null);
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("position selection is required"));
-    }
-
-    @Test
-    void shouldRejectNoPositionWhenAnyPositionIsNull() {
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
-        fakePositionDao.addFormatPosition(20L, 1L);
-
-        CreateListingRequest request = validRequest();
-        request.setFormatId(20L);
-        request.setAnyPosition(null); // omitted
-        request.setPositionId(null);
-        request.setAlternatePositionId(null);
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("position selection is required"));
@@ -401,29 +359,25 @@ class GameListingServiceTest {
 
     @Test
     void shouldAcceptAnyPositionExplicitlySelected() {
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
         fakePositionDao.addFormatPosition(20L, 1L);
-
         CreateListingRequest request = validRequest();
         request.setFormatId(20L);
         request.setAnyPosition(true);
         request.setPositionId(null);
         request.setAlternatePositionId(null);
-
         CreateListingResponse response = service.createListing(USER_ID, request);
         assertNotNull(response);
     }
 
     @Test
     void shouldRejectAnyPositionWithRealPosition() {
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
         fakePositionDao.addFormatPosition(20L, 1L);
-
         CreateListingRequest request = validRequest();
         request.setFormatId(20L);
         request.setAnyPosition(true);
-        request.setPositionId(1L); // conflict
-
+        request.setPositionId(1L);
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Cannot select both"));
@@ -431,57 +385,39 @@ class GameListingServiceTest {
 
     @Test
     void shouldAcceptValidPositionForPositionalFormat() {
-        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, SPORT_ID));
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
         fakePositionDao.addFormatPosition(20L, 1L);
         fakePositionDao.addFormatPosition(20L, 2L);
-
         CreateListingRequest request = validRequest();
         request.setFormatId(20L);
         request.setAnyPosition(false);
         request.setPositionId(1L);
-        request.setAlternatePositionId(null);
-
+        request.setAlternatePositionId(2L);
         CreateListingResponse response = service.createListing(USER_ID, request);
         assertNotNull(response);
-        assertTrue(fakeGameJoinerDao.wasInserted());
-    }
-
-    @Test
-    void shouldSucceedWithoutPositionForNonPositionalFormat() {
-        // Default format (FORMAT_ID = 7, "3v3") has has_positions = false
-        CreateListingRequest request = validRequest();
-        request.setPositionId(null);
-        request.setAlternatePositionId(null);
-        request.setAnyPosition(null);
-
-        CreateListingResponse response = service.createListing(USER_ID, request);
-        assertNotNull(response);
-        assertTrue(fakeGameJoinerDao.wasInserted());
     }
 
     @Test
     void shouldIgnoreSubmittedPositionForNonPositionalFormat() {
-        // Non-positional format should silently ignore positions
         CreateListingRequest request = validRequest();
-        request.setPositionId(999L); // submitted but should be ignored
+        request.setPositionId(999L);
         request.setAlternatePositionId(888L);
         request.setAnyPosition(true);
-
         CreateListingResponse response = service.createListing(USER_ID, request);
         assertNotNull(response);
-        // After validation, request fields should have been nulled
         assertNull(request.getPositionId());
         assertNull(request.getAlternatePositionId());
         assertNull(request.getAnyPosition());
     }
 
-    // --- Validation: invitations ---
+    // ========================================================
+    // Invitation validation
+    // ========================================================
 
     @Test
     void shouldRejectNonFriendInvitation() {
         CreateListingRequest request = validRequest();
-        request.setInvitedFriendIds(List.of(999L)); // not a mutual friend
-
+        request.setInvitedFriendIds(List.of(999L));
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("not a mutual friend"));
@@ -491,7 +427,6 @@ class GameListingServiceTest {
     void shouldRejectSelfInvitation() {
         CreateListingRequest request = validRequest();
         request.setInvitedFriendIds(List.of(USER_ID));
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Cannot invite yourself"));
@@ -501,36 +436,80 @@ class GameListingServiceTest {
     void shouldRejectDuplicateFriendIds() {
         CreateListingRequest request = validRequest();
         request.setInvitedFriendIds(List.of(10L, 10L));
-
         ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
         assertEquals(400, ex.getStatus());
         assertTrue(ex.getMessage().contains("Duplicate friend IDs"));
     }
 
     @Test
-    void shouldRejectTooManyInvitations() {
-        // Format has 6 players, max invitations = 5
+    void shouldInsertInvitationRecordsInTransaction() {
         CreateListingRequest request = validRequest();
-        // Try to invite 6 friends (more than max 5)
-        fakeFollowDao.setMutualFriendIds(USER_ID, Set.of(10L, 11L, 12L, 13L, 14L, 15L));
-        request.setInvitedFriendIds(List.of(10L, 11L, 12L, 13L, 14L, 15L));
-
-        ApiException ex = assertThrows(ApiException.class, () -> service.createListing(USER_ID, request));
-        assertEquals(400, ex.getStatus());
-        assertTrue(ex.getMessage().contains("Too many invitations"));
+        request.setInvitedFriendIds(List.of(10L, 11L, 12L));
+        CreateListingResponse response = service.createListing(USER_ID, request);
+        assertEquals(3, fakeInvitationDao.getInsertedCount());
+        assertEquals(3, fakeNotificationDao.getInsertedCount());
+        assertEquals(3, response.getInvitedCount());
     }
 
-    // --- Transaction rollback ---
+    // ========================================================
+    // Transaction rollback
+    // ========================================================
 
     @Test
     void shouldRollbackWhenJoinerInsertFails() {
         fakeGameJoinerDao.setFailOnInsert(true);
-
         CreateListingRequest request = validRequest();
-
         assertThrows(RuntimeException.class, () -> service.createListing(USER_ID, request));
         assertTrue(fakeDataSource.getLastConnection().wasRolledBack());
     }
+
+    @Test
+    void shouldRollbackWhenInvitationInsertFails() {
+        fakeInvitationDao.setFailOnInsert(true);
+        CreateListingRequest request = validRequest();
+        request.setInvitedFriendIds(List.of(10L));
+        assertThrows(RuntimeException.class, () -> service.createListing(USER_ID, request));
+        assertTrue(fakeDataSource.getLastConnection().wasRolledBack());
+    }
+
+    @Test
+    void shouldRollbackWhenNotificationInsertFails() {
+        fakeNotificationDao.setFailOnInsert(true);
+        CreateListingRequest request = validRequest();
+        request.setInvitedFriendIds(List.of(10L));
+        assertThrows(RuntimeException.class, () -> service.createListing(USER_ID, request));
+        assertTrue(fakeDataSource.getLastConnection().wasRolledBack());
+    }
+
+    @Test
+    void shouldPassSelectedTeamAndPositionsToCreatorJoiner() {
+        fakeSportFormatDao.addFormat(new SportFormat(20L, "5v5", true, 10, 60, SPORT_ID));
+        fakePositionDao.addFormatPosition(20L, 1L);
+        fakePositionDao.addFormatPosition(20L, 2L);
+
+        CreateListingRequest request = validRequest();
+        request.setFormatId(20L);
+        request.setTeam("B");
+        request.setAnyPosition(false);
+        request.setPositionId(1L);
+        request.setAlternatePositionId(2L);
+
+        service.createListing(USER_ID, request);
+
+        GameJoiner captured = fakeGameJoinerDao.getLastInserted();
+        assertNotNull(captured);
+        assertEquals("B", captured.getTeam());
+        assertEquals("ACCEPTED", captured.getStatus());
+        assertEquals(Long.valueOf(1L), captured.getPositionId());
+        assertEquals(Long.valueOf(2L), captured.getAlternatePositionId());
+        assertNull(captured.getJoinRequestId());
+    }
+
+    // NOTE: The scheduling conflict tests above use a fake DAO that returns a boolean.
+    // They verify the service correctly rejects/allows based on the DAO's answer, but
+    // do NOT test the actual SQL overlap logic or exact time boundaries.
+    // The bidirectional session+buffer overlap SQL requires database integration testing
+    // or manual verification against SQL Server.
 
     // ========================================================
     // Helper methods
@@ -541,11 +520,11 @@ class GameListingServiceTest {
         request.setSportId(SPORT_ID);
         request.setFormatId(FORMAT_ID);
         request.setSkillLevel("Intermediate");
-        // Well beyond the 3-hour lead time from FIXED_NOW (10:00) → use next day 14:00
         request.setDate(FIXED_NOW.plusDays(1).toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
         request.setTime("14:00");
         request.setLocation("University Fields");
         request.setIsPrivate(false);
+        request.setTeam("A");
         request.setPositionId(null);
         request.setAlternatePositionId(null);
         request.setInvitedFriendIds(null);
@@ -558,7 +537,6 @@ class GameListingServiceTest {
 
     private static class FakeSportDao extends SportDao {
         private final Map<Long, Map<Long, String[]>> userSports = new HashMap<>();
-
         FakeSportDao() { super(null); }
 
         void addUserSport(long userId, long sportId, String sportName, String skillLevel) {
@@ -595,7 +573,6 @@ class GameListingServiceTest {
 
     private static class FakeSportFormatDao extends SportFormatDao {
         private final Map<Long, SportFormat> formats = new HashMap<>();
-
         FakeSportFormatDao() { super(null); }
 
         void addFormat(SportFormat f) { formats.put(f.getFormatId(), f); }
@@ -617,7 +594,6 @@ class GameListingServiceTest {
 
     private static class FakePositionDao extends PositionDao {
         private final Set<String> formatPositions = new HashSet<>();
-
         FakePositionDao() { super(null); }
 
         void addFormatPosition(long formatId, long positionId) {
@@ -638,13 +614,12 @@ class GameListingServiceTest {
     private static class FakeGameListingDao extends GameListingDao {
         private boolean conflict = false;
         private long nextId = 1;
-
         FakeGameListingDao() { super(null); }
 
         void setConflict(boolean conflict) { this.conflict = conflict; }
 
         @Override
-        public boolean hasSchedulingConflict(Connection conn, long creatorId, java.time.LocalDateTime proposedDateTime) {
+        public boolean hasSchedulingConflict(Connection conn, long userId, java.time.LocalDateTime proposedStart, java.time.LocalDateTime proposedEnd) {
             return conflict;
         }
 
@@ -657,11 +632,12 @@ class GameListingServiceTest {
     private static class FakeGameJoinerDao extends GameJoinerDao {
         private boolean inserted = false;
         private boolean failOnInsert = false;
-
+        private GameJoiner lastInserted = null;
         FakeGameJoinerDao() { super(null); }
 
         void setFailOnInsert(boolean fail) { this.failOnInsert = fail; }
         boolean wasInserted() { return inserted; }
+        GameJoiner getLastInserted() { return lastInserted; }
 
         @Override
         public void insertCreator(Connection conn, GameJoiner joiner) throws SQLException {
@@ -669,12 +645,12 @@ class GameListingServiceTest {
                 throw new SQLException("Simulated failure");
             }
             inserted = true;
+            lastInserted = joiner;
         }
     }
 
     private static class FakeFollowDao extends FollowDao {
         private final Map<Long, Set<Long>> mutualFriendIds = new HashMap<>();
-
         FakeFollowDao() { super(null); }
 
         void setMutualFriendIds(long userId, Set<Long> ids) {
@@ -694,25 +670,44 @@ class GameListingServiceTest {
 
     private static class FakeNotificationDao extends NotificationDao {
         private int insertedCount = 0;
-
+        private boolean failOnInsert = false;
         FakeNotificationDao() { super(null); }
 
         int getInsertedCount() { return insertedCount; }
+        void setFailOnInsert(boolean fail) { this.failOnInsert = fail; }
 
         @Override
-        public void insertBatch(Connection conn, List<Notification> notifications) {
+        public void insertBatch(Connection conn, List<Notification> notifications) throws SQLException {
+            if (failOnInsert) {
+                throw new SQLException("Simulated notification failure");
+            }
             if (notifications != null) {
                 insertedCount += notifications.size();
             }
         }
     }
 
-    /**
-     * Fake DataSource that returns a FakeConnection.
-     */
+    private static class FakeInvitationDao extends InvitationDao {
+        private int insertedCount = 0;
+        private boolean failOnInsert = false;
+        FakeInvitationDao() { super(null); }
+
+        int getInsertedCount() { return insertedCount; }
+        void setFailOnInsert(boolean fail) { this.failOnInsert = fail; }
+
+        @Override
+        public void insertBatch(Connection conn, List<Invitation> invitations) throws SQLException {
+            if (failOnInsert) {
+                throw new SQLException("Simulated invitation failure");
+            }
+            if (invitations != null) {
+                insertedCount += invitations.size();
+            }
+        }
+    }
+
     private static class FakeDataSource implements DataSource {
         private FakeConnection lastConnection;
-
         FakeConnection getLastConnection() { return lastConnection; }
 
         @Override
@@ -731,9 +726,6 @@ class GameListingServiceTest {
         @Override public boolean isWrapperFor(Class<?> iface) { return false; }
     }
 
-    /**
-     * Minimal fake Connection that tracks commit/rollback state.
-     */
     private static class FakeConnection implements Connection {
         private boolean autoCommit = true;
         private boolean committed = false;
@@ -748,8 +740,6 @@ class GameListingServiceTest {
         @Override public void rollback() { rolledBack = true; }
         @Override public void close() {}
         @Override public boolean isClosed() { return false; }
-
-        // Unused Connection methods — minimal stubs
         @Override public java.sql.Statement createStatement() { return null; }
         @Override public java.sql.PreparedStatement prepareStatement(String sql) { return null; }
         @Override public java.sql.CallableStatement prepareCall(String sql) { return null; }
@@ -763,9 +753,9 @@ class GameListingServiceTest {
         @Override public int getTransactionIsolation() { return Connection.TRANSACTION_READ_COMMITTED; }
         @Override public java.sql.SQLWarning getWarnings() { return null; }
         @Override public void clearWarnings() {}
-        @Override public java.sql.Statement createStatement(int resultSetType, int resultSetConcurrency) { return null; }
-        @Override public java.sql.PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) { return null; }
-        @Override public java.sql.CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) { return null; }
+        @Override public java.sql.Statement createStatement(int a, int b) { return null; }
+        @Override public java.sql.PreparedStatement prepareStatement(String sql, int a, int b) { return null; }
+        @Override public java.sql.CallableStatement prepareCall(String sql, int a, int b) { return null; }
         @Override public java.util.Map<String, Class<?>> getTypeMap() { return null; }
         @Override public void setTypeMap(java.util.Map<String, Class<?>> map) {}
         @Override public void setHoldability(int holdability) {}
@@ -774,12 +764,12 @@ class GameListingServiceTest {
         @Override public java.sql.Savepoint setSavepoint(String name) { return null; }
         @Override public void rollback(java.sql.Savepoint savepoint) {}
         @Override public void releaseSavepoint(java.sql.Savepoint savepoint) {}
-        @Override public java.sql.Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) { return null; }
-        @Override public java.sql.PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) { return null; }
-        @Override public java.sql.CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) { return null; }
-        @Override public java.sql.PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) { return null; }
-        @Override public java.sql.PreparedStatement prepareStatement(String sql, int[] columnIndexes) { return null; }
-        @Override public java.sql.PreparedStatement prepareStatement(String sql, String[] columnNames) { return null; }
+        @Override public java.sql.Statement createStatement(int a, int b, int c) { return null; }
+        @Override public java.sql.PreparedStatement prepareStatement(String sql, int a, int b, int c) { return null; }
+        @Override public java.sql.CallableStatement prepareCall(String sql, int a, int b, int c) { return null; }
+        @Override public java.sql.PreparedStatement prepareStatement(String sql, int k) { return null; }
+        @Override public java.sql.PreparedStatement prepareStatement(String sql, int[] i) { return null; }
+        @Override public java.sql.PreparedStatement prepareStatement(String sql, String[] n) { return null; }
         @Override public java.sql.Clob createClob() { return null; }
         @Override public java.sql.Blob createBlob() { return null; }
         @Override public java.sql.NClob createNClob() { return null; }

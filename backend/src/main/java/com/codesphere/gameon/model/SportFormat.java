@@ -9,16 +9,19 @@ public class SportFormat {
     private String formatName;
     private boolean hasPositions;
     private int noPlayers;
+    private int durationMinutes;
     private long sportId;
 
     public SportFormat() {
     }
 
-    public SportFormat(long formatId, String formatName, boolean hasPositions, int noPlayers, long sportId) {
+    public SportFormat(long formatId, String formatName, boolean hasPositions, int noPlayers,
+                       int durationMinutes, long sportId) {
         this.formatId = formatId;
         this.formatName = formatName;
         this.hasPositions = hasPositions;
         this.noPlayers = noPlayers;
+        this.durationMinutes = durationMinutes;
         this.sportId = sportId;
     }
 
@@ -52,6 +55,14 @@ public class SportFormat {
 
     public void setNoPlayers(int noPlayers) {
         this.noPlayers = noPlayers;
+    }
+
+    public int getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(int durationMinutes) {
+        this.durationMinutes = durationMinutes;
     }
 
     public long getSportId() {

@@ -101,9 +101,10 @@ public class JavalinConfig {
         GameListingDao gameListingDao = new GameListingDao(databaseConfig.getDataSource());
         GameJoinerDao gameJoinerDao = new GameJoinerDao(databaseConfig.getDataSource());
         NotificationDao notificationDao = new NotificationDao(databaseConfig.getDataSource());
+        InvitationDao invitationDao = new InvitationDao(databaseConfig.getDataSource());
         GameListingService gameListingService = new GameListingService(
                 databaseConfig.getDataSource(), sportDao, sportFormatDao, positionDao,
-                gameListingDao, gameJoinerDao, followDao, notificationDao);
+                gameListingDao, gameJoinerDao, followDao, notificationDao, invitationDao);
         new GameListingController(gameListingService).register(app);
     }
 

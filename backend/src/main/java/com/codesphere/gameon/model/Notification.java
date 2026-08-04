@@ -10,17 +10,19 @@ public class Notification {
     private String text;
     private String typeOfNotification;
     private long recipientId;
+    private Long gameListingId; // nullable
 
     public Notification() {
     }
 
     public Notification(long notificationId, boolean isRead, String text,
-                        String typeOfNotification, long recipientId) {
+                        String typeOfNotification, long recipientId, Long gameListingId) {
         this.notificationId = notificationId;
         this.isRead = isRead;
         this.text = text;
         this.typeOfNotification = typeOfNotification;
         this.recipientId = recipientId;
+        this.gameListingId = gameListingId;
     }
 
     public long getNotificationId() {
@@ -61,5 +63,13 @@ public class Notification {
 
     public void setRecipientId(long recipientId) {
         this.recipientId = recipientId;
+    }
+
+    public Long getGameListingId() {
+        return gameListingId;
+    }
+
+    public void setGameListingId(Long gameListingId) {
+        this.gameListingId = gameListingId;
     }
 }

@@ -45,7 +45,7 @@ public class SportController {
         long sportId = parseLongParam(ctx, "sportId");
         List<SportFormat> formats = sportFormatDao.findFormatsBySportId(sportId);
         List<FormatDto> dtos = formats.stream()
-                .map(f -> new FormatDto(f.getFormatId(), f.getFormatName(), f.isHasPositions(), f.getNoPlayers()))
+                .map(f -> new FormatDto(f.getFormatId(), f.getFormatName(), f.isHasPositions(), f.getNoPlayers(), f.getDurationMinutes()))
                 .collect(Collectors.toList());
 
         ctx.json(ApiResponse.success(dtos));

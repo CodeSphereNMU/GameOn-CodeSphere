@@ -9,15 +9,17 @@ public class FormatDto {
     private String formatName;
     private boolean hasPositions;
     private int noPlayers;
+    private int durationMinutes;
 
     public FormatDto() {
     }
 
-    public FormatDto(long formatId, String formatName, boolean hasPositions, int noPlayers) {
+    public FormatDto(long formatId, String formatName, boolean hasPositions, int noPlayers, int durationMinutes) {
         this.formatId = formatId;
         this.formatName = formatName;
         this.hasPositions = hasPositions;
         this.noPlayers = noPlayers;
+        this.durationMinutes = durationMinutes;
     }
 
     public long getFormatId() {
@@ -50,5 +52,13 @@ public class FormatDto {
 
     public void setNoPlayers(int noPlayers) {
         this.noPlayers = noPlayers;
+    }
+
+    public int getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(int durationMinutes) {
+        this.durationMinutes = durationMinutes;
     }
 }
