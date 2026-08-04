@@ -18,6 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 /**
  * Service handling user authentication operations: registration, validation.
  * Login/logout handled by Spring Security's form login mechanism.
@@ -83,15 +85,37 @@ public class AuthService {
      */
     @Transactional
     public void registerStep2(Long userId, RegisterStep2Dto dto) {
-        // Validate at least one sport selected
-        if (dto.getSportSelections() == null || dto.getSportSelections().isEmpty()) {
+        // Diagnostic logging - log all received sport selections
+        logger.info("===== SPORTS RECEIVED =====");
+        if (dto.getSportSelections() != null) {
+            for (RegisterStep2Dto.SportSelection s : dto.getSportSelections()) {
+                logger.info("sportId={} skillLevel={}", s.getSportId(), s.getSkillLevel());
+            }
+        }
+
+        // Filter out entries where sportId is null (unchecked checkboxes)
+        List<RegisterStep2Dto.SportSelection> selectedSports =
+                (dto.getSportSelections() == null)
+                        ? List.of()
+                        : dto.getSportSelections()
+                              .stream()
+                              .filter(s -> s.getSportId() != null)
+                              .toList();
+
+        // Validate at least one sport was actually selected
+        if (selectedSports.isEmpty()) {
             throw new BusinessRuleException("Please select at least one sport");
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessRuleException("User not found"));
 
-        for (RegisterStep2Dto.SportSelection selection : dto.getSportSelections()) {
+        for (RegisterStep2Dto.SportSelection selection : selectedSports) {
+            // Defensive check - never pass null to repository
+            if (selection.getSportId() == null) {
+                continue;
+            }
+
             Sport sport = sportRepository.findById(selection.getSportId())
                     .orElseThrow(() -> new BusinessRuleException("Invalid sport selected"));
 
@@ -114,7 +138,7 @@ public class AuthService {
         }
 
         logger.info("User {} completed registration with {} sport(s)",
-                user.getUsername(), dto.getSportSelections().size());
+                user.getUsername(), selectedSports.size());
     }
 
     /**

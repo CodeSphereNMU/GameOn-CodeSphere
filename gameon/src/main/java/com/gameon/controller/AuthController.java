@@ -128,7 +128,7 @@ public class AuthController {
     }
 
     @PostMapping("/register-sports")
-    public String processRegisterSports(@Valid @ModelAttribute("registerStep2Dto") RegisterStep2Dto dto,
+    public String processRegisterSports(@ModelAttribute("registerStep2Dto") RegisterStep2Dto dto,
                                         BindingResult result,
                                         HttpServletRequest request,
                                         HttpServletResponse response,
@@ -142,7 +142,11 @@ public class AuthController {
             return "redirect:/register";
         }
 
-        if (dto.getSportSelections() == null || dto.getSportSelections().isEmpty()) {
+        // Check if any sport was actually selected (sportId != null means checkbox was checked)
+        boolean hasSelectedSport = dto.getSportSelections() != null &&
+                dto.getSportSelections().stream().anyMatch(s -> s.getSportId() != null);
+
+        if (!hasSelectedSport) {
             model.addAttribute("error", "Please select at least one sport");
             model.addAttribute("sports", sportRepository.findAll());
             model.addAttribute("skillLevels", SkillLevel.values());

@@ -29,7 +29,7 @@
                 <!-- Error -->
                 <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}">Error</div>
 
-                <form th:action="@{/register-sports}" method="post">
+                <form th:action="@{/register-sports}" th:object="${registerStep2Dto}" method="post">
                     <p class="text-muted small mb-3">Select at least one sport and your skill level:</p>
 
                     <div th:each="sport, iter : ${sports}" class="card sport-card mb-3 p-3">
