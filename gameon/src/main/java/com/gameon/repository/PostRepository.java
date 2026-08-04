@@ -1,5 +1,6 @@
 package com.gameon.repository;
 
+import com.gameon.model.dto.PostFeedDto;
 import com.gameon.model.entity.Post;
 import com.gameon.model.enums.PrivacySetting;
 import org.springframework.data.domain.Page;
@@ -22,7 +23,41 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p JOIN FETCH p.user WHERE p.postId = :postId")
     Optional<Post> findByIdWithUser(@Param("postId") Long postId);
 
-    // Social feed: public posts + followers-only from followed users
+    // ===== Feed DTO projections (counts computed at DB level) =====
+
+    /**
+     * Social feed with DTO projection: public posts + followers-only from followed users.
+     * Computes like/comment counts via subqueries — no lazy collections touched.
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE (p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findFeedPostDtos(
+            @Param("visibleUserIds") List<Long> visibleUserIds,
+            @Param("followedUserIds") List<Long> followedUserIds,
+            Pageable pageable);
+
+    /**
+     * Public-only feed with DTO projection (used when user follows nobody).
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.privacySetting = 'PUBLIC' " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findPublicFeedPostDtos(Pageable pageable);
+
+    // ===== Legacy entity queries (used by edit/delete/detail flows) =====
+
     @Query("SELECT p FROM Post p " +
            "WHERE (p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
            "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
@@ -32,7 +67,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("followedUserIds") List<Long> followedUserIds,
             Pageable pageable);
 
-    // All public posts ordered by date
     Page<Post> findByPrivacySettingOrderByCreatedAtDesc(PrivacySetting privacySetting, Pageable pageable);
 
     // Count posts by user

@@ -39,15 +39,15 @@
                             <div class="d-flex align-items-center">
                                 <i class="bi bi-person-circle fs-4 me-2 text-muted"></i>
                                 <div>
-                                    <a th:href="@{'/profile/' + ${post.user.userId}}"
+                                    <a th:href="@{'/profile/' + ${post.userId}}"
                                        class="fw-bold text-decoration-none text-dark"
-                                       th:text="${post.user.username}">Username</a>
+                                       th:text="${post.username}">Username</a>
                                     <br>
                                     <small class="text-muted" th:text="${#temporals.format(post.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
                                 </div>
                             </div>
                             <!-- Post Actions (own post) -->
-                            <div th:if="${post.user.userId == currentUserId}" class="dropdown">
+                            <div th:if="${post.userId == currentUserId}" class="dropdown">
                                 <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
                                     <i class="bi bi-three-dots-vertical"></i>
                                 </button>
@@ -65,7 +65,7 @@
                                 </ul>
                             </div>
                             <!-- Report (other's post) -->
-                            <div th:unless="${post.user.userId == currentUserId}">
+                            <div th:unless="${post.userId == currentUserId}">
                                 <a th:href="@{'/report/post/' + ${post.postId}}" class="btn btn-sm btn-link text-muted" title="Report">
                                     <i class="bi bi-flag"></i>
                                 </a>
@@ -89,12 +89,12 @@
                                 <input type="hidden" name="page" th:value="${posts.number}">
                                 <button type="submit" class="btn btn-sm btn-link text-decoration-none p-0">
                                     <i class="bi bi-heart-fill text-danger me-1"></i>
-                                    <span th:text="${post.likes.size()}">0</span>
+                                    <span th:text="${post.likeCount}">0</span>
                                 </button>
                             </form>
                             <a th:href="@{'/social/post/' + ${post.postId}}" class="btn btn-sm btn-link text-decoration-none text-muted p-0">
                                 <i class="bi bi-chat me-1"></i>
-                                <span th:text="${post.comments.size()}">0</span> Comments
+                                <span th:text="${post.commentCount}">0</span> Comments
                             </a>
                         </div>
                     </div>

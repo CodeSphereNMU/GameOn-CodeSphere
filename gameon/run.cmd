@@ -19,6 +19,7 @@ REM   Username: sa  |  Password: (leave empty)
 REM ============================================================
 
 set JAVA_HOME=%~dp0Java\jdk-21
+set PATH=%JAVA_HOME%\bin;%PATH%
 
 echo.
 echo  ============================
@@ -30,4 +31,13 @@ echo  URL:     http://localhost:8080
 echo  Java:    %JAVA_HOME%
 echo.
 
-call "%~dp0mvnw.cmd" spring-boot:run -Dspring-boot.run.profiles=local
+REM Build JAR if it doesn't exist yet
+if not exist "%~dp0target\gameon-1.0.0.jar" (
+    echo  Building project first time...
+    call "%~dp0mvnw.cmd" package -DskipTests -q
+    echo  Build complete.
+    echo.
+)
+
+REM Run from JAR (faster startup)
+"%JAVA_HOME%\bin\java.exe" -jar "%~dp0target\gameon-1.0.0.jar" --spring.profiles.active=local

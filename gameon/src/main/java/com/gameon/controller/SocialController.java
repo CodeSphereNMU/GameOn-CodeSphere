@@ -1,5 +1,6 @@
 package com.gameon.controller;
 
+import com.gameon.model.dto.PostFeedDto;
 import com.gameon.model.entity.Post;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.security.CustomUserDetails;
@@ -39,7 +40,7 @@ public class SocialController {
     public String feed(@AuthenticationPrincipal CustomUserDetails currentUser,
                        @RequestParam(defaultValue = "0") int page,
                        Model model) {
-        Page<Post> posts = postService.getFeed(currentUser.getUserId(), PageRequest.of(page, 10));
+        Page<PostFeedDto> posts = postService.getFeed(currentUser.getUserId(), PageRequest.of(page, 10));
         model.addAttribute("posts", posts);
         model.addAttribute("currentUserId", currentUser.getUserId());
         return "social/feed";

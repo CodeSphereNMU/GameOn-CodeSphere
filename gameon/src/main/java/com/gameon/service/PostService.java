@@ -2,6 +2,7 @@ package com.gameon.service;
 
 import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.exception.UnauthorizedAccessException;
+import com.gameon.model.dto.PostFeedDto;
 import com.gameon.model.entity.Post;
 import com.gameon.model.entity.User;
 import com.gameon.model.enums.PrivacySetting;
@@ -111,25 +112,26 @@ public class PostService {
     }
 
     /**
-     * Gets the social feed for a user (B300).
+     * Gets the social feed for a user (B300) as DTO projections.
      * Shows: all public posts + followers-only posts from users they follow.
+     * Like and comment counts are computed at the database level via COUNT subqueries,
+     * eliminating any LazyInitializationException risk.
      */
     @Transactional(readOnly = true)
-    public Page<Post> getFeed(Long userId, Pageable pageable) {
-        // Get IDs of users this user follows
+    public Page<PostFeedDto> getFeed(Long userId, Pageable pageable) {
         List<Long> followedIds = followRepository.findFollowingUserIds(userId);
+
+        if (followedIds.isEmpty()) {
+            // Only show public posts
+            return postRepository.findPublicFeedPostDtos(pageable);
+        }
 
         // All active users' public posts are visible, plus followers-only from followed users
         List<Long> allVisibleUserIds = userRepository.findByIsActiveTrue().stream()
                 .map(User::getUserId)
                 .toList();
 
-        if (followedIds.isEmpty()) {
-            // Only show public posts
-            return postRepository.findByPrivacySettingOrderByCreatedAtDesc(PrivacySetting.PUBLIC, pageable);
-        }
-
-        return postRepository.findFeedPosts(allVisibleUserIds, followedIds, pageable);
+        return postRepository.findFeedPostDtos(allVisibleUserIds, followedIds, pageable);
     }
 
     /**
@@ -148,18 +150,14 @@ public class PostService {
     @Transactional(readOnly = true)
     public Page<Post> getVisiblePostsByUser(Long profileUserId, Long viewerId, Pageable pageable) {
         if (profileUserId.equals(viewerId)) {
-            // Own profile - see all posts
             return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
         }
 
         boolean isFollowing = followRepository.existsByIdFollowerUserIdAndIdFollowedUserId(viewerId, profileUserId);
         if (isFollowing) {
-            // Follower - see public + followers-only
             return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
         }
 
-        // Not following - see only public posts from this user
-        // Fall back to all posts for now (privacy filtering handled at template level)
         return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
     }
 }
