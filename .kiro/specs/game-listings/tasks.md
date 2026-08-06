@@ -91,5 +91,37 @@
 - [x] Review V3 migration
 - [x] Apply V3 to GameOnDB after review approval
 - [x] Manual end-to-end test after migration
-- [ ] Evidence capture
+- [ ] Evidence capture (screenshots in `docs/evidence/`)
 - **Traces to:** REQ-LIST-1
+
+## Remaining A100 Work
+
+### Task 10: Evidence capture
+- [ ] Screenshot of successful test run output
+- [ ] Screenshot of Create Listing frontend flow (all 4 steps)
+- [ ] Screenshot of database rows after creation (game_listing, game_joiner, invitation, notification)
+- [ ] Place evidence in `docs/evidence/` using naming convention
+- **Traces to:** REQ-LIST-1
+
+### Task 11: Minor frontend improvements (low priority)
+- [ ] Display selected positions on the confirmation step
+- [ ] Deduplicate position error message in `createListing.js`
+- [ ] Add "Create Listing" link to dashboard page
+- **Traces to:** REQ-LIST-1
+
+## Future Game Listing Use Cases (not yet specified in detail)
+
+These use cases depend on A100 and require their own detailed Kiro spec packages before implementation.
+
+| Use Case | Name (BOC) | Status | Notes |
+|----------|------|--------|-------|
+| A200 | Browse Listings | Schema-supported | join_request, game_joiner tables exist; no implementation |
+| A300 | Send Join request | Schema-supported | join_request table and composite FKs exist; no implementation |
+| A400 | Leave Game listing | Schema-supported | game_joiner.status WITHDRAWN constraint exists; no implementation |
+| A500 | Hide expired listings | Planned | No implementation |
+| A600 | Send game reminders | Planned | No implementation |
+| A700 | Confirm session | Planned | Lock-in automation mechanism undecided |
+| C300 | Manage Game listing | Schema-supported | CANCELLED_BY_CREATOR status exists; no implementation |
+| C500 | Manage join request | Schema-supported | join_request table exists; no implementation |
+
+Do not create detailed spec packages for these until shortly before implementation begins.

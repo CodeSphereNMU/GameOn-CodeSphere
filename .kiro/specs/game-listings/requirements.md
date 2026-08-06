@@ -1,5 +1,23 @@
 # Game Listings - Requirements (A100: Create Game Listing)
 
+## Implementation Status
+
+| Aspect | Status |
+|--------|--------|
+| Backend (service, DAO, controller) | Implemented |
+| Frontend (4-step wizard) | Implemented |
+| V3 migration | Applied to GameOnDB |
+| Unit tests (GameListingServiceTest) | Implemented and passing |
+| Manual end-to-end testing | Manually verified |
+| Evidence capture | Pending |
+
+Known checkpoint: commit `1657f27`.
+
+### Known Frontend Gaps (do not affect A100 correctness)
+- Confirmation screen does not display selected positions (they are stored correctly).
+- `createListing.js` displays the same position error message in two different scenarios.
+- Dashboard lacks a visible "Create Listing" link.
+
 ## Overview
 
 Game Listings are the core feature of GameOn. This spec covers use case A100 — Create Game Listing. A listing represents an upcoming sports session that needs players. The creator specifies the sport, format, skill level, date/time, location, privacy, team, preferred positions, and optionally invites friends.
@@ -29,18 +47,20 @@ V1 (schema) and V2 (seed data) were applied before development of this feature. 
 - The 60-minute travel buffer is not included in the displayed session window.
 
 ### Scheduling Conflicts
-- A 60-minute travel buffer applies after the calculated session end time.
-- A user may not create a listing if the new session conflicts with any listing where they are an accepted participant (creator or joiner).
-- Conflict = overlap between `[session_start, session_end + 60 min]` zones of two sessions.
-- Equality at the boundary is allowed (not a conflict).
+- Conflict checking accounts for an existing session's complete format-derived duration.
+- A 60-minute travel buffer is added after that existing session's end time.
+- A proposed session starting before the end of that buffer conflicts.
+- A proposed session starting exactly when the buffer ends is allowed (boundary equality is not a conflict).
+- This rule applies to both creators and accepted participants when evaluating session conflicts.
 - Only listings with status OPEN or CONFIRMED are considered.
 - Cancelled and completed listings are excluded.
 - The scheduling check is performed transactionally during creation.
 
-### Minimum Lead Time — Current Implemented Placeholder
-- A listing must currently be created at least 3 hours before its scheduled start time.
+### Creation Lead Time (Confirmed)
+- A listing must be created at least 3 hours before its scheduled start time.
+- A listing starting less than 3 hours after creation is invalid.
 - Exactly 3 hours ahead is allowed.
-- This boundary is implemented and tested, but the group has not confirmed 3 hours as the final minimum lead time.
+- This rule is confirmed, implemented, and tested.
 
 ### Sports
 - User must be logged in and have at least one sport in `user_sport_profile`.
@@ -85,6 +105,39 @@ V1 (schema) and V2 (seed data) were applied before development of this feature. 
 - Both invitation records and notifications are part of the atomic transaction.
 - Post-creation invitations are deferred and must not be implemented.
 
+### Invitation Lifecycle (Confirmed Rules for Later Use Cases)
+- An invitation is a courtesy invitation only.
+- It does not automatically accept the invited user.
+- It does not reserve capacity.
+- The invited user must still submit a join request (use case A300).
+- The creator must approve that request before the invited user becomes an accepted participant (use case C500).
+- An invited user's join request is placed at the front of the request queue with an `Invited` tag.
+- Invitation priority does not bypass eligibility, capacity, scheduling-conflict, position, or creator-approval rules.
+- A user may be invited to a sport not currently on their profile.
+- Before requesting to join, the invited user must add the relevant sport to their profile.
+- The invitation provides access to the relevant listing but does not automatically add the sport to the profile.
+- Invitations expire at lock-in.
+- Invitations do not become `game_joiner` or accepted-participant records unless the creator approves the resulting join request.
+
+### Lock-in (Confirmed Rules for Phase 4)
+- Lock-in occurs 2 hours before the listing's start time.
+- If the listing is full at lock-in, it is confirmed (status → CONFIRMED).
+- If the listing is underfilled at lock-in, it is cancelled for insufficient players (status → CANCELLED_INSUFFICIENT_PLAYERS).
+- Accepted participants receive the appropriate confirmation or cancellation notification.
+- Invitations expire at lock-in.
+- There is no attendance-tracking stage after lock-in.
+- No withdrawal, new requests, cancellation, or edits are allowed after lock-in.
+
+Note: The 3-hour creation lead time and 2-hour lock-in are separate rules with different purposes.
+
+### Join Requests (Confirmed Rules for A300/C500)
+- Rejected users may submit another join request.
+- Pending requests do not generate a notification merely because they remain pending.
+- Accepted participants count towards the format-derived capacity.
+
+### Browsing (Confirmed Rule)
+- Users may browse listings only for sports on their profiles.
+
 ### Privacy
 - Existing `is_private` bit: Public = false, Private = true.
 - UI defaults to Public.
@@ -123,7 +176,7 @@ V1 (schema) and V2 (seed data) were applied before development of this feature. 
 - Valid team selection (A or B).
 - Non-blank location.
 - Future date/time.
-- Minimum 3 hours before start time (current implemented placeholder).
+- Minimum 3 hours before start time (confirmed rule).
 - No scheduling conflict (session + 60-min buffer overlap with any OPEN/CONFIRMED listing where user is accepted).
 - Valid position choices (if applicable).
 - Valid mutual-friend invitation IDs.

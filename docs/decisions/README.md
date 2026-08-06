@@ -19,3 +19,4 @@ Each ADR follows this structure:
 |-----|-------|--------|
 | 001 | Project Technology Stack | Accepted |
 | 002 | Package and Project Structure | Accepted |
+| 003 | Documentation Alignment (August 2026) | Accepted |

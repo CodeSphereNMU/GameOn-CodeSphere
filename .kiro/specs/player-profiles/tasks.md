@@ -1,72 +1,87 @@
 # Player Profiles & Sports - Tasks
 
 ## Prerequisites
-- Authentication spec is implemented (user can register and log in).
-- [User] table exists.
+- Authentication registration is implemented (user can register and log in).
+- V1–V3 applied. All required tables exist (`users`, `sport`, `sport_format`, `user_sport_profile`, `follow`).
+- Seed data applied (5 sports, 15 formats, 25 positions).
 
-## Tasks
+## Existing Foundation (no work needed)
 
-### Task 1: Create Sport and UserSportProfile tables
-- [ ] Create migration `V3__create_sport_tables.sql`
-- [ ] Create [Sport] table (sportId, sportName, noPlayers)
-- [ ] Create [SportFormat] table (formatId, sportId FK, formatName, noPlayers, hasPositions)
-- [ ] Create [UserSportProfile] table (userId FK, sportId FK, skillLevel, wins, losses) with composite PK
-- [ ] Create [Follow] table (followerUserId FK, followedUserId FK, createdAt) with composite PK
-- **Traces to:** REQ-PROF-1, REQ-PROF-3, REQ-PROF-7
+The following were built for A100 and are reusable. Do not recreate them.
 
-### Task 2: Seed sports data
-- [ ] Create migration `V4__seed_sports.sql`
-- [ ] Insert common sports: Soccer, Basketball, Cricket, Tennis, Rugby, Hockey, Volleyball, Badminton
-- [ ] Insert at least 2 formats per sport (e.g., 5-a-side, 11-a-side for soccer)
-- **Traces to:** REQ-PROF-3
+- [x] `sport`, `sport_format`, `position`, `format_position`, `user_sport_profile`, `follow` tables (V1)
+- [x] Seed data for 5 sports, 15 formats, 25 positions (V2)
+- [x] `Sport`, `SportFormat`, `Position` models
+- [x] `SportDao`, `SportFormatDao`, `PositionDao`, `FollowDao`
+- [x] `UserSportController` (GET /api/users/me/sports)
+- [x] `SportController` (formats, positions)
+- [x] `FriendController` (mutual followers)
 
-### Task 3: Create domain models
-- [ ] Create `Sport.java` in model/
-- [ ] Create `SportFormat.java` in model/
-- [ ] Create `UserSportProfile.java` in model/
-- **Traces to:** REQ-PROF-1, REQ-PROF-3
+## Remaining Tasks
 
-### Task 4: Create DAOs
-- [ ] Create `SportDao.java` (findAll, findById)
-- [ ] Create `UserSportProfileDao.java` (findByUserId, add, remove, updateSkillLevel)
-- [ ] Create `FollowDao.java` (follow, unfollow, isFollowing, countFollowers, countFollowing)
-- **Traces to:** REQ-PROF-1 through REQ-PROF-7
-
-### Task 5: Create ProfileService
-- [ ] Implement `getProfile(int userId)` → profile data with sports and stats
-- [ ] Implement `updateUsername(int userId, String newUsername)` with validation
-- [ ] Implement `followUser(int followerId, int followedId)` with self-follow check
-- [ ] Implement `unfollowUser(int followerId, int followedId)`
-- **Traces to:** REQ-PROF-1, REQ-PROF-2, REQ-PROF-6, REQ-PROF-7
-
-### Task 6: Create SportService
-- [ ] Implement `getAllSports()` → list of available sports
-- [ ] Implement `addSportToProfile(int userId, int sportId, String skillLevel)` with validation
-- [ ] Implement `removeSportFromProfile(int userId, int sportId)` with last-sport check
-- [ ] Implement `updateSkillLevel(int userId, int sportId, String skillLevel)`
+### Task 1: Create UserSportProfileDao
+- [ ] `findByUserId(long userId)` — returns user's sport profiles
+- [ ] `add(long userId, long sportId, String skillLevel)` — inserts row
+- [ ] `remove(long userId, long sportId)` — deletes row
+- [ ] `updateSkillLevel(long userId, long sportId, String skillLevel)`
+- [ ] `existsByUserAndSport(long userId, long sportId)` — check for duplicates
+- [ ] Use parameterised SQL with exact lower snake_case column names
 - **Traces to:** REQ-PROF-3, REQ-PROF-4, REQ-PROF-5
 
-### Task 7: Create controllers
-- [ ] Create `ProfileController.java` with routes for profile viewing, updating, follow/unfollow
-- [ ] Create `SportController.java` with routes for sport catalog and user sport management
-- [ ] Register both in `JavalinConfig.registerRoutes()`
+### Task 2: Create SportService
+- [ ] `addSportToProfile(long userId, long sportId, String skillLevel)` — validates sport exists, not already on profile, valid skill level
+- [ ] `removeSportFromProfile(long userId, long sportId)` — removes sport from profile; active-listing blocking behaviour depends on group decision (see unresolved questions)
+- [ ] `updateSkillLevel(long userId, long sportId, String skillLevel)` — validates sport is on profile, valid skill level
+- [ ] `getAvailableSports(long userId)` — sports not yet on user's profile
+- **Traces to:** REQ-PROF-3, REQ-PROF-4, REQ-PROF-5
+
+### Task 3: Create ProfileService
+- [ ] `getProfile(long userId)` — assembles profile data (user info, sports, stats, follower counts)
+- [ ] `updateUsername(long userId, String newUsername)` — validation (rules per group decision), duplicate check
+- [ ] `followUser(long followerId, long followedId)` — self-follow prevention, duplicate check
+- [ ] `unfollowUser(long followerId, long followedId)`
+- [ ] `getFollowerCount(long userId)`, `getFollowingCount(long userId)`
+- **Traces to:** REQ-PROF-1, REQ-PROF-2, REQ-PROF-6, REQ-PROF-7
+
+### Task 4: Create ProfileController
+- [ ] `GET /api/profiles/{userId}` — view profile
+- [ ] `PUT /api/profiles/me` — update username
+- [ ] `POST /api/profiles/me/sports` — add sport
+- [ ] `DELETE /api/profiles/me/sports/{sportId}` — remove sport
+- [ ] `PUT /api/profiles/me/sports/{sportId}` — update skill level
+- [ ] `POST /api/profiles/{userId}/follow` — follow
+- [ ] `DELETE /api/profiles/{userId}/follow` — unfollow
+- [ ] Register in `JavalinConfig.registerRoutes()`
 - **Traces to:** REQ-PROF-1 through REQ-PROF-7
 
-### Task 8: Create frontend pages
-- [ ] Create `pages/profile.html` displaying user profile information
-- [ ] Create `pages/add-sport.html` for sport selection (also used during registration)
-- [ ] Create `js/profile.js` and `js/addSport.js`
+### Task 5: Create frontend pages
+- [ ] `pages/profile.html` — displays user profile
+- [ ] `pages/add-sport.html` — sport selection (also usable during registration)
+- [ ] `js/profile.js` — profile page logic
+- [ ] `js/addSport.js` — add sport page logic
+- [ ] Reference relevant Canva designs before implementation
 - **Traces to:** REQ-PROF-1, REQ-PROF-3, REQ-PROF-6
 
-### Task 9: Write tests
-- [ ] Test ProfileService (update username validation, self-follow prevention)
-- [ ] Test SportService (add duplicate sport, remove last sport, invalid skill level)
-- **Traces to:** REQ-PROF-2 through REQ-PROF-5, REQ-PROF-7
+### Task 6: Write tests
+- [ ] SportService: add duplicate sport, valid/invalid skill level, removal with active listing
+- [ ] ProfileService: update username validation, self-follow prevention, duplicate follow
+- **Traces to:** REQ-PROF-2 through REQ-PROF-7
 
-### Task 10: Manual verification
-- [ ] Add a sport to profile after registration
-- [ ] View own profile with sport + stats displayed
+### Task 7: Manual verification and evidence
+- [ ] Add a sport to profile
+- [ ] View own profile with sports and stats
 - [ ] View another user's profile
 - [ ] Follow and unfollow another user
-- [ ] Capture evidence
+- [ ] Remove a sport (when allowed)
+- [ ] Capture evidence screenshots in `docs/evidence/`
 - **Traces to:** REQ-PROF-1 through REQ-PROF-7
+
+## Notes
+
+- Do not create migrations for `sport`, `sport_format`, `user_sport_profile`, or `follow` tables. They already exist.
+- Do not create a `V3__create_sport_tables.sql` or `V4__seed_sports.sql`. These are obsolete names from an early draft that was never applied.
+- The `sport` table has only `sport_id` and `sport_name`. There is no `noPlayers` column on `sport`.
+- All identifiers are `BIGINT` in the database and `long` in Java.
+- Username validation rules depend on a group decision shared with authentication.
+- The last-sport rule (whether removal of the final sport is allowed) is unresolved.
+- The active-listing blocking rule (whether removal is blocked while the user has active involvement in listings for that sport) is unresolved.

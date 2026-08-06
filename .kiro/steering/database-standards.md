@@ -158,12 +158,28 @@ try (Connection connection = getConnection();
 - Use square brackets when an existing SQL Server identifier requires escaping.
 - Do not rename an existing database object without an approved new migration.
 
+## Key Schema Facts
+
+### Supported Sports (V2 seed data)
+
+The five confirmed sports are: Padel, Tennis, Basketball, Rugby, Football.
+
+Do not add Soccer, Cricket, Hockey or Badminton. These were rejected during the design phase.
+
+### Capacity and Duration
+
+- Format capacity is stored in `sport_format.no_players` (total players across both teams).
+- Format duration is stored in `sport_format.duration_minutes` (added in V3).
+- There is no `Sport.noPlayers` column. The `sport` table contains only `sport_id` and `sport_name`.
+- Per-team capacity = `no_players / 2`.
+
 ## Schema Documentation
 
-The existing schema export was generated before V3 and is not the current post-V3 schema.
+The existing schema export (`docs/Database/GameOnDB-current-schema.sql`) was generated before V3 and is not the current post-V3 schema.
 
-Until a new export is generated:
+Until a fresh post-V3 export is generated from the database:
 
 - Treat V1, V2 and V3 together as the schema authority.
-- Clearly identify the old export as a pre-V3 reference.
+- Clearly identify the old export as a historical pre-V3 reference.
 - Check the migrations before generating code from the old export.
+- Do not present the old export as the current schema.

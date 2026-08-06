@@ -163,13 +163,13 @@ conn.commit();
 
 ## Future Use Case Foundations (schema only, not implemented)
 
-**V3 Status:** Created and implemented in code, then reviewed and successfully applied to GameOnDB. The earlier pending-review stage was completed before manual end-to-end testing.
+**V3 Status:** V3 has been reviewed and successfully applied to GameOnDB. The code targets the post-V3 schema. Checkpoint: commit `1657f27`.
 
-- **join_request**: Tracks join request lifecycle. Not used by Create Listing.
-- **invitation response processing**: invitation.status transitions handled by future use cases.
+- **join_request**: Tracks join request lifecycle (A300, C500). Not used by A100 Create Listing.
+- **invitation response processing**: invitation.status transitions handled by future use cases (A300).
 - **Participant withdrawal**: game_joiner.status → WITHDRAWN, row updated in place.
-- **Lock-in processing**: 2 hours before start, automatic CONFIRMED/CANCELLED transitions.
-- **Match results**: Only for COMPLETED listings. Scores non-negative, no winners column.
+- **Lock-in processing**: 2 hours before start. Full → CONFIRMED; underfilled → CANCELLED_INSUFFICIENT_PLAYERS. Invitations expire at lock-in. No attendance tracking after lock-in.
+- **Match results**: Only for COMPLETED listings. Scores are whole-number, non-negative. Draws are allowed. No winners column.
 
 ## Cross-Table Identity (database-enforced)
 

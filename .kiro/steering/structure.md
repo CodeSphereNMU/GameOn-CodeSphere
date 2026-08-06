@@ -171,6 +171,23 @@ backend/src/main/java/com/codesphere/gameon/config/JavalinConfig.java
 
 Register new controllers through `JavalinConfig.registerRoutes()` rather than creating separate application entry points.
 
+## UI Design References
+
+Canva-derived designs are stored in `docs/designs/Canva/`. These are the authoritative visual references for the GameOn frontend.
+
+When implementing or redesigning a frontend page:
+
+1. Identify the relevant Canva screen(s) for the use case before starting.
+2. Use the design's branding, layout, hierarchy, colour direction, spacing, components, and sports-community character as a strong reference.
+3. Adapt the design for accessibility (WCAG AA), responsiveness, and actual business rules.
+4. Do not replace it with a bare, generic interface merely because that is easier.
+5. Continue using HTML, CSS and vanilla JavaScript unless the group approves a change.
+6. Compare the completed page against the reference before marking frontend design work complete.
+
+Known issues with the Canva files:
+- `31.png` — requires verification (may be blank or a placeholder).
+- Several screens have numbered variants; the group should identify current versions before implementing those screens.
+
 ## Build Commands
 
 Run Maven commands from the `backend/` directory:
@@ -187,6 +204,13 @@ These commands respectively:
 - Compile the application and copy frontend resources.
 - Compile the application and run the tests.
 - Build the executable JAR using the Maven Shade plugin.
+
+To start the application from source (PowerShell):
+
+```powershell
+cd backend
+.\mvnw.cmd clean compile exec:java "-Dexec.mainClass=com.codesphere.gameon.App"
+```
 
 The configured main class is:
 

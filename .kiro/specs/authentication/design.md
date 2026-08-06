@@ -3,55 +3,64 @@
 ## Architecture
 
 ```
-Frontend (login.html, register.html)
-  → fetch() POST /api/auth/login or /api/auth/register
+Frontend (index.html login form, dashboard.html session check)
+  → fetch() POST /api/auth/login, GET /api/auth/me
     → AuthController
-      → AuthService (validates input, compares passwords, manages sessions)
-        → UserDao (CRUD on [User] table)
+      → AuthService (validates input, compares passwords)
+        → UserDao (queries dbo.users table)
 ```
 
-## Database Tables
+## Database Table (Existing — V1)
 
-### [User]
+### dbo.users
 | Column | Type | Notes |
 |--------|------|-------|
-| userId | INT IDENTITY(1,1) PK | |
-| userName | NVARCHAR(50) UNIQUE | Case-insensitive unique; length TBD by group |
-| password | NVARCHAR(255) | Plain text (university project; hashing prohibited) |
-| typeOfUser | NVARCHAR(20) | 'player' or 'moderator' (from FSSB) |
-| createdAt | DATETIME2 | |
+| user_id | BIGINT IDENTITY(1,1) PK | |
+| username | VARCHAR(255) NOT NULL UNIQUE | Case-insensitive unique constraint |
+| password | VARCHAR(255) NOT NULL | Plain text (university project; hashing prohibited) |
+| type_of_user | VARCHAR(255) NULL | 'player' or 'moderator' |
 
-Note: The `userName` column length is set conservatively. Final validation rules (min/max length, allowed characters) are pending group decision.
+The `users` table was created in V1 and has not been modified. No migration is needed to support login, registration, or session management.
 
-### Session Approach (Pending Group Decision)
+## Implemented Components
 
-**Option A (Proposed):** Use Javalin's built-in Jetty session management with `ctx.sessionAttribute()`. Sessions live in server memory. Simple, no extra table needed, acceptable for a university project.
+### AuthService
+- `login(String username, String password)` → validates input, finds user by username (trimmed), plain-text comparison, returns User or throws ApiException.
+- Returns 400 for blank input, 401 for invalid credentials.
+- Same error message for unknown username and wrong password (prevents enumeration).
 
-**Option B:** Custom `[Session]` table with token, userId, expiresAt. More robust but more work.
+### AuthController
+- `POST /api/auth/login` — authenticates and sets `ctx.sessionAttribute("userId", user.getUserId())`.
+- `GET /api/auth/me` — returns current user info or 401.
+- Registered in `JavalinConfig.registerRoutes()`.
 
-The group must decide before implementation begins.
+### UserDao
+- `findByUsername(String username)` → `Optional<User>`
+- `findById(long userId)` → `Optional<User>`
 
-## Proposed API Endpoints
+### Frontend
+- Login form on `index.html` (the application root).
+- `login.js` handles form submission, calls `POST /api/auth/login`, redirects to dashboard on success.
+- `dashboard.js` calls `GET /api/auth/me` to verify session.
 
-### POST /api/auth/register
-**Request:**
-```json
-{
-  "username": "string",
-  "password": "string",
-  "confirmPassword": "string"
-}
-```
-**Response (201):**
-```json
-{
-  "success": true,
-  "data": { "userId": 1, "username": "playerOne" }
-}
-```
-**Errors:** 400 (validation), 409 (username taken)
+### Tests
+- `AuthServiceTest` with 10 tests covering: successful login, unknown username, wrong password, blank/null inputs, trimming, null typeOfUser.
+- Uses a FakeUserDao (no database dependency).
 
-### POST /api/auth/login
+## Session Approach (Current)
+
+Using Javalin's built-in Jetty session management with `ctx.sessionAttribute()`. Sessions live in server memory.
+
+- Simple, no extra table needed.
+- Sessions are lost on server restart.
+- No expiry configured.
+- Acceptable for a university project during development.
+
+The group has not decided whether to stay with this approach or move to a database-backed session table.
+
+## API Endpoints
+
+### POST /api/auth/login (Implemented)
 **Request:**
 ```json
 {
@@ -63,19 +72,12 @@ The group must decide before implementation begins.
 ```json
 {
   "success": true,
-  "data": { "userId": 1, "username": "playerOne" }
+  "data": { "userId": 1, "username": "playerOne", "typeOfUser": "player" }
 }
 ```
-**Errors:** 401 (invalid credentials)
+**Errors:** 400 (blank input), 401 (invalid credentials)
 
-### POST /api/auth/logout
-**Response (200):**
-```json
-{ "success": true }
-```
-
-### GET /api/auth/me
-Returns the currently authenticated user (for frontend session checks).
+### GET /api/auth/me (Implemented)
 **Response (200):**
 ```json
 {
@@ -85,27 +87,63 @@ Returns the currently authenticated user (for frontend session checks).
 ```
 **Errors:** 401 (not logged in)
 
-## Key Classes
+### POST /api/auth/register (Not implemented)
+**Planned request:**
+```json
+{
+  "username": "string",
+  "password": "string",
+  "confirmPassword": "string"
+}
+```
+**Planned response (201):**
+```json
+{
+  "success": true,
+  "data": { "userId": 1, "username": "playerOne" }
+}
+```
+**Errors:** 400 (validation), 409 (username taken)
 
-| Class | Package | Responsibility |
-|-------|---------|---------------|
-| AuthController | controller | Routes, request parsing, response formatting |
-| AuthService | service | Validation, password comparison, session logic |
-| UserDao | dao | SQL queries for [User] table |
-| User | model | Domain entity |
-| RegisterRequest | dto | Incoming registration payload |
-| LoginRequest | dto | Incoming login payload |
+### POST /api/auth/logout (Not implemented)
+**Planned response (200):**
+```json
+{ "success": true }
+```
 
-## Proposed Authentication Middleware
+## Key Classes (Existing)
 
-A Javalin `before` handler on `/api/*` that:
-1. Skips public routes (exact list pending group decision).
-2. Checks session attribute for authenticated user ID.
-3. If missing, throws `ApiException.unauthorized(...)`.
+| Class | Package | Status |
+|-------|---------|--------|
+| AuthController | controller | Implemented (login + me) |
+| AuthService | service | Implemented (login only) |
+| UserDao | dao | Implemented (findByUsername, findById) |
+| User | model | Implemented |
+| LoginRequest | dto | Implemented |
 
-## Password Storage
+## Remaining Design Work
 
-Passwords are stored and compared as plain text (university project requirement; hashing is prohibited). The `password` column in the `users` table holds the password directly. Login verification is a simple string comparison.
+### Registration
+- Add `register(String username, String password, String confirmPassword)` to AuthService.
+- Validation rules depend on group decision (see unresolved questions).
+- UserDao needs `create(...)` and `existsByUsername(...)` methods.
+- Create `RegisterRequest` DTO.
+- Add `POST /api/auth/register` to AuthController.
+- Create `register.html` and `register.js`.
+
+### Logout
+- Add `POST /api/auth/logout` to AuthController.
+- Invalidate the session via `ctx.req().getSession().invalidate()`.
+
+### Global Authentication Middleware
+- A Javalin `before` handler on `/api/*` that:
+  1. Skips public routes (exact list pending group decision).
+  2. Checks session attribute for authenticated user ID.
+  3. If missing, throws `ApiException.unauthorized(...)`.
+- Currently, individual controllers perform their own session checks.
+
+### Password Storage
+Passwords are stored and compared as plain text (university project requirement; hashing is prohibited). The `password` column in `users` holds the password directly. Login verification is a simple string comparison.
 
 ## Proposed Validation Rules (Pending Group Confirmation)
 
