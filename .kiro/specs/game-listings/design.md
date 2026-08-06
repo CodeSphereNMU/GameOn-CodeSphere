@@ -163,7 +163,7 @@ conn.commit();
 
 ## Future Use Case Foundations (schema only, not implemented)
 
-**V3 Status:** Created and implemented in code. Pending migration review before application to GameOnDB.
+**V3 Status:** Created and implemented in code, then reviewed and successfully applied to GameOnDB. The earlier pending-review stage was completed before manual end-to-end testing.
 
 - **join_request**: Tracks join request lifecycle. Not used by Create Listing.
 - **invitation response processing**: invitation.status transitions handled by future use cases.

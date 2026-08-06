@@ -3,11 +3,11 @@
 ## Prerequisites
 - Authentication is implemented (login, session).
 - Sport, SportFormat, Position, FormatPosition tables exist with seed data (V1 + V2).
-- V3 migration created (pending review and application to GameOnDB).
+- V3 migration created, reviewed, and successfully applied to GameOnDB.
 
 ## Current Database State
 - V1 and V2 have been applied (schema + seed data).
-- V3 has NOT yet been applied. The code targets the V3 schema.
+- V3 has been applied successfully. The code targets the post-V3 schema.
 
 ## Tasks
 
@@ -79,7 +79,7 @@
 - **Traces to:** REQ-LIST-1
 
 ### Task 8: Update documentation
-- [x] requirements.md — confirmed rules
+- [x] requirements.md — confirmed rules and current implemented placeholders documented
 - [x] design.md — V3 schema, API, frontend flow
 - [x] tasks.md — this file
 - [x] product.md — remove one-active-listing rule, update scheduling rule
@@ -88,8 +88,8 @@
 
 ### Task 9: Verify
 - [x] Run `cd backend && .\mvnw.cmd clean test` — passed (manual)
-- [ ] Review V3 migration (created but NOT yet applied to GameOnDB)
-- [ ] Apply V3 to GameOnDB after review approval
-- [ ] Manual end-to-end test after migration
+- [x] Review V3 migration
+- [x] Apply V3 to GameOnDB after review approval
+- [x] Manual end-to-end test after migration
 - [ ] Evidence capture
 - **Traces to:** REQ-LIST-1

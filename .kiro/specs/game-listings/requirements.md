@@ -6,7 +6,7 @@ Game Listings are the core feature of GameOn. This spec covers use case A100 —
 
 ## Schema Status
 
-The current database has V1 (schema) and V2 (seeds) applied. V3 has been written and is pending review/application. The code in this branch targets the V3 schema. The application will not function against GameOnDB until V3 is applied.
+V1 (schema) and V2 (seed data) were applied before development of this feature. V3 was then created to align the schema with the confirmed Game On rules. V3 was subsequently reviewed and successfully applied to GameOnDB. The application code targets this post-V3 schema.
 
 ## Confirmed Business Rules (A100)
 
@@ -37,9 +37,10 @@ The current database has V1 (schema) and V2 (seeds) applied. V3 has been written
 - Cancelled and completed listings are excluded.
 - The scheduling check is performed transactionally during creation.
 
-### Minimum Lead Time
-- A listing must be created at least 3 hours before its scheduled start time.
+### Minimum Lead Time — Current Implemented Placeholder
+- A listing must currently be created at least 3 hours before its scheduled start time.
 - Exactly 3 hours ahead is allowed.
+- This boundary is implemented and tested, but the group has not confirmed 3 hours as the final minimum lead time.
 
 ### Sports
 - User must be logged in and have at least one sport in `user_sport_profile`.
@@ -122,7 +123,7 @@ The current database has V1 (schema) and V2 (seeds) applied. V3 has been written
 - Valid team selection (A or B).
 - Non-blank location.
 - Future date/time.
-- Minimum 3 hours before start time.
+- Minimum 3 hours before start time (current implemented placeholder).
 - No scheduling conflict (session + 60-min buffer overlap with any OPEN/CONFIRMED listing where user is accepted).
 - Valid position choices (if applicable).
 - Valid mutual-friend invitation IDs.
