@@ -119,13 +119,36 @@
 
             let content = '<span class="listing-detail-roster__username">' + escapeHtml(player.username) + '</span>';
 
-            if (hasPositions && player.positionName) {
-                content += '<span class="listing-detail-roster__position">' + escapeHtml(player.positionName) + '</span>';
+            if (hasPositions) {
+                const positionText = formatPosition(player.positionName, player.alternatePositionName);
+                content += '<span class="listing-detail-roster__position">' + escapeHtml(positionText) + '</span>';
             }
 
             li.innerHTML = content;
             listEl.appendChild(li);
         });
+    }
+
+    /**
+     * Formats the position display string.
+     * - Two positions: "Centre / Point Guard"
+     * - One position only: that position name
+     * - Positional format with NULL positions: "Any Position"
+     * @param {string|null} primary
+     * @param {string|null} alternate
+     * @returns {string}
+     */
+    function formatPosition(primary, alternate) {
+        if (primary && alternate) {
+            return primary + ' / ' + alternate;
+        }
+        if (primary) {
+            return primary;
+        }
+        if (alternate) {
+            return alternate;
+        }
+        return 'Any Position';
     }
 
     // ---- UI State Helpers ----

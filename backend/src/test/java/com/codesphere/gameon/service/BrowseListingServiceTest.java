@@ -262,6 +262,67 @@ class BrowseListingServiceTest {
         assertEquals("the_creator", detail.getCreatorUsername());
     }
 
+    @Test
+    void shouldReturnBothPositionNamesInRoster() {
+        // Positional format with both primary and alternate positions
+        GameListing listing = createPublicListing(LISTING_ID, OTHER_USER_ID, FORMAT_ID);
+        fakeGameListingDao.addListing(listing);
+        fakeSportFormatDao.addFormat(new SportFormat(FORMAT_ID, "3v3", true, 6, 60, SPORT_ID));
+        fakeSportDao.addSport(new Sport(SPORT_ID, "Basketball"));
+        fakeGameJoinerDao.setAcceptedCount(LISTING_ID, 2);
+        fakeGameJoinerDao.setRoster(LISTING_ID, Map.of(
+                "A", List.of(new RosterEntryDto("player1", "Centre", "Point Guard")),
+                "B", List.of(new RosterEntryDto("player2", "Shooting Guard", "Small Forward"))
+        ));
+
+        ListingDetailDto detail = service.getListingDetail(USER_ID, LISTING_ID);
+
+        assertNotNull(detail);
+        assertEquals("Centre", detail.getTeamA().get(0).getPositionName());
+        assertEquals("Point Guard", detail.getTeamA().get(0).getAlternatePositionName());
+        assertEquals("Shooting Guard", detail.getTeamB().get(0).getPositionName());
+        assertEquals("Small Forward", detail.getTeamB().get(0).getAlternatePositionName());
+    }
+
+    @Test
+    void shouldReturnOnlyPrimaryPositionWhenNoAlternate() {
+        // Positional format with only primary position set
+        GameListing listing = createPublicListing(LISTING_ID, OTHER_USER_ID, FORMAT_ID);
+        fakeGameListingDao.addListing(listing);
+        fakeSportFormatDao.addFormat(new SportFormat(FORMAT_ID, "3v3", true, 6, 60, SPORT_ID));
+        fakeSportDao.addSport(new Sport(SPORT_ID, "Basketball"));
+        fakeGameJoinerDao.setAcceptedCount(LISTING_ID, 1);
+        fakeGameJoinerDao.setRoster(LISTING_ID, Map.of(
+                "A", List.of(new RosterEntryDto("player1", "Centre", null))
+        ));
+
+        ListingDetailDto detail = service.getListingDetail(USER_ID, LISTING_ID);
+
+        assertNotNull(detail);
+        assertEquals("Centre", detail.getTeamA().get(0).getPositionName());
+        assertNull(detail.getTeamA().get(0).getAlternatePositionName());
+    }
+
+    @Test
+    void shouldReturnNullPositionsForNonPositionalFormat() {
+        // Non-positional format — both position fields should be null
+        GameListing listing = createPublicListing(LISTING_ID, OTHER_USER_ID, FORMAT_ID);
+        fakeGameListingDao.addListing(listing);
+        fakeSportFormatDao.addFormat(new SportFormat(FORMAT_ID, "3v3", false, 6, 60, SPORT_ID));
+        fakeSportDao.addSport(new Sport(SPORT_ID, "Basketball"));
+        fakeGameJoinerDao.setAcceptedCount(LISTING_ID, 1);
+        fakeGameJoinerDao.setRoster(LISTING_ID, Map.of(
+                "A", List.of(new RosterEntryDto("player1", null, null))
+        ));
+
+        ListingDetailDto detail = service.getListingDetail(USER_ID, LISTING_ID);
+
+        assertNotNull(detail);
+        assertFalse(detail.isHasPositions());
+        assertNull(detail.getTeamA().get(0).getPositionName());
+        assertNull(detail.getTeamA().get(0).getAlternatePositionName());
+    }
+
     // ========================================================
     // Helper methods
     // ========================================================

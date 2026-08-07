@@ -7,6 +7,7 @@ public class RosterEntryDto {
 
     private String username;
     private String positionName;
+    private String alternatePositionName;
 
     public RosterEntryDto() {
     }
@@ -14,6 +15,13 @@ public class RosterEntryDto {
     public RosterEntryDto(String username, String positionName) {
         this.username = username;
         this.positionName = positionName;
+        this.alternatePositionName = null;
+    }
+
+    public RosterEntryDto(String username, String positionName, String alternatePositionName) {
+        this.username = username;
+        this.positionName = positionName;
+        this.alternatePositionName = alternatePositionName;
     }
 
     public String getUsername() {
@@ -30,5 +38,13 @@ public class RosterEntryDto {
 
     public void setPositionName(String positionName) {
         this.positionName = positionName;
+    }
+
+    public String getAlternatePositionName() {
+        return alternatePositionName;
+    }
+
+    public void setAlternatePositionName(String alternatePositionName) {
+        this.alternatePositionName = alternatePositionName;
     }
 }

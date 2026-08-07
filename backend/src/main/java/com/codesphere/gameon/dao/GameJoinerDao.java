@@ -77,10 +77,11 @@ public class GameJoinerDao extends BaseDao {
      * @return a map of team letter to list of roster entries
      */
     public Map<String, List<RosterEntryDto>> findRosterByListingId(long gameListingId) {
-        String sql = "SELECT gj.[team], u.[username], p.[position_name] " +
+        String sql = "SELECT gj.[team], u.[username], p.[position_name], ap.[position_name] AS alternate_position_name " +
                 "FROM [dbo].[game_joiner] gj " +
                 "INNER JOIN [dbo].[users] u ON gj.[user_id] = u.[user_id] " +
                 "LEFT JOIN [dbo].[position] p ON gj.[position_id] = p.[position_id] " +
+                "LEFT JOIN [dbo].[position] ap ON gj.[alternate_position_id] = ap.[position_id] " +
                 "WHERE gj.[game_listing_id] = ? AND gj.[status] = 'ACCEPTED' " +
                 "ORDER BY gj.[team], u.[username]";
 
@@ -95,9 +96,10 @@ public class GameJoinerDao extends BaseDao {
                     String team = rs.getString("team");
                     String username = rs.getString("username");
                     String positionName = rs.getString("position_name"); // null for non-positional formats
+                    String alternatePositionName = rs.getString("alternate_position_name");
 
                     roster.computeIfAbsent(team, k -> new ArrayList<>())
-                            .add(new RosterEntryDto(username, positionName));
+                            .add(new RosterEntryDto(username, positionName, alternatePositionName));
                 }
             }
         } catch (SQLException e) {
