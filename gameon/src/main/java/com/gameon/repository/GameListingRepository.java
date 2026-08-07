@@ -73,6 +73,16 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "WHERE gl.gameListingId = :id")
     Optional<GameListing> findByIdWithDetails(@Param("id") Long id);
 
+    // Detail page query (eager load all associations needed for listings/detail.html)
+    @Query("SELECT DISTINCT gl FROM GameListing gl " +
+           "LEFT JOIN FETCH gl.creator " +
+           "LEFT JOIN FETCH gl.format f " +
+           "LEFT JOIN FETCH f.sport " +
+           "LEFT JOIN FETCH gl.joiners j " +
+           "LEFT JOIN FETCH j.user " +
+           "WHERE gl.gameListingId = :id")
+    Optional<GameListing> findDetailById(@Param("id") Long id);
+
     // Count active listings by sport format
     @Query("SELECT COUNT(gl) FROM GameListing gl WHERE gl.format.formatId = :formatId AND gl.isCompleted = false")
     long countActiveByFormat(@Param("formatId") Long formatId);

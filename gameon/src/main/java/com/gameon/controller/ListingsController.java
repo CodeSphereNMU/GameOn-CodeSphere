@@ -160,7 +160,7 @@ public class ListingsController {
     public String viewListing(@PathVariable Long id,
                               @AuthenticationPrincipal CustomUserDetails currentUser,
                               Model model) {
-        GameListing listing = gameListingService.getListingWithDetails(id);
+        GameListing listing = gameListingService.getListingDetail(id);
         model.addAttribute("listing", listing);
         model.addAttribute("isCreator", listing.getCreator().getUserId().equals(currentUser.getUserId()));
         return "listings/detail";

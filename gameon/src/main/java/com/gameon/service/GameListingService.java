@@ -153,6 +153,12 @@ public class GameListingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Game Listing", listingId));
     }
 
+    @Transactional(readOnly = true)
+    public GameListing getListingDetail(Long listingId) {
+        return gameListingRepository.findDetailById(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Game Listing", listingId));
+    }
+
     /**
      * Gets listings created by a specific user (for Lobby - Created tab).
      */
