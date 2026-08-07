@@ -38,3 +38,8 @@ logs/
 
 # Dependency directories
 dependency-reduced-pom.xml
+
+# Generated build and test logs
+backend/*_output.txt
+backend/test_build.txt
+backend/test_run.txt
