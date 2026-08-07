@@ -136,5 +136,4 @@ The remaining 19 use cases do not have detailed Kiro spec packages. Create them 
 
 - `docs/diagrams/` contains only a placeholder README. An ERD, use-case diagram, and sequence diagrams should be generated before final submission.
 - `docs/evidence/` contains only a placeholder README. Test evidence must be captured.
-- A fresh post-V3 database schema export should be generated from GameOnDB.
 - The functional specification (FSSB) is not stored in this repository. The canonical use-case catalogue is maintained in the BOC.

@@ -21,8 +21,10 @@ The following migrations have already been applied:
 - V1 established the original GameOn database schema.
 - V2 seeded the supported sports, formats and positions.
 - V3 aligned the schema with the confirmed Game On business rules.
+- V4 added `users.account_status` column (database preparation for future suspension/banning enforcement).
 
 V3 has been reviewed and successfully applied to `GameOnDB`.
+V4 has been successfully applied to and verified against `GameOnDB`.
 
 The schema was verified at version 3 as part of checkpoint commit `1657f27`.
 
@@ -31,9 +33,9 @@ The schema was verified at version 3 as part of checkpoint commit `1657f27`.
 - Migration location: `backend/src/main/resources/db/migration/`
 - Migration naming: `V<number>__<short_description>.sql` using two underscores.
 - Never edit an applied migration.
-- Do not modify or replace V1, V2 or V3.
+- Do not modify or replace V1, V2, V3 or V4.
 - Do not create another migration using an existing version number.
-- The next migration must be V4 or later.
+- The next migration must be V5 or later.
 - Only create a new migration when a future feature genuinely requires a database change.
 - Do not create duplicate tables, columns or seed data that already exist.
 - Before writing a migration, inspect the existing migrations and current schema.
@@ -100,7 +102,7 @@ Do not assume that a new identifier should be `INT`. Check the referenced primar
 
 - Use the same SQL type for a foreign key as the primary key it references.
 - Existing GameOn identifiers are primarily `BIGINT`.
-- Follow the key structure already established by V1–V3.
+- Follow the key structure already established by V1–V4.
 - Some associative tables use composite keys.
 - Do not change an existing key type merely to match a generic example.
 
@@ -175,11 +177,8 @@ Do not add Soccer, Cricket, Hockey or Badminton. These were rejected during the 
 
 ## Schema Documentation
 
-The existing schema export (`docs/Database/GameOnDB-current-schema.sql`) was generated before V3 and is not the current post-V3 schema.
+The existing schema export (`docs/Database/GameOnDB-current-schema.sql`) is the current schema-only export generated after V4 was applied.
 
-Until a fresh post-V3 export is generated from the database:
+V1, V2, V3 and V4 together form the authoritative migration history.
 
-- Treat V1, V2 and V3 together as the schema authority.
-- Clearly identify the old export as a historical pre-V3 reference.
-- Check the migrations before generating code from the old export.
-- Do not present the old export as the current schema.
+Future database changes must be made through later Flyway migrations. Regenerate the schema export after applying and verifying those migrations.
