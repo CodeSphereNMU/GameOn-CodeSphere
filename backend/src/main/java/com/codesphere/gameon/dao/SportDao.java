@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Data access for sports, filtered through user_sport_profile.
@@ -42,6 +43,29 @@ public class SportDao extends BaseDao {
             throw new RuntimeException("Database error", e);
         }
         return sports;
+    }
+
+    /**
+     * Finds a sport by its ID.
+     *
+     * @param sportId the sport ID to look up
+     * @return an Optional containing the sport if found, or empty if not
+     */
+    public Optional<Sport> findById(long sportId) {
+        String sql = "SELECT [sport_id], [sport_name] FROM [dbo].[sport] WHERE [sport_id] = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, sportId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(new Sport(rs.getLong("sport_id"), rs.getString("sport_name")));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error finding sport by ID: {}", sportId, e);
+            throw new RuntimeException("Database error", e);
+        }
+        return Optional.empty();
     }
 
     /**

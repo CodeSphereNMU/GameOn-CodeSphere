@@ -1,0 +1,271 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Create `BrowseFilter`, `BrowseListingDto`, `ListingDetailDto`, `RosterEntryDto`, and `PaginatedResponse<T>` classes": [
+      {
+        "executionId": "9e54950c-5ffe-4c46-86ba-72a05c9641f6",
+        "chatSessionId": "sess_b25db713-e989-45a6-b0d7-0c370204727b",
+        "timestamp": 1786057419917
+      },
+      {
+        "executionId": "9e54950c-5ffe-4c46-86ba-72a05c9641f6",
+        "chatSessionId": "sess_b25db713-e989-45a6-b0d7-0c370204727b",
+        "timestamp": 1786057665336
+      }
+    ],
+    "1. Create DTOs and value objects": [
+      {
+        "executionId": "9e54950c-5ffe-4c46-86ba-72a05c9641f6",
+        "chatSessionId": "sess_b25db713-e989-45a6-b0d7-0c370204727b",
+        "timestamp": 1786057665738
+      }
+    ],
+    "2.1 Add `findBrowseListings(List<Long> userSportIds, BrowseFilter filter)` and `countBrowseListings(List<Long> userSportIds, BrowseFilter filter)` to `GameListingDao`": [
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786057957380
+      },
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786058393230
+      }
+    ],
+    "2.2 Add `findRosterByListingId(long gameListingId)` to `GameJoinerDao`": [
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786057957568
+      },
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786058394104
+      }
+    ],
+    "2.3 Add `countAcceptedByListingId(long gameListingId)` to `GameJoinerDao`": [
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786057957985
+      },
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786058394890
+      }
+    ],
+    "2.4 Add `hasInvitation(long gameListingId, long userId)` to `InvitationDao`": [
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786057959114
+      },
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786058395789
+      }
+    ],
+    "2. Extend DAO layer with browse and roster queries": [
+      {
+        "executionId": "fb4aa0fb-79bc-4f15-a1ff-69d308e85fe8",
+        "chatSessionId": "sess_2a4e138c-bbed-475b-aae3-97726d2176b8",
+        "timestamp": 1786058395927
+      }
+    ],
+    "3.1 Create `BrowseListingService` with `browseListings(long userId, BrowseFilter filter)` method": [
+      {
+        "executionId": "03f592e9-f66c-49fb-b0c4-73e795ece24b",
+        "chatSessionId": "sess_cc8cee76-397b-4b9b-b2fb-3da1592f0962",
+        "timestamp": 1786058946037
+      },
+      {
+        "executionId": "03f592e9-f66c-49fb-b0c4-73e795ece24b",
+        "chatSessionId": "sess_cc8cee76-397b-4b9b-b2fb-3da1592f0962",
+        "timestamp": 1786059169893
+      }
+    ],
+    "3.2 Add `getListingDetail(long userId, long listingId)` method to `BrowseListingService`": [
+      {
+        "executionId": "6fee01b9-e7e8-4a9a-80c9-8540e9168f74",
+        "chatSessionId": "sess_82ce9cfb-fac4-4abb-a99e-595fdb081445",
+        "timestamp": 1786059247669
+      },
+      {
+        "executionId": "6fee01b9-e7e8-4a9a-80c9-8540e9168f74",
+        "chatSessionId": "sess_82ce9cfb-fac4-4abb-a99e-595fdb081445",
+        "timestamp": 1786059555015
+      }
+    ],
+    "3. Implement BrowseListingService": [
+      {
+        "executionId": "6fee01b9-e7e8-4a9a-80c9-8540e9168f74",
+        "chatSessionId": "sess_82ce9cfb-fac4-4abb-a99e-595fdb081445",
+        "timestamp": 1786059555166
+      }
+    ],
+    "4.1 Add `GET /api/game-listings` handler to `GameListingController`": [
+      {
+        "executionId": "efc75d64-e10e-403e-ad2f-490f76ceec64",
+        "chatSessionId": "sess_2bd55876-b53c-4c4b-ae3e-15baaa928e2c",
+        "timestamp": 1786059736939
+      },
+      {
+        "executionId": "efc75d64-e10e-403e-ad2f-490f76ceec64",
+        "chatSessionId": "sess_2bd55876-b53c-4c4b-ae3e-15baaa928e2c",
+        "timestamp": 1786060075663
+      }
+    ],
+    "4.2 Add `GET /api/game-listings/{id}` handler to `GameListingController`": [
+      {
+        "executionId": "24352c59-7e78-4d41-86f5-024fc0aa81e9",
+        "chatSessionId": "sess_c2c59cab-2746-4ab0-b3fd-0c525f88775e",
+        "timestamp": 1786060104412
+      },
+      {
+        "executionId": "24352c59-7e78-4d41-86f5-024fc0aa81e9",
+        "chatSessionId": "sess_c2c59cab-2746-4ab0-b3fd-0c525f88775e",
+        "timestamp": 1786060313413
+      }
+    ],
+    "4.3 Wire `BrowseListingService` into `JavalinConfig` and inject into `GameListingController`": [
+      {
+        "executionId": "e8568ef1-e391-471f-93ce-2f9e8605d9a5",
+        "chatSessionId": "sess_a1c6c3f7-962b-4502-bd06-69a68afd2e9c",
+        "timestamp": 1786060366702
+      },
+      {
+        "executionId": "e8568ef1-e391-471f-93ce-2f9e8605d9a5",
+        "chatSessionId": "sess_a1c6c3f7-962b-4502-bd06-69a68afd2e9c",
+        "timestamp": 1786060387983
+      }
+    ],
+    "4. Extend GameListingController with browse and detail endpoints": [
+      {
+        "executionId": "e8568ef1-e391-471f-93ce-2f9e8605d9a5",
+        "chatSessionId": "sess_a1c6c3f7-962b-4502-bd06-69a68afd2e9c",
+        "timestamp": 1786060388284
+      }
+    ],
+    "6.1 Create `frontend/pages/browse-listings.html` with card-based layout": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060530612
+      }
+    ],
+    "6.2 Create `frontend/js/browseListings.js` page script": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060530797
+      }
+    ],
+    "6.3 Create listing detail view (`frontend/pages/listing-detail.html` + `frontend/js/listingDetail.js`)": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060531086
+      },
+      {
+        "executionId": "c528b93e-bdb6-4499-8ab6-846a922f9f83",
+        "chatSessionId": "sess_62979caf-5ce4-466d-a991-4592b7040aea",
+        "timestamp": 1786061343020
+      },
+      {
+        "executionId": "c528b93e-bdb6-4499-8ab6-846a922f9f83",
+        "chatSessionId": "sess_62979caf-5ce4-466d-a991-4592b7040aea",
+        "timestamp": 1786061581787
+      }
+    ],
+    "6.4 Add browse-listings styles to `frontend/css/main.css`": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060531541
+      },
+      {
+        "executionId": "a4efb682-8ebd-4d9c-a068-8be0d83830c5",
+        "chatSessionId": "sess_4d09a0c8-c499-4755-9466-c45968be7ebb",
+        "timestamp": 1786061702726
+      },
+      {
+        "executionId": "a4efb682-8ebd-4d9c-a068-8be0d83830c5",
+        "chatSessionId": "sess_4d09a0c8-c499-4755-9466-c45968be7ebb",
+        "timestamp": 1786061847122
+      }
+    ],
+    "7.1 Write unit tests for `BrowseListingService`": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060531881
+      },
+      {
+        "executionId": "6c47b86e-dacd-4aae-bf2a-cb3921a85d89",
+        "chatSessionId": "sess_35b3b276-b610-4a85-b46f-939b34355e62",
+        "timestamp": 1786061935584
+      },
+      {
+        "executionId": "6c47b86e-dacd-4aae-bf2a-cb3921a85d89",
+        "chatSessionId": "sess_35b3b276-b610-4a85-b46f-939b34355e62",
+        "timestamp": 1786062480886
+      }
+    ],
+    "7.2 Write unit tests for `GameListingController` browse/detail handlers": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060532048
+      },
+      {
+        "executionId": "c9f17811-7a84-4736-9c9b-2137f612fd51",
+        "chatSessionId": "sess_d34957e8-835a-4efb-a5a6-c36296409008",
+        "timestamp": 1786062539727
+      },
+      {
+        "executionId": "c9f17811-7a84-4736-9c9b-2137f612fd51",
+        "chatSessionId": "sess_d34957e8-835a-4efb-a5a6-c36296409008",
+        "timestamp": 1786063197559
+      }
+    ],
+    "8. Final checkpoint": [
+      {
+        "executionId": "1793cd8d-1788-4d34-b9a3-885efcf716cb",
+        "chatSessionId": "sess_24385612-0f00-4e8c-9e0e-75ee71f8e28d",
+        "timestamp": 1786060532210
+      },
+      {
+        "executionId": "78e9457a-1253-48eb-ae48-d6dbcf1ffa92",
+        "chatSessionId": "sess_5aaa9900-e8fb-440e-88e8-7e00a287017e",
+        "timestamp": 1786063226336
+      },
+      {
+        "executionId": "78e9457a-1253-48eb-ae48-d6dbcf1ffa92",
+        "chatSessionId": "sess_5aaa9900-e8fb-440e-88e8-7e00a287017e",
+        "timestamp": 1786063355057
+      }
+    ],
+    "5. Checkpoint — Backend complete": [
+      {
+        "executionId": "5f84a5bc-9c06-4642-b1c0-4536204f2aea",
+        "chatSessionId": "sess_a72f8eb9-fe5b-4ee7-8faf-e79a8147a208",
+        "timestamp": 1786060538404
+      },
+      {
+        "executionId": "5f84a5bc-9c06-4642-b1c0-4536204f2aea",
+        "chatSessionId": "sess_a72f8eb9-fe5b-4ee7-8faf-e79a8147a208",
+        "timestamp": 1786060665196
+      }
+    ],
+    "7. Write unit tests (JUnit 5)": [
+      {
+        "executionId": "c9f17811-7a84-4736-9c9b-2137f612fd51",
+        "chatSessionId": "sess_d34957e8-835a-4efb-a5a6-c36296409008",
+        "timestamp": 1786063197742
+      }
+    ]
+  }
+}

@@ -1,10 +1,16 @@
 package com.codesphere.gameon.dao;
 
+import com.codesphere.gameon.dto.BrowseFilter;
+import com.codesphere.gameon.dto.BrowseListingDto;
 import com.codesphere.gameon.model.GameListing;
 
 import javax.sql.DataSource;
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -112,6 +118,195 @@ public class GameListingDao extends BaseDao {
             throw new RuntimeException("Database error", e);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns a paginated list of browsable listings matching the given filters.
+     * Only returns OPEN, public, future listings for the specified sport IDs.
+     *
+     * @param userSportIds list of sport IDs on the user's profile
+     * @param filter       pagination and optional filter parameters
+     * @return list of BrowseListingDto for the requested page
+     */
+    public List<BrowseListingDto> findBrowseListings(List<Long> userSportIds, BrowseFilter filter) {
+        if (userSportIds == null || userSportIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Object> params = new ArrayList<>();
+        String sql = buildBrowseQuery(userSportIds, filter, params, false);
+
+        List<BrowseListingDto> results = new ArrayList<>();
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            setParameters(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+                while (rs.next()) {
+                    BrowseListingDto dto = new BrowseListingDto();
+                    dto.setGameListingId(rs.getLong("game_listing_id"));
+                    dto.setSportName(rs.getString("sport_name"));
+                    dto.setFormatName(rs.getString("format_name"));
+                    dto.setSkillLevel(rs.getString("skill_level"));
+
+                    Timestamp startTs = rs.getTimestamp("date");
+                    Timestamp endTs = rs.getTimestamp("end_time");
+                    LocalDateTime startDt = startTs.toLocalDateTime();
+                    LocalDateTime endDt = endTs.toLocalDateTime();
+
+                    dto.setDate(startDt.toLocalDate().toString());
+                    String sessionWindow = startDt.format(timeFormatter)
+                            + "\u2013" + endDt.format(timeFormatter);
+                    dto.setSessionWindow(sessionWindow);
+
+                    dto.setLocation(rs.getString("location"));
+                    dto.setSpotsFilled(rs.getInt("spots_filled"));
+                    dto.setTotalSpots(rs.getInt("no_players"));
+                    dto.setCreatorUsername(rs.getString("creator_username"));
+                    results.add(dto);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error executing findBrowseListings", e);
+            throw new RuntimeException("Database error", e);
+        }
+        return results;
+    }
+
+    /**
+     * Returns the total count of browsable listings matching the given filters.
+     * Uses the same filtering logic as findBrowseListings but without pagination.
+     *
+     * @param userSportIds list of sport IDs on the user's profile
+     * @param filter       optional filter parameters
+     * @return total number of matching listings
+     */
+    public long countBrowseListings(List<Long> userSportIds, BrowseFilter filter) {
+        if (userSportIds == null || userSportIds.isEmpty()) {
+            return 0;
+        }
+
+        List<Object> params = new ArrayList<>();
+        String sql = buildBrowseQuery(userSportIds, filter, params, true);
+
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            setParameters(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error executing countBrowseListings", e);
+            throw new RuntimeException("Database error", e);
+        }
+        return 0;
+    }
+
+    /**
+     * Builds the browse SQL query dynamically based on filters.
+     * When countOnly is true, returns a COUNT(*) query without ORDER BY or pagination.
+     */
+    private String buildBrowseQuery(List<Long> userSportIds, BrowseFilter filter,
+                                    List<Object> params, boolean countOnly) {
+        StringBuilder sql = new StringBuilder();
+
+        // Spots filled subquery used in SELECT and optionally in WHERE
+        String spotsFilled = "(SELECT COUNT(*) FROM [dbo].[game_joiner] gj " +
+                "WHERE gj.[game_listing_id] = gl.[game_listing_id] AND gj.[status] = 'ACCEPTED')";
+
+        if (countOnly) {
+            sql.append("SELECT COUNT(*) FROM [dbo].[game_listing] gl ");
+        } else {
+            sql.append("SELECT gl.[game_listing_id], gl.[date], gl.[end_time], gl.[skill_level], ");
+            sql.append("gl.[location], sf.[format_name], sf.[no_players], s.[sport_name], ");
+            sql.append("u.[username] AS creator_username, ");
+            sql.append(spotsFilled).append(" AS spots_filled ");
+            sql.append("FROM [dbo].[game_listing] gl ");
+        }
+
+        if (countOnly) {
+            sql.append("INNER JOIN [dbo].[sport_format] sf ON gl.[format_id] = sf.[format_id] ");
+        } else {
+            sql.append("INNER JOIN [dbo].[sport_format] sf ON gl.[format_id] = sf.[format_id] ");
+            sql.append("INNER JOIN [dbo].[sport] s ON sf.[sport_id] = s.[sport_id] ");
+            sql.append("INNER JOIN [dbo].[users] u ON gl.[creator_id] = u.[user_id] ");
+        }
+
+        // For count query, we still need sport_format join for sport_id filter and hideFull
+        if (countOnly) {
+            // sport join only needed if not filtering by sportId (we need sport_id from sport_format)
+            // Actually sport_format already has sport_id, no need for sport table in count
+        }
+
+        // Base WHERE conditions
+        sql.append("WHERE gl.[status] = 'OPEN' ");
+        sql.append("AND gl.[is_private] = 0 ");
+        sql.append("AND gl.[date] > GETDATE() ");
+
+        // Sport IDs IN clause
+        sql.append("AND sf.[sport_id] IN (");
+        for (int i = 0; i < userSportIds.size(); i++) {
+            if (i > 0) sql.append(", ");
+            sql.append("?");
+            params.add(userSportIds.get(i));
+        }
+        sql.append(") ");
+
+        // Optional: sportId filter
+        if (filter.getSportId() != null) {
+            sql.append("AND sf.[sport_id] = ? ");
+            params.add(filter.getSportId());
+        }
+
+        // Optional: skillLevel filter
+        if (filter.getSkillLevel() != null && !filter.getSkillLevel().isBlank()) {
+            sql.append("AND gl.[skill_level] = ? ");
+            params.add(filter.getSkillLevel());
+        }
+
+        // Optional: date filter (single date)
+        if (filter.getDate() != null) {
+            sql.append("AND CAST(gl.[date] AS DATE) = ? ");
+            params.add(Date.valueOf(filter.getDate()));
+        }
+
+        // Optional: hideFull filter
+        if (filter.isHideFull()) {
+            sql.append("AND ").append(spotsFilled).append(" < sf.[no_players] ");
+        }
+
+        // Pagination (only for non-count queries)
+        if (!countOnly) {
+            sql.append("ORDER BY gl.[date] ASC ");
+            int offset = (filter.getPage() - 1) * filter.getSize();
+            sql.append("OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+            params.add(offset);
+            params.add(filter.getSize());
+        }
+
+        return sql.toString();
+    }
+
+    /**
+     * Sets parameters on a PreparedStatement from the dynamic parameter list.
+     */
+    private void setParameters(PreparedStatement ps, List<Object> params) throws SQLException {
+        for (int i = 0; i < params.size(); i++) {
+            Object param = params.get(i);
+            if (param instanceof Long) {
+                ps.setLong(i + 1, (Long) param);
+            } else if (param instanceof Integer) {
+                ps.setInt(i + 1, (Integer) param);
+            } else if (param instanceof String) {
+                ps.setString(i + 1, (String) param);
+            } else if (param instanceof Date) {
+                ps.setDate(i + 1, (Date) param);
+            } else {
+                ps.setObject(i + 1, param);
+            }
+        }
     }
 
     private GameListing mapRow(ResultSet rs) throws SQLException {

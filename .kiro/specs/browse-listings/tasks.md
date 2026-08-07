@@ -6,8 +6,8 @@ Implement the browse listings feature allowing authenticated players to view pag
 
 ## Tasks
 
-- [ ] 1. Create DTOs and value objects
-  - [ ] 1.1 Create `BrowseFilter`, `BrowseListingDto`, `ListingDetailDto`, `RosterEntryDto`, and `PaginatedResponse<T>` classes
+- [x] 1. Create DTOs and value objects
+  - [x] 1.1 Create `BrowseFilter`, `BrowseListingDto`, `ListingDetailDto`, `RosterEntryDto`, and `PaginatedResponse<T>` classes
     - `BrowseFilter`: page (default 1), size (default 20), sportId (optional), skillLevel (optional), date (optional, single LocalDate), hideFull (default false)
     - `BrowseListingDto`: gameListingId, sportName, formatName, skillLevel, date, sessionWindow, location, spotsFilled, totalSpots, creatorUsername
     - `ListingDetailDto`: extends card fields with hasPositions, isPrivate, teamA, teamB lists of RosterEntryDto
@@ -15,8 +15,8 @@ Implement the browse listings feature allowing authenticated players to view pag
     - `PaginatedResponse<T>`: items, page, size, totalItems, totalPages
     - _Requirements: 1.6, 1.7, 4.1–4.7, 5.1, 5.4_
 
-- [ ] 2. Extend DAO layer with browse and roster queries
-  - [ ] 2.1 Add `findBrowseListings(List<Long> userSportIds, BrowseFilter filter)` and `countBrowseListings(List<Long> userSportIds, BrowseFilter filter)` to `GameListingDao`
+- [x] 2. Extend DAO layer with browse and roster queries
+  - [x] 2.1 Add `findBrowseListings(List<Long> userSportIds, BrowseFilter filter)` and `countBrowseListings(List<Long> userSportIds, BrowseFilter filter)` to `GameListingDao`
     - Dynamic SQL building for optional filters (sportId, skillLevel, date, hideFull)
     - Base WHERE: status='OPEN', is_private=0, date > NOW, sport_id IN user's sport IDs
     - JOIN sport_format, sport, users for denormalised card data
@@ -27,23 +27,23 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Use parameterised queries with dynamic parameter list
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3_
 
-  - [ ] 2.2 Add `findRosterByListingId(long gameListingId)` to `GameJoinerDao`
+  - [x] 2.2 Add `findRosterByListingId(long gameListingId)` to `GameJoinerDao`
     - JOIN users for username, LEFT JOIN position for position_name
     - Filter by status='ACCEPTED'
     - Order by team, username
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 2.3 Add `countAcceptedByListingId(long gameListingId)` to `GameJoinerDao`
+  - [x] 2.3 Add `countAcceptedByListingId(long gameListingId)` to `GameJoinerDao`
     - Count ACCEPTED joiners for a single listing
     - _Requirements: 4.6_
 
-  - [ ] 2.4 Add `hasInvitation(long gameListingId, long userId)` to `InvitationDao`
+  - [x] 2.4 Add `hasInvitation(long gameListingId, long userId)` to `InvitationDao`
     - Returns boolean: SELECT 1 FROM invitation WHERE game_listing_id = ? AND invitee_id = ?
     - Used by detail endpoint for private listing access check
     - _Requirements: 6.3, 6.4_
 
-- [ ] 3. Implement BrowseListingService
-  - [ ] 3.1 Create `BrowseListingService` with `browseListings(long userId, BrowseFilter filter)` method
+- [x] 3. Implement BrowseListingService
+  - [x] 3.1 Create `BrowseListingService` with `browseListings(long userId, BrowseFilter filter)` method
     - Fetch user's sport IDs via `SportDao.findSportsByUserId()`
     - If user has no sports, return empty paginated response
     - If sportId filter provided but not in user's sport list, return empty response
@@ -53,7 +53,7 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Return `PaginatedResponse<BrowseListingDto>`
     - _Requirements: 1.1–1.8, 2.1–2.5, 3.1–3.3_
 
-  - [ ] 3.2 Add `getListingDetail(long userId, long listingId)` method to `BrowseListingService`
+  - [x] 3.2 Add `getListingDetail(long userId, long listingId)` method to `BrowseListingService`
     - Fetch listing by ID (404 if not found)
     - If requesting user is the creator (game_listing.creator_id = userId): allow access, skip further checks
     - If listing is public: verify listing's sport is on user's profile (403 if not)
@@ -63,8 +63,8 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Build and return `ListingDetailDto` with teamA/teamB roster arrays
     - _Requirements: 5.1–5.4, 6.1–6.7_
 
-- [ ] 4. Extend GameListingController with browse and detail endpoints
-  - [ ] 4.1 Add `GET /api/game-listings` handler to `GameListingController`
+- [x] 4. Extend GameListingController with browse and detail endpoints
+  - [x] 4.1 Add `GET /api/game-listings` handler to `GameListingController`
     - Parse query params: page, size, sportId, skillLevel, date, hideFull
     - Validate session (401 if missing)
     - Validate pagination params (400 if invalid)
@@ -74,7 +74,7 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Return `ApiResponse.success(paginatedResponse)`
     - _Requirements: 7.1, 7.3, 8.1, 8.2, 8.3, 8.5, 8.6_
 
-  - [ ] 4.2 Add `GET /api/game-listings/{id}` handler to `GameListingController`
+  - [x] 4.2 Add `GET /api/game-listings/{id}` handler to `GameListingController`
     - Parse path param listingId
     - Validate session (401 if missing)
     - Call `BrowseListingService.getListingDetail()`
@@ -82,16 +82,16 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Handle 404 and 403 from service
     - _Requirements: 7.2, 8.4_
 
-  - [ ] 4.3 Wire `BrowseListingService` into `JavalinConfig` and inject into `GameListingController`
+  - [x] 4.3 Wire `BrowseListingService` into `JavalinConfig` and inject into `GameListingController`
     - Instantiate BrowseListingService with required DAOs (GameListingDao, GameJoinerDao, InvitationDao, SportDao)
     - Pass to GameListingController constructor (or add setter)
     - _Requirements: 8.1_
 
-- [ ] 5. Checkpoint — Backend complete
+- [x] 5. Checkpoint — Backend complete
   - Ensure all backend code compiles, ask the user if questions arise.
 
 - [ ] 6. Create frontend browse listings page
-  - [ ] 6.1 Create `frontend/pages/browse-listings.html` with card-based layout
+  - [x] 6.1 Create `frontend/pages/browse-listings.html` with card-based layout
     - Shared app header with navigation back link
     - Filter controls: sport dropdown, skill level dropdown, single date input
     - "Show full listings" toggle (on by default)
@@ -113,7 +113,7 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Card click navigates to detail view
     - _Requirements: 1.6, 2.1–2.5, 3.1–3.3, 4.1–4.7_
 
-  - [ ] 6.3 Create listing detail view (`frontend/pages/listing-detail.html` + `frontend/js/listingDetail.js`)
+  - [x] 6.3 Create listing detail view (`frontend/pages/listing-detail.html` + `frontend/js/listingDetail.js`)
     - Display all card fields plus roster
     - Two-column Team A / Team B roster layout
     - Show position names for positional formats
@@ -121,7 +121,7 @@ Implement the browse listings feature allowing authenticated players to view pag
     - "Request to Join" button (disabled, labelled "Coming soon")
     - _Requirements: 5.1–5.4_
 
-  - [ ] 6.4 Add browse-listings styles to `frontend/css/main.css`
+  - [x] 6.4 Add browse-listings styles to `frontend/css/main.css`
     - Listing card styles (`.listing-card`, `.listing-card__sport`, `.listing-card__capacity`, etc.)
     - Filter bar styles
     - "Show full listings" toggle styles
@@ -132,8 +132,8 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Use existing CSS variables (--color-primary, --radius, --shadow-card, etc.)
     - _Requirements: 4.1–4.7, 5.1–5.3_
 
-- [ ] 7. Write unit tests (JUnit 5)
-  - [ ] 7.1 Write unit tests for `BrowseListingService`
+- [x] 7. Write unit tests (JUnit 5)
+  - [x] 7.1 Write unit tests for `BrowseListingService`
     - Test: empty sport profile returns empty results
     - Test: sportId filter not on profile returns empty results
     - Test: detail for non-existent listing returns 404
@@ -148,14 +148,14 @@ Implement the browse listings feature allowing authenticated players to view pag
     - Test: single date filter returns only listings on that date
     - _Requirements: 1.1, 2.5, 3.2, 3.3, 6.1–6.7, 7.1_
 
-  - [ ] 7.2 Write unit tests for `GameListingController` browse/detail handlers
+  - [x] 7.2 Write unit tests for `GameListingController` browse/detail handlers
     - Test: missing session returns 401
     - Test: invalid page/size returns 400
     - Test: invalid date format returns 400
     - Test: valid request returns 200 with ApiResponse wrapper
     - _Requirements: 7.1, 7.2, 8.5, 8.6_
 
-- [ ] 8. Final checkpoint
+- [x] 8. Final checkpoint
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

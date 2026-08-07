@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listing Detail - GameOn</title>
+    <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="listing-detail-page">
+    <header class="app-header">
+        <a href="../pages/browse-listings.html" class="app-header__back" aria-label="Back to browse listings">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" fill="#333" stroke="none"/>
+                <path d="M15 18l-6-6 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+            </svg>
+        </a>
+        <h1 class="app-header__title">Game On</h1>
+    </header>
+
+    <main class="listing-detail-content">
+        <!-- Loading State -->
+        <div id="detail-loading" class="listing-detail__loading" aria-live="polite">
+            <p>Loading listing details...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="detail-error" class="listing-detail__error hidden" role="alert">
+            <p id="detail-error-message">Something went wrong. Please try again.</p>
+            <a href="../pages/browse-listings.html" class="btn-secondary">Back to Listings</a>
+        </div>
+
+        <!-- Content State -->
+        <section id="detail-content" class="listing-detail__content hidden" aria-label="Listing details">
+            <!-- Listing Info Card -->
+            <article class="listing-detail-card">
+                <div class="listing-detail-card__header">
+                    <h2 id="detail-sport" class="listing-detail-card__sport"></h2>
+                    <span id="detail-format" class="listing-detail-card__format"></span>
+                </div>
+
+                <div class="listing-detail-card__body">
+                    <div class="listing-detail-card__row">
+                        <span class="listing-detail-card__label">Date</span>
+                        <span id="detail-date" class="listing-detail-card__value"></span>
+                    </div>
+                    <div class="listing-detail-card__row">
+                        <span class="listing-detail-card__label">Time</span>
+                        <span id="detail-time" class="listing-detail-card__value"></span>
+                    </div>
+                    <div class="listing-detail-card__row">
+                        <span class="listing-detail-card__label">Location</span>
+                        <span id="detail-location" class="listing-detail-card__value"></span>
+                    </div>
+                    <div class="listing-detail-card__row">
+                        <span class="listing-detail-card__label">Skill Level</span>
+                        <span id="detail-skill" class="listing-detail-card__value"></span>
+                    </div>
+                    <div class="listing-detail-card__row">
+                        <span class="listing-detail-card__label">Capacity</span>
+                        <span id="detail-capacity" class="listing-detail-card__value"></span>
+                    </div>
+                    <div class="listing-detail-card__row">
+                        <span class="listing-detail-card__label">Created by</span>
+                        <span id="detail-creator" class="listing-detail-card__value"></span>
+                    </div>
+                </div>
+
+                <div class="listing-detail-card__actions">
+                    <button type="button" class="btn-primary" disabled aria-label="Request to Join - Coming soon">
+                        Coming soon
+                    </button>
+                </div>
+            </article>
+
+            <!-- Roster Section -->
+            <section class="listing-detail-roster" aria-label="Team roster">
+                <h3 class="listing-detail-roster__title">Roster</h3>
+                <div class="listing-detail-roster__teams">
+                    <!-- Team A -->
+                    <div class="listing-detail-roster__team">
+                        <h4 class="listing-detail-roster__team-name">Team A</h4>
+                        <ul id="roster-team-a" class="listing-detail-roster__list" aria-label="Team A players">
+                        </ul>
+                    </div>
+                    <!-- Team B -->
+                    <div class="listing-detail-roster__team">
+                        <h4 class="listing-detail-roster__team-name">Team B</h4>
+                        <ul id="roster-team-b" class="listing-detail-roster__list" aria-label="Team B players">
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/listingDetail.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Listings - GameOn</title>
+    <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="browse-listings-page">
+    <header class="app-header">
+        <a href="../pages/dashboard.html" class="app-header__back" aria-label="Back to dashboard">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" fill="#333" stroke="none"/>
+                <path d="M15 18l-6-6 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+            </svg>
+        </a>
+        <h1 class="app-header__title">Game On</h1>
+    </header>
+
+    <main class="browse-listings-content">
+        <h2 class="browse-listings__heading">Browse Listings</h2>
+
+        <!-- Filter Controls -->
+        <section class="filter-bar" aria-label="Filter listings">
+            <div class="filter-bar__row">
+                <div class="filter-bar__field">
+                    <label for="filter-sport" class="filter-bar__label">Sport</label>
+                    <select id="filter-sport" class="form-select">
+                        <option value="">All Sports</option>
+                    </select>
+                </div>
+
+                <div class="filter-bar__field">
+                    <label for="filter-skill" class="filter-bar__label">Skill Level</label>
+                    <select id="filter-skill" class="form-select">
+                        <option value="">Any Level</option>
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                    </select>
+                </div>
+
+                <div class="filter-bar__field">
+                    <label for="filter-date" class="filter-bar__label">Date</label>
+                    <input type="date" id="filter-date" class="form-input">
+                </div>
+            </div>
+
+            <div class="filter-bar__toggle">
+                <label class="toggle-label" for="toggle-show-full">
+                    <input type="checkbox" id="toggle-show-full" checked>
+                    <span class="toggle-text">Show full listings</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- Loading State -->
+        <div id="browse-loading" class="browse-listings__loading" aria-live="polite">
+            <p>Loading listings...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="browse-error" class="browse-listings__error hidden" role="alert">
+            <p id="browse-error-message">Something went wrong. Please try again.</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="browse-empty" class="browse-listings__empty hidden" aria-live="polite">
+            <p>No listings found matching your filters.</p>
+        </div>
+
+        <!-- Listings Grid -->
+        <section id="listings-grid" class="listings-grid hidden" aria-label="Game listings">
+            <!-- Listing cards rendered dynamically by JS -->
+        </section>
+
+        <!-- Pagination Controls -->
+        <nav id="pagination-controls" class="pagination-controls hidden" aria-label="Pagination">
+            <button type="button" id="btn-prev-page" class="btn-pagination" disabled aria-label="Previous page">
+                &larr; Previous
+            </button>
+            <span id="pagination-indicator" class="pagination-indicator" aria-live="polite">
+                Page 1 of 1
+            </span>
+            <button type="button" id="btn-next-page" class="btn-pagination" disabled aria-label="Next page">
+                Next &rarr;
+            </button>
+        </nav>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/browseListings.js"></script>
+</body>
+</html>

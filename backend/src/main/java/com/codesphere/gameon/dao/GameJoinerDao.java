@@ -1,12 +1,18 @@
 package com.codesphere.gameon.dao;
 
+import com.codesphere.gameon.dto.RosterEntryDto;
 import com.codesphere.gameon.model.GameJoiner;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Data access for the dbo.game_joiner table.
@@ -57,6 +63,71 @@ public class GameJoinerDao extends BaseDao {
             }
 
             ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Finds the roster of accepted participants for a given game listing,
+     * grouped by team letter (e.g. "A", "B").
+     *
+     * Each entry includes the participant's username and optional position name.
+     * Results are ordered by team then username.
+     *
+     * @param gameListingId the listing to fetch the roster for
+     * @return a map of team letter to list of roster entries
+     */
+    public Map<String, List<RosterEntryDto>> findRosterByListingId(long gameListingId) {
+        String sql = "SELECT gj.[team], u.[username], p.[position_name] " +
+                "FROM [dbo].[game_joiner] gj " +
+                "INNER JOIN [dbo].[users] u ON gj.[user_id] = u.[user_id] " +
+                "LEFT JOIN [dbo].[position] p ON gj.[position_id] = p.[position_id] " +
+                "WHERE gj.[game_listing_id] = ? AND gj.[status] = 'ACCEPTED' " +
+                "ORDER BY gj.[team], u.[username]";
+
+        Map<String, List<RosterEntryDto>> roster = new LinkedHashMap<>();
+
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, gameListingId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String team = rs.getString("team");
+                    String username = rs.getString("username");
+                    String positionName = rs.getString("position_name"); // null for non-positional formats
+
+                    roster.computeIfAbsent(team, k -> new ArrayList<>())
+                            .add(new RosterEntryDto(username, positionName));
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("Error finding roster for listing ID: {}", gameListingId, e);
+            throw new RuntimeException("Database error", e);
+        }
+
+        return roster;
+    }
+
+    /**
+     * Counts the number of accepted joiners for a given game listing.
+     *
+     * @param gameListingId the listing to count accepted joiners for
+     * @return the count of accepted joiners
+     */
+    public int countAcceptedByListingId(long gameListingId) {
+        String sql = "SELECT COUNT(*) FROM [dbo].[game_joiner] WHERE [game_listing_id] = ? AND [status] = 'ACCEPTED'";
+
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, gameListingId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Error counting accepted joiners for listing ID: {}", gameListingId, e);
+            throw new RuntimeException("Database error", e);
         }
     }
 }
