@@ -102,6 +102,16 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- View Posts & Match Results Buttons -->
+                <div class="mt-3">
+                    <a th:href="@{'/profile/' + ${user.userId} + '/posts'}" class="btn btn-gameon w-100 mb-2">
+                        View Posts →
+                    </a>
+                    <a th:href="@{'/profile/' + ${user.userId} + '/results'}" class="btn btn-gameon w-100">
+                        View Match Results →
+                    </a>
+                </div>
             </div>
         </div>
     </div>
