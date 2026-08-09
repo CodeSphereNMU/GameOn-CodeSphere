@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Create Listing')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-7">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2 text-danger"></i>Create Game Listing</h5>
+                        <small class="text-muted">Step 1 - Enter listing details</small>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${formats.isEmpty()}" class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            You need to add a sport to your profile before creating a listing.
+                            <a th:href="@{/profile/add-sport}" class="alert-link">Add Sport</a>
+                        </div>
+
+                        <form th:unless="${formats.isEmpty()}" th:action="@{/listings/create}" method="post">
+                            <div class="mb-3">
+                                <label for="formatId" class="form-label">Sport &amp; Format</label>
+                                <select class="form-select" id="formatId" name="formatId" required>
+                                    <option value="">-- Select format --</option>
+                                    <option th:each="format : ${formats}"
+                                            th:value="${format.formatId}"
+                                            th:text="${format.sport.sportName + ' - ' + format.formatName + ' (' + format.noPlayers + ' players)'}">Format</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="skillLevel" class="form-label">Skill Level</label>
+                                <select class="form-select" id="skillLevel" name="skillLevel" required>
+                                    <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}">Level</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="scheduledDate" class="form-label">Date &amp; Time</label>
+                                <input type="datetime-local" class="form-control" id="scheduledDate"
+                                       name="scheduledDate" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="location" class="form-label">Location</label>
+                                <input type="text" class="form-control" id="location" name="location"
+                                       placeholder="e.g. City Sports Centre, Court 3" required maxlength="200">
+                            </div>
+                            <div class="mb-3">
+                                <label for="privacySetting" class="form-label">Privacy</label>
+                                <select class="form-select" id="privacySetting" name="privacySetting" required>
+                                    <option value="PUBLIC">Public - visible to all players</option>
+                                    <option value="PRIVATE">Private - invite only</option>
+                                </select>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-gameon">
+                                    Next <i class="bi bi-arrow-right ms-1"></i>
+                                </button>
+                                <a th:href="@{/listings}" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

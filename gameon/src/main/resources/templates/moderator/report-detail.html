@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Report Detail')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <!-- Report Info -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-flag me-2 text-danger"></i>Report #<span th:text="${report.reportId}">0</span></h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Type:</strong> <span class="badge" th:classappend="${report.reportType.name() == 'USER'} ? 'bg-warning text-dark' : 'bg-info'" th:text="${report.reportType}">TYPE</span></p>
+                        <p><strong>Reason:</strong> <span th:text="${report.reportReason}">Reason</span></p>
+                        <p th:if="${report.content != null}"><strong>Details:</strong> <span th:text="${report.content}">Details</span></p>
+                        <p><strong>Reported by:</strong> <span th:text="${report.reporter.username}">Reporter</span></p>
+                        <p><strong>Date:</strong> <span th:text="${#temporals.format(report.createdAt, 'dd MMM yyyy HH:mm')}">Date</span></p>
+                    </div>
+                </div>
+
+                <!-- Reported Item -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">Reported Item</h6>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${itemNotFound}" class="text-muted">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Item no longer exists or has been removed.
+                        </div>
+
+                        <!-- User Report -->
+                        <div th:if="${reportedUser != null}">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle fs-3 me-3 text-muted"></i>
+                                <div>
+                                    <strong th:text="${reportedUser.username}">Username</strong>
+                                    <br><small class="text-muted" th:text="${reportedUser.userRole}">Role</small>
+                                    <br><small th:classappend="${reportedUser.isActive} ? 'text-success' : 'text-danger'"
+                                              th:text="${reportedUser.isActive} ? 'Active' : 'Deactivated'">Status</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Post Report -->
+                        <div th:if="${reportedPost != null}">
+                            <p class="mb-1"><strong th:text="${reportedPost.user.username}">Author</strong></p>
+                            <p class="mb-1 p-2 bg-light rounded" th:text="${reportedPost.content}">Content</p>
+                            <small class="text-muted" th:text="${#temporals.format(reportedPost.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex gap-2">
+                    <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/dismiss'}" method="post">
+                        <button type="submit" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>Dismiss Report
+                        </button>
+                    </form>
+                    <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/action'}" method="post"
+                          onsubmit="return confirm('This will remove the content. Are you sure?')">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Remove <span th:text="${report.reportType.name() == 'USER'} ? 'User' : 'Post'">Item</span>
+                        </button>
+                    </form>
+                    <a th:href="@{/moderator/reports}" class="btn btn-outline-secondary ms-auto">Back to Reports</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

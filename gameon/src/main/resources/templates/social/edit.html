@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Edit Post')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('social')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('social')}"></div>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Post</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{'/social/edit/' + ${post.postId}}" method="post">
+                            <div class="mb-3">
+                                <label for="content" class="form-label">Content</label>
+                                <textarea class="form-control" id="content" name="content" rows="4"
+                                          required maxlength="500" th:text="${post.content}"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="privacySetting" class="form-label">Privacy</label>
+                                <select class="form-select" id="privacySetting" name="privacySetting" required>
+                                    <option value="PUBLIC" th:selected="${post.privacySetting.name() == 'PUBLIC'}">Public - Everyone</option>
+                                    <option value="FOLLOWERS" th:selected="${post.privacySetting.name() == 'FOLLOWERS'}">Followers Only</option>
+                                </select>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-gameon">Save Changes</button>
+                                <a th:href="@{/social}" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

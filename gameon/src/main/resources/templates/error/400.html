@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Request - GameOn</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+        <div class="text-center">
+            <h1 class="display-1 text-warning fw-bold">400</h1>
+            <h2 class="mb-3">Bad Request</h2>
+            <p class="text-muted mb-2" th:text="${message != null ? message : 'Your request could not be processed. Please check your input and try again.'}">
+                Your request could not be processed. Please check your input and try again.
+            </p>
+            <p th:if="${ruleCode != null}" class="text-muted small mb-4">
+                Rule: <span th:text="${ruleCode}"></span>
+            </p>
+            <div th:if="${errors != null}" class="text-start mx-auto mb-4" style="max-width: 400px;">
+                <ul class="list-unstyled text-danger small">
+                    <li th:each="error : ${errors}" th:text="${error.defaultMessage}"></li>
+                </ul>
+            </div>
+            <a href="/listings" class="btn btn-danger rounded-pill px-4">Go to Listings</a>
+            <a href="javascript:history.back()" class="btn btn-outline-secondary rounded-pill px-4 ms-2">Go Back</a>
+        </div>
+    </div>
+</body>
+</html>

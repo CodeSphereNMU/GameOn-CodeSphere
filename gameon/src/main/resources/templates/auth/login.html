@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - GameOn</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; }
+        .login-card { background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .brand-title { font-style: italic; font-weight: 800; color: #DC3545; font-size: 2.5rem; }
+        .btn-gameon { background-color: #DC3545; border-color: #DC3545; border-radius: 25px; }
+        .btn-gameon:hover { background-color: #bb2d3b; border-color: #bb2d3b; }
+    </style>
+</head>
+<body>
+    <div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+        <div class="col-md-5 col-lg-4">
+            <div class="login-card p-5">
+                <div class="text-center mb-4">
+                    <h1 class="brand-title">GAME ON</h1>
+                    <p class="text-muted">Sign in to find your next game</p>
+                </div>
+
+                <!-- Error Messages -->
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <span th:text="${error}">Invalid credentials</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+
+                <!-- Success Messages -->
+                <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
+                    <span th:text="${message}">Success</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+
+                <!-- Login Form -->
+                <form th:action="@{/login}" method="post">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               placeholder="Enter your username" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               placeholder="Enter your password" required>
+                    </div>
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-gameon btn-lg text-white">Login</button>
+                    </div>
+                </form>
+
+                <div class="text-center">
+                    <p class="text-muted mb-0">Don't have an account?
+                        <a th:href="@{/register}" class="text-danger fw-bold text-decoration-none">Sign Up</a>
+                    </p>
+                </div>
+
+                <!-- Test accounts hint (dev only) -->
+                <div class="mt-4 p-3 bg-light rounded small">
+                    <strong>Test Accounts:</strong><br>
+                    Users: <code>Zane</code>, <code>Lihlumelo</code>, <code>Gerard</code>, <code>Robert</code> (pw: <code>Test123</code>)<br>
+                    Moderator: <code>Moderator</code> (pw: <code>Admin123</code>)
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

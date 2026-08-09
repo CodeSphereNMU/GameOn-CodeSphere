@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Lobby')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('lobby')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('lobby')}"></div>
+
+    <div class="container mt-4">
+        <!-- Flash Messages -->
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Lobby Sub-Tabs -->
+        <ul class="nav nav-pills mb-4">
+            <li class="nav-item">
+                <a class="nav-link" th:classappend="${activeTab == 'created'} ? 'active bg-danger'" th:href="@{/lobby/created}">Created</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" th:classappend="${activeTab == 'joined'} ? 'active bg-danger'" th:href="@{/lobby/joined}">Joined</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" th:classappend="${activeTab == 'history'} ? 'active bg-danger'" th:href="@{/lobby/history}">Match History</a>
+            </li>
+        </ul>
+
+        <!-- ===== CREATED TAB ===== -->
+        <div th:if="${activeTab == 'created'}">
+            <div th:if="${listings == null || listings.isEmpty()}" class="text-center text-muted py-5">
+                <i class="bi bi-clipboard-plus" style="font-size: 3rem;"></i>
+                <p class="mt-2">You haven't created any listings yet.</p>
+                <a th:href="@{/listings/create}" class="btn btn-gameon btn-sm">Create Listing</a>
+            </div>
+            <div th:unless="${listings == null || listings.isEmpty()}" class="list-group">
+                <div th:each="listing : ${listings}" class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1" th:text="${listing.format.sport.sportName + ' - ' + listing.format.formatName}">Sport</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar me-1"></i>
+                                <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
+                                <span class="ms-2"><i class="bi bi-geo-alt me-1"></i><span th:text="${listing.location}">Location</span></span>
+                            </small>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <span th:if="${listing.isCompleted}" class="badge bg-secondary">Completed</span>
+                            <span th:unless="${listing.isCompleted}" class="badge bg-success">Active</span>
+                            <a th:unless="${listing.isCompleted}" th:href="@{'/lobby/requests/' + ${listing.gameListingId}}"
+                               class="btn btn-outline-gameon btn-sm">Requests</a>
+                            <a th:href="@{'/match-result/submit/' + ${listing.gameListingId}}"
+                               class="btn btn-sm btn-outline-secondary">Score</a>
+                            <a th:unless="${listing.isCompleted}" th:href="@{'/listings/' + ${listing.gameListingId} + '/edit'}"
+                               class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a th:href="@{'/listings/' + ${listing.gameListingId}}" class="btn btn-sm btn-outline-secondary">View</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== JOINED TAB ===== -->
+        <div th:if="${activeTab == 'joined'}">
+            <div th:if="${joinedGames == null || joinedGames.isEmpty()}" class="text-center text-muted py-5">
+                <i class="bi bi-people" style="font-size: 3rem;"></i>
+                <p class="mt-2">You haven't joined any games yet.</p>
+                <a th:href="@{/listings}" class="btn btn-gameon btn-sm">Browse Listings</a>
+            </div>
+            <div th:unless="${joinedGames == null || joinedGames.isEmpty()}" class="list-group">
+                <div th:each="gj : ${joinedGames}" class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1" th:text="${gj.gameListing.format.sport.sportName + ' - ' + gj.gameListing.format.formatName}">Sport</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar me-1"></i>
+                                <span th:text="${#temporals.format(gj.gameListing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
+                                <span class="ms-2">Team <span th:text="${gj.team}">A</span></span>
+                            </small>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <span class="badge"
+                                  th:classappend="${gj.status.name() == 'PENDING'} ? 'bg-warning text-dark' : (${gj.status.name() == 'ACCEPTED'} ? 'bg-success' : 'bg-info')"
+                                  th:text="${gj.status}">Status</span>
+                            <form th:if="${gj.status.name() != 'LOCKED'}"
+                                  th:action="@{'/game-joiner/leave/' + ${gj.gameListing.gameListingId}}" method="post"
+                                  onsubmit="return confirm('Leave this game?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Leave</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== HISTORY TAB ===== -->
+        <div th:if="${activeTab == 'history'}">
+            <div th:if="${results == null || results.isEmpty()}" class="text-center text-muted py-5">
+                <i class="bi bi-trophy" style="font-size: 3rem;"></i>
+                <p class="mt-2">No match history yet. Play some games!</p>
+            </div>
+            <div th:unless="${results == null || results.isEmpty()}" class="list-group">
+                <div th:each="result : ${results}" class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1" th:text="${result.gameListing.format.sport.sportName + ' - ' + result.gameListing.format.formatName}">Sport</h6>
+                            <small class="text-muted">
+                                <span th:text="${#temporals.format(result.gameListing.scheduledDate, 'dd MMM yyyy')}">Date</span>
+                            </small>
+                        </div>
+                        <div class="text-center">
+                            <span class="fs-5 fw-bold" th:text="${result.teamAScore + ' - ' + result.teamBScore}">0 - 0</span>
+                            <br>
+                            <span class="badge"
+                                  th:classappend="${result.winners == 'DRAW'} ? 'bg-secondary' : 'bg-success'"
+                                  th:text="${result.winners.replace('_', ' ')}">Winner</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

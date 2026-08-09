@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Report')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-flag text-danger me-2"></i>
+                            Report <span th:text="${reportType == 'USER'} ? 'User' : 'Post'">Item</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Target info for user reports -->
+                        <div th:if="${targetUser != null}" class="d-flex align-items-center mb-3 p-2 bg-light rounded">
+                            <i class="bi bi-person-circle fs-3 me-2 text-muted"></i>
+                            <strong th:text="${targetUser.username}">Username</strong>
+                        </div>
+
+                        <form th:action="${reportType == 'USER'} ? @{'/report/user/' + ${targetUser.userId}} : @{'/report/post/' + ${referenceId}}"
+                              method="post">
+                            <div class="mb-3">
+                                <label class="form-label">Select an offence:</label>
+                                <div th:each="offence : ${offences}" class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="reportReason"
+                                           th:id="${'offence-' + offenceStat.index}"
+                                           th:value="${offence}" required>
+                                    <label class="form-check-label" th:for="${'offence-' + offenceStat.index}"
+                                           th:text="${offence}">Offence</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="content" class="form-label">Additional details (optional):</label>
+                                <textarea class="form-control" id="content" name="content" rows="3"
+                                          maxlength="200" placeholder="Describe the issue..."></textarea>
+                                <div class="form-text">Max 200 characters</div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-flag me-1"></i>Report &amp; Block
+                                </button>
+                                <a href="javascript:history.back()" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

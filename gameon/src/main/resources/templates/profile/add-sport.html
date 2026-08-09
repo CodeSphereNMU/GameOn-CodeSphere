@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Add Sport')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Add Sport to Profile</h5>
+                    </div>
+                    <div class="card-body">
+                        <form th:action="@{/profile/add-sport}" method="post">
+                            <div class="mb-3">
+                                <label for="sportId" class="form-label">Sport</label>
+                                <select class="form-select" id="sportId" name="sportId" required>
+                                    <option value="">-- Select a sport --</option>
+                                    <option th:each="sport : ${sports}"
+                                            th:value="${sport.sportId}"
+                                            th:text="${sport.sportName}"
+                                            th:disabled="${userSportIds.contains(sport.sportId)}">Sport</option>
+                                </select>
+                                <div class="form-text">Sports already on your profile are disabled.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="skillLevel" class="form-label">Skill Level</label>
+                                <select class="form-select" id="skillLevel" name="skillLevel" required>
+                                    <option th:each="level : ${skillLevels}"
+                                            th:value="${level}"
+                                            th:text="${level}">Level</option>
+                                </select>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-gameon">Add Sport</button>
+                                <a th:href="@{/profile}" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

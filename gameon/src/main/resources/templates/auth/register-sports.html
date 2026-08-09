@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Sports - GameOn</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; }
+        .register-card { background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .brand-title { font-style: italic; font-weight: 800; color: #DC3545; font-size: 2.5rem; }
+        .btn-gameon { background-color: #DC3545; border-color: #DC3545; border-radius: 25px; }
+        .btn-gameon:hover { background-color: #bb2d3b; border-color: #bb2d3b; }
+        .sport-card { cursor: pointer; transition: all 0.2s; border: 2px solid #dee2e6; }
+        .sport-card:hover { border-color: #DC3545; transform: translateY(-2px); }
+        .sport-card.selected { border-color: #DC3545; background-color: #fff5f5; }
+        .skill-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+        <div class="col-md-7 col-lg-6">
+            <div class="register-card p-5">
+                <div class="text-center mb-4">
+                    <h1 class="brand-title">GAME ON</h1>
+                    <p class="text-muted">Step 2 of 2 - Tell us what you play</p>
+                </div>
+
+                <!-- Error -->
+                <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}">Error</div>
+
+                <form th:action="@{/register-sports}" th:object="${registerStep2Dto}" method="post">
+                    <p class="text-muted small mb-3">Select at least one sport and your skill level:</p>
+
+                    <div th:each="sport, iter : ${sports}" class="card sport-card mb-3 p-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="form-check">
+                                <input class="form-check-input sport-checkbox" type="checkbox"
+                                       th:id="'sport-' + ${sport.sportId}"
+                                       th:name="'sportSelections[' + ${iter.index} + '].sportId'"
+                                       th:value="${sport.sportId}">
+                                <label class="form-check-label fw-bold" th:for="'sport-' + ${sport.sportId}"
+                                       th:text="${sport.sportName}">Sport</label>
+                            </div>
+                            <div>
+                                <select class="form-select form-select-sm" style="width: auto;"
+                                        th:name="'sportSelections[' + ${iter.index} + '].skillLevel'">
+                                    <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}">Level</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-gameon btn-lg text-white">Complete Registration</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.sport-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'SELECT' && e.target.tagName !== 'OPTION') {
+                    const checkbox = this.querySelector('.sport-checkbox');
+                    checkbox.checked = !checkbox.checked;
+                    this.classList.toggle('selected', checkbox.checked);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
