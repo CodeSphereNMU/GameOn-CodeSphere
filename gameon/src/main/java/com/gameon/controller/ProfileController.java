@@ -1,10 +1,15 @@
 package com.gameon.controller;
 
+import com.gameon.model.entity.MatchResult;
+import com.gameon.model.entity.Post;
 import com.gameon.model.entity.User;
 import com.gameon.model.entity.UserSportProfile;
 import com.gameon.model.enums.SkillLevel;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -25,17 +30,20 @@ public class ProfileController {
     private final SportService sportService;
     private final FollowService followService;
     private final PostService postService;
+    private final MatchResultService matchResultService;
 
     public ProfileController(ProfileService profileService,
                              UserService userService,
                              SportService sportService,
                              FollowService followService,
-                             PostService postService) {
+                             PostService postService,
+                             MatchResultService matchResultService) {
         this.profileService = profileService;
         this.userService = userService;
         this.sportService = sportService;
         this.followService = followService;
         this.postService = postService;
+        this.matchResultService = matchResultService;
     }
 
     // ===== D200: View Own Profile =====
@@ -163,5 +171,37 @@ public class ProfileController {
             model.addAttribute("query", q);
         }
         return "profile/search";
+    }
+
+    // ===== View User Posts =====
+
+    @GetMapping("/profile/{userId}/posts")
+    public String viewUserPosts(@PathVariable Long userId,
+                                @RequestParam(defaultValue = "0") int page,
+                                @AuthenticationPrincipal CustomUserDetails currentUser,
+                                Model model) {
+        User user = profileService.getProfile(userId);
+        Pageable pageable = PageRequest.of(page, 10);
+        Page<Post> posts = postService.getPostsByUser(userId, pageable);
+
+        model.addAttribute("user", user);
+        model.addAttribute("posts", posts);
+        model.addAttribute("isOwnProfile", userId.equals(currentUser.getUserId()));
+        return "profile/profile-posts";
+    }
+
+    // ===== View User Match Results =====
+
+    @GetMapping("/profile/{userId}/results")
+    public String viewUserResults(@PathVariable Long userId,
+                                  @AuthenticationPrincipal CustomUserDetails currentUser,
+                                  Model model) {
+        User user = profileService.getProfile(userId);
+        List<MatchResult> results = matchResultService.getMatchHistory(userId);
+
+        model.addAttribute("user", user);
+        model.addAttribute("results", results);
+        model.addAttribute("isOwnProfile", userId.equals(currentUser.getUserId()));
+        return "profile/profile-results";
     }
 }

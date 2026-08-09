@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Match Results')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('none')}"></div>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 th:text="|${user.username}'s Match Results|">User's Match Results</h4>
+            <a th:href="@{'/profile/' + ${user.userId}}" class="btn btn-outline-gameon btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back to Profile
+            </a>
+        </div>
+
+        <div th:if="${results.isEmpty()}" class="card shadow-sm">
+            <div class="card-body text-center text-muted py-4">
+                <i class="bi bi-trophy" style="font-size: 3rem;"></i>
+                <p class="mt-2">No match results yet.</p>
+            </div>
+        </div>
+
+        <div th:unless="${results.isEmpty()}">
+            <div th:each="result : ${results}" class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1" th:text="${result.gameListing.format.sport.sportName + ' - ' + result.gameListing.format.formatName}">Sport - Format</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar me-1"></i>
+                                <span th:text="${#temporals.format(result.gameListing.scheduledDate, 'dd MMM yyyy')}">Date</span>
+                            </small>
+                            <br>
+                            <small class="text-muted">
+                                <i class="bi bi-people me-1"></i>
+                                <span th:text="'Created by: ' + ${result.gameListing.creator.username}">Opponent</span>
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="fs-5 fw-bold" th:text="${result.teamAScore + ' - ' + result.teamBScore}">0 - 0</span>
+                            <br>
+                            <span class="badge"
+                                  th:classappend="${result.winners == 'DRAW'} ? 'bg-secondary' : (${result.winners == 'TEAM_A'} ? 'bg-danger' : 'bg-primary')"
+                                  th:text="${result.winners.replace('_', ' ')}">Winner</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
