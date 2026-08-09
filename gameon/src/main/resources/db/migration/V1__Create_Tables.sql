@@ -141,7 +141,7 @@ CREATE TABLE game_listings (
 CREATE TABLE game_joiners (
     user_id                     BIGINT      NOT NULL,
     game_listing_id             BIGINT      NOT NULL,
-    team                        VARCHAR(1)  NOT NULL,
+    team                        CHAR(1)  NOT NULL,
     format_position_id          BIGINT      NULL,
     alt_format_position_id      BIGINT      NULL,
     status                      VARCHAR(20) NOT NULL DEFAULT 'PENDING',
