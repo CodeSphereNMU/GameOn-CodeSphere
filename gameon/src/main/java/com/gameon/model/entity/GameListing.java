@@ -3,10 +3,7 @@ package com.gameon.model.entity;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.SkillLevel;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,6 +40,12 @@ public class GameListing extends Auditable {
     @Column(name = "location", nullable = false, length = 200)
     private String location;
 
+    @NotNull(message = "Session duration is required")
+    @Min(value = 1, message = "Session duration must be at least 1 hour")
+    @Max(value = 8, message = "Session duration must not exceed 8 hours")
+    @Column(name = "session_duration", nullable = false)
+    private Integer sessionDuration = 1;
+
     @NotNull(message = "Privacy setting is required")
     @Enumerated(EnumType.STRING)
     @Column(name = "privacy_setting", nullable = false, length = 10)
@@ -73,13 +76,15 @@ public class GameListing extends Auditable {
     }
 
     public GameListing(User creator, SportFormat format, SkillLevel skillLevel,
-                       LocalDateTime scheduledDate, String location, PrivacySetting privacySetting) {
+                       LocalDateTime scheduledDate, String location, PrivacySetting privacySetting,
+                       Integer sessionDuration) {
         this.creator = creator;
         this.format = format;
         this.skillLevel = skillLevel;
         this.scheduledDate = scheduledDate;
         this.location = location;
         this.privacySetting = privacySetting;
+        this.sessionDuration = sessionDuration;
     }
 
     // ===== Getters and Setters =====
@@ -130,6 +135,28 @@ public class GameListing extends Auditable {
 
     public void setPrivacySetting(PrivacySetting privacySetting) {
         this.privacySetting = privacySetting;
+    }
+
+    public Integer getSessionDuration() {
+        return sessionDuration;
+    }
+
+    public void setSessionDuration(Integer sessionDuration) {
+        this.sessionDuration = sessionDuration;
+    }
+
+    /**
+     * Returns the end time of this listing's session (start + duration).
+     */
+    public LocalDateTime getSessionEndTime() {
+        return scheduledDate.plusHours(sessionDuration != null ? sessionDuration : 1);
+    }
+
+    /**
+     * Returns the blocked-until time (session end + 60 min travel buffer).
+     */
+    public LocalDateTime getBlockedUntilTime() {
+        return getSessionEndTime().plusMinutes(60);
     }
 
     public User getCreator() {

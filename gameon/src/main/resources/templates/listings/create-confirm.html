@@ -21,21 +21,41 @@
                                 <p class="mb-1 small"><i class="bi bi-people me-1"></i><span th:text="${format.noPlayers}">0</span> players</p>
                                 <p class="mb-1 small"><i class="bi bi-bar-chart me-1"></i>Skill: <span th:text="${skillLevel}">Level</span></p>
                                 <p class="mb-1 small"><i class="bi bi-calendar me-1"></i><span th:text="${scheduledDate}">Date</span></p>
+                                <p class="mb-1 small"><i class="bi bi-clock me-1"></i>Duration: <span th:text="${sessionDuration}">2</span> hour(s)</p>
                                 <p class="mb-1 small"><i class="bi bi-geo-alt me-1"></i><span th:text="${location}">Location</span></p>
                                 <p class="mb-0 small"><i class="bi bi-eye me-1"></i><span th:text="${privacySetting}">Privacy</span></p>
                             </div>
                         </div>
 
-                        <!-- Invite Friends -->
+                        <!-- Position Selection (if format has positions) -->
                         <form th:action="@{/listings/confirm}" method="post">
                             <input type="hidden" name="formatId" th:value="${formatId}">
                             <input type="hidden" name="skillLevel" th:value="${skillLevel}">
                             <input type="hidden" name="scheduledDate" th:value="${scheduledDate}">
                             <input type="hidden" name="location" th:value="${location}">
                             <input type="hidden" name="privacySetting" th:value="${privacySetting}">
+                            <input type="hidden" name="sessionDuration" th:value="${sessionDuration}">
 
+                            <div th:if="${positions != null && !positions.isEmpty()}" class="mb-4">
+                                <label class="form-label fw-bold">Select Position(s):</label>
+                                <small class="text-muted d-block mb-2">
+                                    Select at least one position. Choose "Any Position" alone or one or more specific positions.
+                                </small>
+                                <div class="list-group">
+                                    <label th:each="fp : ${positions}" class="list-group-item d-flex align-items-center">
+                                        <input class="form-check-input me-3" type="checkbox"
+                                               name="positionIds" th:value="${fp.position.positionId}">
+                                        <span th:text="${fp.position.positionName}">Position</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Invite Friends -->
                             <div th:if="${friends != null && !friends.isEmpty()}" class="mb-4">
                                 <label class="form-label">Invite friends (optional):</label>
+                                <small class="text-muted d-block mb-2">
+                                    Note: Invitations are courtesy notifications only. Invited users must still submit a join request.
+                                </small>
                                 <div class="list-group">
                                     <label th:each="friend : ${friends}" class="list-group-item d-flex align-items-center">
                                         <input class="form-check-input me-3" type="checkbox"

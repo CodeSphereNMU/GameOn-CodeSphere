@@ -62,4 +62,21 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
            "WHERE gj.id.gameListingId = :listingId " +
            "AND gj.status IN ('ACCEPTED', 'LOCKED')")
     List<GameJoiner> findParticipants(@Param("listingId") Long listingId);
+
+    // Check if user has an active (PENDING) join request for a listing
+    @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
+           "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId " +
+           "AND gj.status = 'PENDING'")
+    boolean existsPendingRequest(@Param("userId") Long userId, @Param("listingId") Long listingId);
+
+    // Check if user is already an accepted/locked participant
+    @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
+           "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId " +
+           "AND gj.status IN ('ACCEPTED', 'LOCKED')")
+    boolean existsAcceptedOrLocked(@Param("userId") Long userId, @Param("listingId") Long listingId);
+
+    // Find joiner by user and listing with specific statuses (for re-request logic)
+    @Query("SELECT gj FROM GameJoiner gj " +
+           "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId")
+    java.util.Optional<GameJoiner> findByUserAndListing(@Param("userId") Long userId, @Param("listingId") Long listingId);
 }

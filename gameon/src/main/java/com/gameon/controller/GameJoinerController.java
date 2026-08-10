@@ -1,6 +1,7 @@
 package com.gameon.controller;
 
 import com.gameon.model.entity.GameListing;
+import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.GameJoinerService;
@@ -36,8 +37,27 @@ public class GameJoinerController {
     @GetMapping("/join/{listingId}")
     public String showJoinForm(@PathVariable Long listingId,
                                @AuthenticationPrincipal CustomUserDetails currentUser,
-                               Model model) {
+                               Model model,
+                               RedirectAttributes redirectAttributes) {
         GameListing listing = gameListingService.getListingWithDetails(listingId);
+
+        // Rule 7: Validate sport is on user's profile
+        try {
+            gameListingService.validateSportProfileAccess(currentUser.getUserId(), listing);
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/listings/" + listingId;
+        }
+
+        // Rule 4: Cannot join private listing unless invited (allowed to view join form if they got this far)
+        // The user must have accessed the listing detail page first (which enforces privacy)
+
+        // Cannot join own listing
+        if (listing.getCreator().getUserId().equals(currentUser.getUserId())) {
+            redirectAttributes.addFlashAttribute("error", "You are already participating in this listing as the creator.");
+            return "redirect:/listings/" + listingId;
+        }
+
         model.addAttribute("listing", listing);
         model.addAttribute("teams", Team.values());
 
