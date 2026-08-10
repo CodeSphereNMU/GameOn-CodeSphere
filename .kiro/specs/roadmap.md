@@ -92,7 +92,7 @@ The remaining 19 use cases do not have detailed Kiro spec packages. Create them 
 ### Phase 3: Core Game Organisation
 - [x] **A100 Create Game Listing** — Lihlumelo (Implemented, unit tested, manually verified)
 - [ ] **A200 Browse Listings** — Lihlumelo
-- [ ] **A300 Send Join request** — Lihlumelo
+- [x] **A300 Send Join request** — Lihlumelo
 - [ ] **A400 Leave Game listing** — Lihlumelo
 - [ ] **C300 Manage Game listing** — Gerard
 - [ ] **C500 Manage join request** — Gerard

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Request - GameOn</title>
+    <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="listing-detail-page">
+    <header class="app-header">
+        <a id="back-link" href="../pages/browse-listings.html" class="app-header__back" aria-label="Back to listing detail">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" fill="#333" stroke="none"/>
+                <path d="M15 18l-6-6 6-6" stroke="#fff" stroke-width="2" fill="none"/>
+            </svg>
+        </a>
+        <h1 class="app-header__title">Game On</h1>
+    </header>
+
+    <main class="listing-detail-content">
+        <!-- Loading State -->
+        <div id="jr-loading" class="listing-detail__loading" aria-live="polite">
+            <p>Loading positions...</p>
+        </div>
+
+        <!-- Error State (param validation or position load failure) -->
+        <div id="jr-error" class="listing-detail__error hidden" role="alert">
+            <p id="jr-error-message">Something went wrong. Please try again.</p>
+            <a id="jr-error-back" href="../pages/browse-listings.html" class="btn-secondary">Back to Listing</a>
+        </div>
+
+        <!-- Form Content -->
+        <section id="jr-content" class="listing-detail__content hidden" aria-label="Join request form">
+            <article class="join-request">
+                <h3 class="join-request__title">Join Request</h3>
+
+                <!-- Team Indicator -->
+                <div class="join-request__team-indicator" aria-label="Selected team">
+                    <span class="join-request__team-badge" id="jr-team-badge"></span>
+                </div>
+
+                <form id="jr-form" class="join-request__form" novalidate>
+                    <!-- Preferred Position -->
+                    <div class="join-request__position-row">
+                        <label for="jr-position-primary" class="join-request__position-label">Preferred Position</label>
+                        <select id="jr-position-primary" name="positionId" class="form-select join-request__select" required>
+                            <option value="">-- Select position --</option>
+                        </select>
+                    </div>
+
+                    <!-- Alternate Position -->
+                    <div class="join-request__position-row">
+                        <label for="jr-position-alternate" class="join-request__position-label">Alternate Position (optional)</label>
+                        <select id="jr-position-alternate" name="alternatePositionId" class="form-select join-request__select">
+                            <option value="">-- None --</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="jr-submit" class="btn-primary join-request__submit">
+                        Send Join Request
+                    </button>
+
+                    <!-- Cancel Link -->
+                    <a id="jr-cancel" href="../pages/browse-listings.html" class="btn-back join-request__cancel">Cancel</a>
+
+                    <!-- Error Message -->
+                    <div id="jr-form-error" class="join-request__error hidden" role="alert" aria-live="polite">
+                        <p id="jr-form-error-message"></p>
+                    </div>
+                </form>
+            </article>
+        </section>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/joinRequest.js"></script>
+</body>
+</html>

@@ -1342,3 +1342,292 @@ body {
         padding: 1.5rem 1rem;
     }
 }
+
+/* ============================================================
+   JOIN REQUEST SECTION (A300)
+   ============================================================ */
+
+/* Form Card */
+.join-request {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 2rem 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.join-request__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 1.25rem;
+    text-align: center;
+}
+
+.join-request__form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Team Selection Fieldset */
+.join-request__fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+.join-request__legend {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.75rem;
+}
+
+.join-request__team-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.join-request__team-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    background: var(--color-bg);
+    border: 2px solid var(--color-border-light);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.join-request__team-option:hover {
+    border-color: var(--color-primary);
+    background-color: #fff5f5;
+}
+
+.join-request__team-option:has(input:checked) {
+    border-color: var(--color-primary);
+    background-color: #fff0f0;
+}
+
+.join-request__radio {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.join-request__team-label {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.join-request__fill-count {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+/* Position Selection */
+.join-request__positions {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.join-request__position-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.join-request__position-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.join-request__select {
+    width: 100%;
+}
+
+/* Submit Button */
+.join-request__submit {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.join-request__submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Error Message */
+.join-request__error {
+    background: #fce8e6;
+    color: var(--color-error);
+    border: 1px solid var(--color-error);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.join-request__error p {
+    margin: 0;
+}
+
+/* Pending Status Badge */
+.join-request-pending {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 2rem 1.5rem;
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.join-request-pending__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #fef7e0;
+    color: #b8860b;
+    border: 1px solid var(--color-warning);
+    border-radius: 20px;
+    padding: 0.5rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.join-request-pending__icon {
+    font-size: 1.1rem;
+}
+
+.join-request-pending__text {
+    line-height: 1;
+}
+
+.join-request-pending__info {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+/* Success Message */
+.join-request-success {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 2rem 1.5rem;
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.join-request-success__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #e6f4ea;
+    color: var(--color-success);
+    border: 1px solid var(--color-success);
+    border-radius: 20px;
+    padding: 0.5rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.join-request-success__icon {
+    font-size: 1.2rem;
+}
+
+.join-request-success__text {
+    line-height: 1;
+}
+
+.join-request-success__info {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+/* ============================================================
+   RESPONSIVE - JOIN REQUEST
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .join-request {
+        padding: 1.5rem 1rem;
+    }
+
+    .join-request__team-group {
+        flex-direction: column;
+    }
+
+    .join-request-pending,
+    .join-request-success {
+        padding: 1.5rem 1rem;
+    }
+}
+
+
+/* ============================================================
+   JOIN TEAM BUTTONS (Listing Detail - A300 Revised)
+   ============================================================ */
+
+.listing-detail-roster__action {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.join-team-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+}
+
+/* ============================================================
+   JOIN REQUEST PAGE - TEAM INDICATOR & CANCEL (A300)
+   ============================================================ */
+
+.join-request__team-indicator {
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.join-request__team-badge {
+    display: inline-block;
+    padding: 0.5rem 1.25rem;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 2px solid var(--color-primary);
+}
+
+.join-request__team-badge--a {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.join-request__team-badge--b {
+    border-color: #1967d2;
+    color: #1967d2;
+}
+
+.join-request__cancel {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 0.75rem;
+    text-decoration: none;
+}

@@ -106,7 +106,7 @@
 ### Task 11: Minor frontend improvements (low priority)
 - [ ] Display selected positions on the confirmation step
 - [ ] Deduplicate position error message in `createListing.js`
-- [ ] Add "Create Listing" link to dashboard page
+- [x] Add "Create Listing" link to listings page
 - **Traces to:** REQ-LIST-1
 
 ## Future Game Listing Use Cases (not yet specified in detail)

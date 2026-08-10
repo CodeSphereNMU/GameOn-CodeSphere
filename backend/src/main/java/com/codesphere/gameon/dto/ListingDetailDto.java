@@ -19,6 +19,10 @@ public class ListingDetailDto {
     private String creatorUsername;
     private boolean hasPositions;
     private boolean isPrivate;
+    private long formatId;
+    private boolean isCreator;
+    private boolean isAcceptedParticipant;
+    private boolean hasPendingRequest;
     private List<RosterEntryDto> teamA;
     private List<RosterEntryDto> teamB;
 
@@ -119,6 +123,38 @@ public class ListingDetailDto {
 
     public void setPrivate(boolean isPrivate) {
         this.isPrivate = isPrivate;
+    }
+
+    public long getFormatId() {
+        return formatId;
+    }
+
+    public void setFormatId(long formatId) {
+        this.formatId = formatId;
+    }
+
+    public boolean isCreator() {
+        return isCreator;
+    }
+
+    public void setCreator(boolean isCreator) {
+        this.isCreator = isCreator;
+    }
+
+    public boolean isAcceptedParticipant() {
+        return isAcceptedParticipant;
+    }
+
+    public void setAcceptedParticipant(boolean isAcceptedParticipant) {
+        this.isAcceptedParticipant = isAcceptedParticipant;
+    }
+
+    public boolean isHasPendingRequest() {
+        return hasPendingRequest;
+    }
+
+    public void setHasPendingRequest(boolean hasPendingRequest) {
+        this.hasPendingRequest = hasPendingRequest;
     }
 
     public List<RosterEntryDto> getTeamA() {

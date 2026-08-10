@@ -40,6 +40,26 @@ public class InvitationDao extends BaseDao {
     }
 
     /**
+     * Finds the PENDING invitation for a given listing and user.
+     * Returns the invitation_id if one exists, or null otherwise.
+     * Uses the provided connection for transactional consistency.
+     */
+    public Long findPendingInvitationId(Connection conn, long gameListingId, long userId) throws SQLException {
+        String sql = "SELECT [invitation_id] FROM [dbo].[invitation] " +
+                "WHERE [game_listing_id] = ? AND [invitee_id] = ? AND [status] = 'PENDING'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, gameListingId);
+            ps.setLong(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong("invitation_id");
+                }
+                return null;
+            }
+        }
+    }
+
+    /**
      * Checks whether an invitation exists for the given listing and user.
      * Used by the detail endpoint to verify private listing access.
      */

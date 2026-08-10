@@ -35,16 +35,19 @@ public class BrowseListingService {
     private final InvitationDao invitationDao;
     private final SportFormatDao sportFormatDao;
     private final UserDao userDao;
+    private final JoinRequestDao joinRequestDao;
 
     public BrowseListingService(SportDao sportDao, GameListingDao gameListingDao,
                                 GameJoinerDao gameJoinerDao, InvitationDao invitationDao,
-                                SportFormatDao sportFormatDao, UserDao userDao) {
+                                SportFormatDao sportFormatDao, UserDao userDao,
+                                JoinRequestDao joinRequestDao) {
         this.sportDao = sportDao;
         this.gameListingDao = gameListingDao;
         this.gameJoinerDao = gameJoinerDao;
         this.invitationDao = invitationDao;
         this.sportFormatDao = sportFormatDao;
         this.userDao = userDao;
+        this.joinRequestDao = joinRequestDao;
     }
 
     /**
@@ -176,6 +179,12 @@ public class BrowseListingService {
         // Team A and Team B from roster map
         detail.setTeamA(roster.getOrDefault("A", Collections.emptyList()));
         detail.setTeamB(roster.getOrDefault("B", Collections.emptyList()));
+
+        // Join-form display hints
+        detail.setFormatId(listing.getFormatId());
+        detail.setCreator(isCreator);
+        detail.setAcceptedParticipant(gameJoinerDao.isAcceptedJoiner(listingId, userId));
+        detail.setHasPendingRequest(joinRequestDao.hasPendingRequest(listingId, userId));
 
         return detail;
     }

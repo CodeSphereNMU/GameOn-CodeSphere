@@ -1,16 +1,20 @@
 /**
  * GameOn - Listing Detail page script.
  * Fetches and displays full listing details including team roster.
+ * Handles join-request logic:
+ *  - Positional formats: redirects to join-request.html for position selection.
+ *  - Non-positional formats: immediately submits the join request from this page.
  */
 (function () {
     'use strict';
 
-    // DOM references
+    // DOM references - page state
     const loadingEl = document.getElementById('detail-loading');
     const errorEl = document.getElementById('detail-error');
     const errorMessageEl = document.getElementById('detail-error-message');
     const contentEl = document.getElementById('detail-content');
 
+    // DOM references - listing details
     const detailSport = document.getElementById('detail-sport');
     const detailFormat = document.getElementById('detail-format');
     const detailDate = document.getElementById('detail-date');
@@ -20,8 +24,19 @@
     const detailCapacity = document.getElementById('detail-capacity');
     const detailCreator = document.getElementById('detail-creator');
 
+    // DOM references - roster
     const rosterTeamA = document.getElementById('roster-team-a');
     const rosterTeamB = document.getElementById('roster-team-b');
+
+    // DOM references - join actions
+    const joinTeamAAction = document.getElementById('join-team-a-action');
+    const joinTeamBAction = document.getElementById('join-team-b-action');
+    const btnJoinTeamA = document.getElementById('btn-join-team-a');
+    const btnJoinTeamB = document.getElementById('btn-join-team-b');
+    const joinRequestError = document.getElementById('join-request-error');
+    const joinRequestErrorMessage = document.getElementById('join-request-error-message');
+    const joinRequestPending = document.getElementById('join-request-pending');
+    const joinRequestSuccess = document.getElementById('join-request-success');
 
     // Initialisation
     document.addEventListener('DOMContentLoaded', init);
@@ -66,6 +81,7 @@
             }
 
             renderDetail(res.data);
+            initJoinActions(res.data, listingId);
             showContent();
         } catch (err) {
             showError('Something went wrong. Please try again.');
@@ -131,9 +147,6 @@
 
     /**
      * Formats the position display string.
-     * - Two positions: "Centre / Point Guard"
-     * - One position only: that position name
-     * - Positional format with NULL positions: "Any Position"
      * @param {string|null} primary
      * @param {string|null} alternate
      * @returns {string}
@@ -149,6 +162,124 @@
             return alternate;
         }
         return 'Any Position';
+    }
+
+    // ---- Join Action Logic ----
+
+    /**
+     * Initialises join buttons based on user status.
+     * @param {object} data - ListingDetailDto from the API
+     * @param {string} listingId - The listing ID from the URL
+     */
+    function initJoinActions(data, listingId) {
+        // Creator or already accepted participant - no join buttons
+        if (data.creator || data.acceptedParticipant) {
+            return;
+        }
+
+        // Player already has a pending request - show pending badge
+        if (data.hasPendingRequest) {
+            joinRequestPending.classList.remove('hidden');
+            return;
+        }
+
+        // Eligible player - show join buttons beneath each roster
+        joinTeamAAction.classList.remove('hidden');
+        joinTeamBAction.classList.remove('hidden');
+
+        // Attach click handlers
+        btnJoinTeamA.addEventListener('click', function () {
+            handleJoinTeamClick('A', data, listingId);
+        });
+
+        btnJoinTeamB.addEventListener('click', function () {
+            handleJoinTeamClick('B', data, listingId);
+        });
+    }
+
+    /**
+     * Handles a click on Join Team A or Join Team B.
+     * - If the format has positions, redirect to join-request.html.
+     * - If not, immediately submit the join request.
+     * @param {string} team - 'A' or 'B'
+     * @param {object} data - ListingDetailDto
+     * @param {string} listingId
+     */
+    function handleJoinTeamClick(team, data, listingId) {
+        if (data.hasPositions) {
+            // Redirect to the position-selection page
+            window.location.href = 'join-request.html?id=' + encodeURIComponent(listingId) + '&team=' + encodeURIComponent(team);
+        } else {
+            // Immediately submit with no positions
+            submitImmediateJoinRequest(team, listingId);
+        }
+    }
+
+    /**
+     * Submits a join request directly (non-positional formats).
+     * Disables buttons during processing and handles success/failure.
+     * @param {string} team - 'A' or 'B'
+     * @param {string} listingId
+     */
+    async function submitImmediateJoinRequest(team, listingId) {
+        // Disable both buttons to prevent repeated clicks
+        btnJoinTeamA.disabled = true;
+        btnJoinTeamB.disabled = true;
+        btnJoinTeamA.textContent = 'Sending...';
+        btnJoinTeamB.textContent = 'Sending...';
+        hideJoinRequestError();
+
+        try {
+            const res = await Api.post('/api/game-listings/' + encodeURIComponent(listingId) + '/join-requests', {
+                team: team,
+                anyPosition: false,
+                positionId: null,
+                alternatePositionId: null
+            });
+
+            if (res.success) {
+                // Hide join buttons, show success then pending
+                joinTeamAAction.classList.add('hidden');
+                joinTeamBAction.classList.add('hidden');
+                joinRequestSuccess.classList.remove('hidden');
+                // Also show pending status
+                joinRequestPending.classList.remove('hidden');
+            } else {
+                // Server returned an error - restore buttons
+                showJoinRequestError(res.error || 'Failed to submit join request.');
+                restoreJoinButtons();
+            }
+        } catch (err) {
+            showJoinRequestError('Something went wrong. Please try again.');
+            restoreJoinButtons();
+        }
+    }
+
+    /**
+     * Restores join buttons to their original state after a failure.
+     */
+    function restoreJoinButtons() {
+        btnJoinTeamA.disabled = false;
+        btnJoinTeamB.disabled = false;
+        btnJoinTeamA.textContent = 'Join Team A';
+        btnJoinTeamB.textContent = 'Join Team B';
+    }
+
+    /**
+     * Shows the join request error message.
+     * @param {string} message
+     */
+    function showJoinRequestError(message) {
+        joinRequestError.classList.remove('hidden');
+        joinRequestErrorMessage.textContent = message;
+    }
+
+    /**
+     * Hides the join request error message.
+     */
+    function hideJoinRequestError() {
+        joinRequestError.classList.add('hidden');
+        joinRequestErrorMessage.textContent = '';
     }
 
     // ---- UI State Helpers ----

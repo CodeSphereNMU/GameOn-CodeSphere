@@ -64,12 +64,6 @@
                         <span id="detail-creator" class="listing-detail-card__value"></span>
                     </div>
                 </div>
-
-                <div class="listing-detail-card__actions">
-                    <button type="button" class="btn-primary" disabled aria-label="Request to Join - Coming soon">
-                        Coming soon
-                    </button>
-                </div>
             </article>
 
             <!-- Roster Section -->
@@ -81,14 +75,43 @@
                         <h4 class="listing-detail-roster__team-name">Team A</h4>
                         <ul id="roster-team-a" class="listing-detail-roster__list" aria-label="Team A players">
                         </ul>
+                        <div id="join-team-a-action" class="listing-detail-roster__action hidden">
+                            <button type="button" id="btn-join-team-a" class="btn-primary join-team-btn">Join Team A</button>
+                        </div>
                     </div>
                     <!-- Team B -->
                     <div class="listing-detail-roster__team">
                         <h4 class="listing-detail-roster__team-name">Team B</h4>
                         <ul id="roster-team-b" class="listing-detail-roster__list" aria-label="Team B players">
                         </ul>
+                        <div id="join-team-b-action" class="listing-detail-roster__action hidden">
+                            <button type="button" id="btn-join-team-b" class="btn-primary join-team-btn">Join Team B</button>
+                        </div>
                     </div>
                 </div>
+            </section>
+
+            <!-- Join Request Error (for immediate-submit failures) -->
+            <div id="join-request-error" class="join-request__error hidden" role="alert" aria-live="polite">
+                <p id="join-request-error-message"></p>
+            </div>
+
+            <!-- Join Request Pending Status -->
+            <section id="join-request-pending" class="join-request-pending hidden" aria-label="Join request status">
+                <div class="join-request-pending__badge">
+                    <span class="join-request-pending__icon" aria-hidden="true">&#9203;</span>
+                    <span class="join-request-pending__text">Request Pending</span>
+                </div>
+                <p class="join-request-pending__info">Your join request is awaiting approval from the listing creator.</p>
+            </section>
+
+            <!-- Join Request Success Message -->
+            <section id="join-request-success" class="join-request-success hidden" aria-label="Join request success" role="status">
+                <div class="join-request-success__badge">
+                    <span class="join-request-success__icon" aria-hidden="true">&#10003;</span>
+                    <span class="join-request-success__text">Join Request Sent!</span>
+                </div>
+                <p class="join-request-success__info">Your request has been submitted. The listing creator will review it.</p>
             </section>
         </section>
     </main>

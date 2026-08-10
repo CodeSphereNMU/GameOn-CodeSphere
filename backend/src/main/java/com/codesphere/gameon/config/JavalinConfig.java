@@ -6,6 +6,7 @@ import com.codesphere.gameon.exception.ApiException;
 import com.codesphere.gameon.service.AuthService;
 import com.codesphere.gameon.service.BrowseListingService;
 import com.codesphere.gameon.service.GameListingService;
+import com.codesphere.gameon.service.JoinRequestService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -103,12 +104,19 @@ public class JavalinConfig {
         GameJoinerDao gameJoinerDao = new GameJoinerDao(databaseConfig.getDataSource());
         NotificationDao notificationDao = new NotificationDao(databaseConfig.getDataSource());
         InvitationDao invitationDao = new InvitationDao(databaseConfig.getDataSource());
+        JoinRequestDao joinRequestDao = new JoinRequestDao(databaseConfig.getDataSource());
         GameListingService gameListingService = new GameListingService(
                 databaseConfig.getDataSource(), sportDao, sportFormatDao, positionDao,
                 gameListingDao, gameJoinerDao, followDao, notificationDao, invitationDao);
         BrowseListingService browseListingService = new BrowseListingService(
-                sportDao, gameListingDao, gameJoinerDao, invitationDao, sportFormatDao, userDao);
+                sportDao, gameListingDao, gameJoinerDao, invitationDao, sportFormatDao, userDao, joinRequestDao);
         new GameListingController(gameListingService, browseListingService).register(app);
+
+        // Join Requests
+        JoinRequestService joinRequestService = new JoinRequestService(
+                databaseConfig.getDataSource(), gameListingDao, gameJoinerDao, joinRequestDao,
+                invitationDao, sportDao, sportFormatDao, positionDao, notificationDao);
+        new JoinRequestController(joinRequestService).register(app);
     }
 
     /**

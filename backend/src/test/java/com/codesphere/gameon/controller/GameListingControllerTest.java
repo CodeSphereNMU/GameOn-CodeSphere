@@ -242,7 +242,7 @@ class GameListingControllerTest {
     private static class StubBrowseListingService extends BrowseListingService {
 
         StubBrowseListingService() {
-            super(null, null, null, null, null, null);
+            super(null, null, null, null, null, null, null);
         }
 
         @Override

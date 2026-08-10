@@ -26,6 +26,7 @@ class BrowseListingServiceTest {
     private FakeInvitationDao fakeInvitationDao;
     private FakeSportFormatDao fakeSportFormatDao;
     private FakeUserDao fakeUserDao;
+    private FakeJoinRequestDao fakeJoinRequestDao;
 
     private static final long USER_ID = 1L;
     private static final long OTHER_USER_ID = 2L;
@@ -41,10 +42,11 @@ class BrowseListingServiceTest {
         fakeInvitationDao = new FakeInvitationDao();
         fakeSportFormatDao = new FakeSportFormatDao();
         fakeUserDao = new FakeUserDao();
+        fakeJoinRequestDao = new FakeJoinRequestDao();
 
         service = new BrowseListingService(
                 fakeSportDao, fakeGameListingDao, fakeGameJoinerDao,
-                fakeInvitationDao, fakeSportFormatDao, fakeUserDao);
+                fakeInvitationDao, fakeSportFormatDao, fakeUserDao, fakeJoinRequestDao);
 
         // Default setup: user has Basketball on profile, format 3v3
         fakeSportDao.addUserSport(USER_ID, SPORT_ID, "Basketball");
@@ -219,6 +221,11 @@ class BrowseListingServiceTest {
         assertEquals(3, detail.getSpotsFilled());
         assertEquals(6, detail.getTotalSpots());
         assertTrue(detail.isPrivate());
+        // New join-form fields
+        assertEquals(FORMAT_ID, detail.getFormatId());
+        assertFalse(detail.isCreator());
+        assertFalse(detail.isAcceptedParticipant());
+        assertFalse(detail.isHasPendingRequest());
     }
 
     @Test
@@ -239,6 +246,11 @@ class BrowseListingServiceTest {
         assertNotNull(detail);
         assertEquals(LISTING_ID, detail.getGameListingId());
         assertEquals("the_creator", detail.getCreatorUsername());
+        // New join-form fields
+        assertEquals(FORMAT_ID, detail.getFormatId());
+        assertTrue(detail.isCreator());
+        assertFalse(detail.isAcceptedParticipant());
+        assertFalse(detail.isHasPendingRequest());
     }
 
     @Test
@@ -260,6 +272,30 @@ class BrowseListingServiceTest {
         assertEquals(LISTING_ID, detail.getGameListingId());
         assertTrue(detail.isPrivate());
         assertEquals("the_creator", detail.getCreatorUsername());
+    }
+
+    @Test
+    void shouldPopulateAcceptedParticipantAndPendingRequestFields() {
+        // User is an accepted joiner and has a pending request — both flags true
+        GameListing listing = createPublicListing(LISTING_ID, OTHER_USER_ID, FORMAT_ID);
+        fakeGameListingDao.addListing(listing);
+        fakeSportFormatDao.addFormat(new SportFormat(FORMAT_ID, "3v3", false, 6, 60, SPORT_ID));
+        fakeSportDao.addSport(new Sport(SPORT_ID, "Basketball"));
+        fakeGameJoinerDao.setAcceptedCount(LISTING_ID, 2);
+        fakeGameJoinerDao.setRoster(LISTING_ID, Map.of(
+                "A", List.of(new RosterEntryDto("test_user", null)),
+                "B", List.of(new RosterEntryDto("creator_user", null))
+        ));
+        fakeGameJoinerDao.addAcceptedJoiner(LISTING_ID, USER_ID);
+        fakeJoinRequestDao.addPendingRequest(LISTING_ID, USER_ID);
+
+        ListingDetailDto detail = service.getListingDetail(USER_ID, LISTING_ID);
+
+        assertNotNull(detail);
+        assertEquals(FORMAT_ID, detail.getFormatId());
+        assertFalse(detail.isCreator());
+        assertTrue(detail.isAcceptedParticipant());
+        assertTrue(detail.isHasPendingRequest());
     }
 
     @Test
@@ -451,6 +487,7 @@ class BrowseListingServiceTest {
     private static class FakeGameJoinerDao extends GameJoinerDao {
         private final Map<Long, Integer> acceptedCounts = new HashMap<>();
         private final Map<Long, Map<String, List<RosterEntryDto>>> rosters = new HashMap<>();
+        private final Set<String> acceptedJoiners = new HashSet<>();
 
         FakeGameJoinerDao() { super(null); }
 
@@ -462,6 +499,10 @@ class BrowseListingServiceTest {
             rosters.put(listingId, roster);
         }
 
+        void addAcceptedJoiner(long listingId, long userId) {
+            acceptedJoiners.add(listingId + ":" + userId);
+        }
+
         @Override
         public int countAcceptedByListingId(long gameListingId) {
             return acceptedCounts.getOrDefault(gameListingId, 0);
@@ -470,6 +511,11 @@ class BrowseListingServiceTest {
         @Override
         public Map<String, List<RosterEntryDto>> findRosterByListingId(long gameListingId) {
             return rosters.getOrDefault(gameListingId, Map.of());
+        }
+
+        @Override
+        public boolean isAcceptedJoiner(long gameListingId, long userId) {
+            return acceptedJoiners.contains(gameListingId + ":" + userId);
         }
     }
 
@@ -500,6 +546,21 @@ class BrowseListingServiceTest {
         @Override
         public Optional<User> findById(long userId) {
             return Optional.ofNullable(users.get(userId));
+        }
+    }
+
+    private static class FakeJoinRequestDao extends JoinRequestDao {
+        private final Set<String> pendingRequests = new HashSet<>();
+
+        FakeJoinRequestDao() { super(null); }
+
+        void addPendingRequest(long listingId, long userId) {
+            pendingRequests.add(listingId + ":" + userId);
+        }
+
+        @Override
+        public boolean hasPendingRequest(long gameListingId, long userId) {
+            return pendingRequests.contains(gameListingId + ":" + userId);
         }
     }
 }

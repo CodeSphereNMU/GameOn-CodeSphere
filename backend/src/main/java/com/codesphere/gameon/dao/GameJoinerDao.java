@@ -132,4 +132,50 @@ public class GameJoinerDao extends BaseDao {
             throw new RuntimeException("Database error", e);
         }
     }
+
+    /**
+     * Checks whether a user is already an ACCEPTED game_joiner on the given listing.
+     * Uses the provided connection for transactional consistency.
+     *
+     * @param conn the database connection (caller-managed transaction)
+     * @param gameListingId the listing to check
+     * @param userId the user to check
+     * @return true if the user is an accepted joiner on the listing
+     * @throws SQLException if a database error occurs
+     */
+    public boolean isAcceptedJoiner(Connection conn, long gameListingId, long userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM [dbo].[game_joiner] WHERE [game_listing_id] = ? AND [user_id] = ? AND [status] = 'ACCEPTED'";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, gameListingId);
+            ps.setLong(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1) > 0;
+            }
+        }
+    }
+
+    /**
+     * Checks whether a user is already an ACCEPTED game_joiner on the given listing.
+     * Non-transactional overload — obtains its own connection from the pool.
+     *
+     * @param gameListingId the listing to check
+     * @param userId the user to check
+     * @return true if the user is an accepted joiner on the listing
+     */
+    public boolean isAcceptedJoiner(long gameListingId, long userId) {
+        String sql = "SELECT COUNT(*) FROM [dbo].[game_joiner] WHERE [game_listing_id] = ? AND [user_id] = ? AND [status] = 'ACCEPTED'";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, gameListingId);
+            ps.setLong(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking accepted joiner for listing ID: {}, user ID: {}", gameListingId, userId, e);
+            throw new RuntimeException("Database error", e);
+        }
+    }
 }
