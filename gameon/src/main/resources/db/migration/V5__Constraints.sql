@@ -43,6 +43,7 @@ ALTER TABLE reports ADD CONSTRAINT CK_reports_reason_notempty
 -- ============================================================
 -- STORED PROCEDURE: Calculate Win Percentage
 -- ============================================================
+GO
 CREATE OR ALTER PROCEDURE sp_CalculateWinPercentage
     @userId BIGINT,
     @sportId BIGINT

@@ -42,6 +42,19 @@
                                        name="scheduledDate" required>
                             </div>
                             <div class="mb-3">
+                                <label for="sessionDuration" class="form-label">Session Duration (hours)</label>
+                                <select class="form-select" id="sessionDuration" name="sessionDuration" required>
+                                    <option value="1">1 hour</option>
+                                    <option value="2" selected>2 hours</option>
+                                    <option value="3">3 hours</option>
+                                    <option value="4">4 hours</option>
+                                    <option value="5">5 hours</option>
+                                    <option value="6">6 hours</option>
+                                    <option value="7">7 hours</option>
+                                    <option value="8">8 hours</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
                                 <label for="location" class="form-label">Location</label>
                                 <input type="text" class="form-control" id="location" name="location"
                                        placeholder="e.g. City Sports Centre, Court 3" required maxlength="200">

@@ -48,7 +48,7 @@ public class ListingsController {
         return "redirect:/listings";
     }
 
-    // ===== A200: Browse Available Listings =====
+    // ===== A200: Browse Available Listings (PUBLIC only) =====
 
     @GetMapping("/listings")
     public String index(@AuthenticationPrincipal CustomUserDetails currentUser,
@@ -91,6 +91,7 @@ public class ListingsController {
                                 @RequestParam String scheduledDate,
                                 @RequestParam String location,
                                 @RequestParam String privacySetting,
+                                @RequestParam Integer sessionDuration,
                                 Model model,
                                 RedirectAttributes redirectAttributes) {
         SportFormat format = sportService.getFormatById(formatId);
@@ -104,6 +105,7 @@ public class ListingsController {
             model.addAttribute("scheduledDate", scheduledDate);
             model.addAttribute("location", location);
             model.addAttribute("privacySetting", privacySetting);
+            model.addAttribute("sessionDuration", sessionDuration);
             // Show friends to invite
             List<Long> friendIds = followService.getFollowingIds(currentUser.getUserId());
             if (!friendIds.isEmpty()) {
@@ -120,6 +122,7 @@ public class ListingsController {
         model.addAttribute("scheduledDate", scheduledDate);
         model.addAttribute("location", location);
         model.addAttribute("privacySetting", privacySetting);
+        model.addAttribute("sessionDuration", sessionDuration);
         List<Long> friendIds = followService.getFollowingIds(currentUser.getUserId());
         if (!friendIds.isEmpty()) {
             model.addAttribute("friends", friendIds.stream()
@@ -137,6 +140,8 @@ public class ListingsController {
                                 @RequestParam String scheduledDate,
                                 @RequestParam String location,
                                 @RequestParam String privacySetting,
+                                @RequestParam Integer sessionDuration,
+                                @RequestParam(required = false) List<Long> positionIds,
                                 @RequestParam(required = false) List<Long> invitedFriendIds,
                                 RedirectAttributes redirectAttributes) {
         try {
@@ -145,7 +150,8 @@ public class ListingsController {
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
 
             gameListingService.createListing(
-                    currentUser.getUserId(), formatId, skill, dateTime, location, privacy, invitedFriendIds);
+                    currentUser.getUserId(), formatId, skill, dateTime, location, privacy,
+                    sessionDuration, positionIds, invitedFriendIds);
 
             redirectAttributes.addFlashAttribute("success", "Game listing created successfully!");
         } catch (Exception e) {
@@ -159,10 +165,36 @@ public class ListingsController {
     @GetMapping("/listings/{id}")
     public String viewListing(@PathVariable Long id,
                               @AuthenticationPrincipal CustomUserDetails currentUser,
-                              Model model) {
+                              Model model,
+                              RedirectAttributes redirectAttributes) {
         GameListing listing = gameListingService.getListingDetail(id);
+
+        boolean isCreator = listing.getCreator().getUserId().equals(currentUser.getUserId());
+
+        // Rule 4: Private listings only accessible to creator or participants/invited users
+        if (listing.getPrivacySetting() == PrivacySetting.PRIVATE && !isCreator) {
+            // Check if user is a participant (accepted/pending joiner)
+            boolean isParticipant = listing.getJoiners().stream()
+                    .anyMatch(j -> j.getUser().getUserId().equals(currentUser.getUserId()));
+            if (!isParticipant) {
+                redirectAttributes.addFlashAttribute("error",
+                        "Private listings are only accessible through invitations.");
+                return "redirect:/listings";
+            }
+        }
+
+        // Rule 7: Validate sport is on user's profile (unless creator)
+        if (!isCreator) {
+            try {
+                gameListingService.validateSportProfileAccess(currentUser.getUserId(), listing);
+            } catch (Exception e) {
+                redirectAttributes.addFlashAttribute("error", e.getMessage());
+                return "redirect:/listings";
+            }
+        }
+
         model.addAttribute("listing", listing);
-        model.addAttribute("isCreator", listing.getCreator().getUserId().equals(currentUser.getUserId()));
+        model.addAttribute("isCreator", isCreator);
         return "listings/detail";
     }
 

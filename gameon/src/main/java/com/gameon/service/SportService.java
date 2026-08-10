@@ -2,9 +2,11 @@ package com.gameon.service;
 
 import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.FormatPosition;
+import com.gameon.model.entity.Position;
 import com.gameon.model.entity.Sport;
 import com.gameon.model.entity.SportFormat;
 import com.gameon.repository.FormatPositionRepository;
+import com.gameon.repository.PositionRepository;
 import com.gameon.repository.SportFormatRepository;
 import com.gameon.repository.SportRepository;
 import org.springframework.stereotype.Service;
@@ -22,13 +24,16 @@ public class SportService {
     private final SportRepository sportRepository;
     private final SportFormatRepository sportFormatRepository;
     private final FormatPositionRepository formatPositionRepository;
+    private final PositionRepository positionRepository;
 
     public SportService(SportRepository sportRepository,
                         SportFormatRepository sportFormatRepository,
-                        FormatPositionRepository formatPositionRepository) {
+                        FormatPositionRepository formatPositionRepository,
+                        PositionRepository positionRepository) {
         this.sportRepository = sportRepository;
         this.sportFormatRepository = sportFormatRepository;
         this.formatPositionRepository = formatPositionRepository;
+        this.positionRepository = positionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -79,5 +84,16 @@ public class SportService {
     @Transactional(readOnly = true)
     public List<SportFormat> getFormatsBySportIds(List<Long> sportIds) {
         return sportFormatRepository.findBySportIds(sportIds);
+    }
+
+    /**
+     * Gets the ID of the "Any Position" position record.
+     * Returns null if not found.
+     */
+    @Transactional(readOnly = true)
+    public Long getAnyPositionId() {
+        return positionRepository.findByPositionName("Any Position")
+                .map(Position::getPositionId)
+                .orElse(null);
     }
 }

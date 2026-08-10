@@ -1,7 +1,6 @@
 package com.gameon.service;
 
 import com.gameon.exception.BusinessRuleException;
-import com.gameon.exception.DuplicateResourceException;
 import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.exception.UnauthorizedAccessException;
 import com.gameon.model.entity.GameJoiner;
@@ -20,8 +19,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Service handling join requests for game listings.
@@ -29,37 +28,47 @@ import java.util.List;
  *
  * Business Rules enforced:
  * - BR9: User can only join listing if sport is on profile
- * - BR14: Cannot join 2 listings within 3 hours of each other
+ * - Scheduling conflict: 60-minute travel buffer between sessions
+ * - One active pending request per user per listing
+ * - Cannot join own listing (creator is already a participant)
+ * - Invitations do NOT auto-accept
  */
 @Service
 public class GameJoinerService {
 
     private static final Logger logger = LoggerFactory.getLogger(GameJoinerService.class);
 
-    private static final int TIME_CONFLICT_HOURS = 3;
-
     private final GameJoinerRepository gameJoinerRepository;
     private final GameListingRepository gameListingRepository;
     private final UserRepository userRepository;
     private final UserSportProfileRepository userSportProfileRepository;
     private final NotificationService notificationService;
+    private final SchedulingConflictService schedulingConflictService;
 
     public GameJoinerService(GameJoinerRepository gameJoinerRepository,
                              GameListingRepository gameListingRepository,
                              UserRepository userRepository,
                              UserSportProfileRepository userSportProfileRepository,
-                             NotificationService notificationService) {
+                             NotificationService notificationService,
+                             SchedulingConflictService schedulingConflictService) {
         this.gameJoinerRepository = gameJoinerRepository;
         this.gameListingRepository = gameListingRepository;
         this.userRepository = userRepository;
         this.userSportProfileRepository = userSportProfileRepository;
         this.notificationService = notificationService;
+        this.schedulingConflictService = schedulingConflictService;
     }
 
     /**
      * Sends a join request for a game listing (A300).
-     * BR9: Sport must be on user's profile.
-     * BR14: Cannot join if within 3 hours of another listing.
+     * Validation order:
+     * 1. Listing exists and is joinable
+     * 2. Cannot join own listing
+     * 3. BR9: Sport must be on user's profile
+     * 4. User does not already participate (ACCEPTED/LOCKED)
+     * 5. User does not have an active PENDING request
+     * 6. Scheduling conflict check with 60-min travel buffer
+     * 7. Capacity/position rules
      */
     @Transactional
     public GameJoiner sendJoinRequest(Long userId, Long listingId, Team team,
@@ -70,39 +79,48 @@ public class GameJoinerService {
         GameListing listing = gameListingRepository.findByIdWithDetails(listingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Game Listing", listingId));
 
-        // Cannot join own listing
-        if (listing.getCreator().getUserId().equals(userId)) {
-            throw new BusinessRuleException("You cannot join your own listing.");
-        }
-
         // Cannot join completed listing
         if (listing.getIsCompleted()) {
             throw new BusinessRuleException("This listing is no longer active.");
         }
 
-        // Check for duplicate request
-        if (gameJoinerRepository.existsByIdUserIdAndIdGameListingId(userId, listingId)) {
-            throw new DuplicateResourceException("You have already requested to join this listing.");
+        // Cannot join own listing (creator is already a participant)
+        if (listing.getCreator().getUserId().equals(userId)) {
+            throw new BusinessRuleException("You are already participating in this listing as the creator.");
         }
 
         // BR9: Sport must be on profile
         Long sportId = listing.getFormat().getSport().getSportId();
         if (!userSportProfileRepository.existsByIdUserIdAndIdSportId(userId, sportId)) {
             throw new BusinessRuleException(
+                    "This sport is not included in your sports profile. " +
                     "You must add " + listing.getFormat().getSport().getSportName() +
                     " to your profile before joining this listing.", "BR9");
         }
 
-        // BR14: Time conflict check (within 3 hours)
-        LocalDateTime listingTime = listing.getScheduledDate();
-        LocalDateTime startWindow = listingTime.minusHours(TIME_CONFLICT_HOURS);
-        LocalDateTime endWindow = listingTime.plusHours(TIME_CONFLICT_HOURS);
+        // Check existing joiner record
+        Optional<GameJoiner> existingJoiner = gameJoinerRepository.findByUserAndListing(userId, listingId);
+        if (existingJoiner.isPresent()) {
+            GameJoiner existing = existingJoiner.get();
+            switch (existing.getStatus()) {
+                case ACCEPTED, LOCKED:
+                    throw new BusinessRuleException("You are already participating in this listing.");
+                case PENDING:
+                    throw new BusinessRuleException("You already have a pending join request for this listing.");
+                case REJECTED, LEFT:
+                    // Allow re-request: delete old record and create new one
+                    gameJoinerRepository.delete(existing);
+                    gameJoinerRepository.flush();
+                    break;
+            }
+        }
 
-        List<GameJoiner> conflicts = gameJoinerRepository.findUserJoinedListingsInTimeRange(
-                userId, startWindow, endWindow);
-        if (!conflicts.isEmpty()) {
-            throw new BusinessRuleException(
-                    "You cannot join this listing. You have another game within 3 hours of this time.", "BR14");
+        // Scheduling conflict check with 60-minute travel buffer
+        int duration = listing.getSessionDuration() != null ? listing.getSessionDuration() : 1;
+        String conflictMsg = schedulingConflictService.getConflictMessage(
+                userId, listing.getScheduledDate(), duration, null);
+        if (conflictMsg != null) {
+            throw new BusinessRuleException(conflictMsg);
         }
 
         // Create join request
@@ -124,10 +142,11 @@ public class GameJoinerService {
 
     /**
      * Accepts a join request (C500). Only listing creator can accept.
+     * Also validates scheduling conflict for the joiner at acceptance time.
      */
     @Transactional
     public GameJoiner acceptRequest(Long listingId, Long joinerId, Long creatorId) {
-        GameListing listing = gameListingRepository.findById(listingId)
+        GameListing listing = gameListingRepository.findByIdWithDetails(listingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Game Listing", listingId));
 
         if (!listing.getCreator().getUserId().equals(creatorId)) {
@@ -139,6 +158,16 @@ public class GameJoinerService {
 
         if (joiner.getStatus() != JoinerStatus.PENDING) {
             throw new BusinessRuleException("This request has already been processed.");
+        }
+
+        // Re-validate scheduling conflict at acceptance time (situation may have changed)
+        int duration = listing.getSessionDuration() != null ? listing.getSessionDuration() : 1;
+        String conflictMsg = schedulingConflictService.getConflictMessage(
+                joinerId, listing.getScheduledDate(), duration, null);
+        if (conflictMsg != null) {
+            throw new BusinessRuleException(
+                    "Cannot accept this request. " + joiner.getUser().getUsername() +
+                    " has a scheduling conflict: " + conflictMsg);
         }
 
         joiner.setStatus(JoinerStatus.ACCEPTED);
@@ -187,11 +216,18 @@ public class GameJoinerService {
     /**
      * Leaves a game listing (A400). Only accepted/pending joiners can leave.
      * Locked joiners cannot leave (BR6).
+     * Creator cannot leave their own listing.
      */
     @Transactional
     public void leaveListing(Long userId, Long listingId) {
         GameJoiner joiner = gameJoinerRepository.findById(new GameJoinerId(userId, listingId))
                 .orElseThrow(() -> new ResourceNotFoundException("You are not part of this listing"));
+
+        // Check if this is the creator trying to leave
+        GameListing listing = gameListingRepository.findById(listingId).orElse(null);
+        if (listing != null && listing.getCreator().getUserId().equals(userId)) {
+            throw new BusinessRuleException("As the creator, you cannot leave your own listing. Delete it instead.");
+        }
 
         if (joiner.getStatus() == JoinerStatus.LOCKED) {
             throw new BusinessRuleException(

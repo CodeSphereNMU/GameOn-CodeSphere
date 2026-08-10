@@ -86,4 +86,45 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     // Count active listings by sport format
     @Query("SELECT COUNT(gl) FROM GameListing gl WHERE gl.format.formatId = :formatId AND gl.isCompleted = false")
     long countActiveByFormat(@Param("formatId") Long formatId);
+
+    // Upcoming listings where user is creator or accepted/locked participant (for scheduling conflict checks)
+    @Query("SELECT DISTINCT gl FROM GameListing gl " +
+           "LEFT JOIN FETCH gl.format sf " +
+           "LEFT JOIN FETCH sf.sport " +
+           "WHERE gl.isCompleted = false " +
+           "AND gl.scheduledDate > :now " +
+           "AND (gl.creator.userId = :userId " +
+           "     OR gl.gameListingId IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
+           "                             WHERE gj.id.userId = :userId AND gj.status IN ('ACCEPTED', 'LOCKED')))")
+    List<GameListing> findUpcomingListingsForUserAfter(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+
+    // A200: Browse available PUBLIC listings (future, not completed, not own)
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.format.formatId IN :formatIds " +
+           "AND gl.scheduledDate > :now " +
+           "AND gl.isCompleted = false " +
+           "AND gl.creator.userId != :userId " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "ORDER BY gl.scheduledDate ASC")
+    Page<GameListing> findAvailablePublicListings(
+            @Param("formatIds") List<Long> formatIds,
+            @Param("now") LocalDateTime now,
+            @Param("userId") Long userId,
+            Pageable pageable);
+
+    // Browse PUBLIC listings with skill filter
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.format.formatId IN :formatIds " +
+           "AND gl.scheduledDate > :now " +
+           "AND gl.isCompleted = false " +
+           "AND gl.creator.userId != :userId " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "AND gl.skillLevel = :skillLevel " +
+           "ORDER BY gl.scheduledDate ASC")
+    Page<GameListing> findAvailablePublicListingsBySkill(
+            @Param("formatIds") List<Long> formatIds,
+            @Param("now") LocalDateTime now,
+            @Param("userId") Long userId,
+            @Param("skillLevel") SkillLevel skillLevel,
+            Pageable pageable);
 }
