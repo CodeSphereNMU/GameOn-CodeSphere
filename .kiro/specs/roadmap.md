@@ -12,7 +12,7 @@ All 24 formal use cases as defined in the project Backlog Ownership Chart (BOC).
 | A200 | Browse Listings | Lihlumelo | Schema-supported | No |
 | A300 | Send Join request | Lihlumelo | Schema-supported | No |
 | A400 | Leave Game listing | Lihlumelo | Schema-supported | No |
-| A500 | Hide expired listings | Lihlumelo | Planned | No |
+| A500 | Hide expired listings | Lihlumelo | Implemented, unit tested, manually verified | No |
 | A600 | Send game reminders | Lihlumelo | Planned | No |
 | A700 | Confirm session | Lihlumelo | Planned | No |
 | B100 | Create posts | Zane | Schema-supported | No |
@@ -98,7 +98,7 @@ The remaining 19 use cases do not have detailed Kiro spec packages. Create them 
 - [ ] **C500 Manage join request** — Gerard
 
 ### Phase 4: System Automation
-- [ ] **A500 Hide expired listings** — Lihlumelo
+- [x] **A500 Hide expired listings** — Lihlumelo (Implemented via browse query `date > GETDATE()`, unit tested, manually verified)
 - [ ] **A600 Send game reminders** — Lihlumelo
 - [ ] **A700 Confirm session** — Lihlumelo
   - Automation mechanism undecided (see unresolved questions #16)
