@@ -71,4 +71,82 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // Count posts by user
     long countByUserUserId(Long userId);
+
+    // ===== Filtered Feed DTO projections =====
+
+    /**
+     * Public-only posts from all users (filter: PUBLIC).
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.privacySetting = 'PUBLIC' " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findPublicPostDtos(Pageable pageable);
+
+    /**
+     * Followers-only posts from users the current user follows (filter: FOLLOWERS).
+     * Security: only returns FOLLOWERS posts where the author is in the followedUserIds list.
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findFollowersOnlyPostDtos(
+            @Param("followedUserIds") List<Long> followedUserIds,
+            Pageable pageable);
+
+    /**
+     * All posts by a specific user regardless of privacy (filter: MY_POSTS).
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.user.userId = :userId " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findMyPostDtos(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * Full visible feed including user's own posts (filter: ALL).
+     * Shows: public posts + followers-only from followed users + all own posts.
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.privacySetting = 'PUBLIC' " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "OR p.user.userId = :userId " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findAllVisiblePostDtos(
+            @Param("userId") Long userId,
+            @Param("followedUserIds") List<Long> followedUserIds,
+            Pageable pageable);
+
+    /**
+     * Full visible feed when user follows nobody (filter: ALL, no follows).
+     * Shows: public posts + own posts.
+     */
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.privacySetting = 'PUBLIC' " +
+           "OR p.user.userId = :userId " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findAllVisiblePostDtosNoFollows(@Param("userId") Long userId, Pageable pageable);
 }
