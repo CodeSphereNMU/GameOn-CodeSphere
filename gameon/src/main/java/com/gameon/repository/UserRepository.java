@@ -37,4 +37,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT COUNT(u) FROM User u WHERE u.isActive = true")
     long countActiveUsers();
+
+    @Query("SELECT u FROM User u WHERE u.isActive = true AND LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<User> searchActiveUsersByUsername(@Param("query") String query, Pageable pageable);
 }
