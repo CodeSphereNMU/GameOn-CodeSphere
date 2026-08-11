@@ -16,6 +16,35 @@
                     </a>
                 </div>
 
+                <!-- Visibility Filter -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body py-2">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span class="text-muted me-1"><i class="bi bi-funnel me-1"></i>Filter:</span>
+                            <a th:href="@{/social(filter='ALL')}"
+                               class="btn btn-sm"
+                               th:classappend="${currentFilter == 'ALL' || currentFilter == null} ? 'btn-danger text-white' : 'btn-outline-secondary'">
+                                All Visible Posts
+                            </a>
+                            <a th:href="@{/social(filter='PUBLIC')}"
+                               class="btn btn-sm"
+                               th:classappend="${currentFilter == 'PUBLIC'} ? 'btn-danger text-white' : 'btn-outline-secondary'">
+                                <i class="bi bi-globe me-1"></i>Public Posts
+                            </a>
+                            <a th:href="@{/social(filter='FOLLOWERS')}"
+                               class="btn btn-sm"
+                               th:classappend="${currentFilter == 'FOLLOWERS'} ? 'btn-danger text-white' : 'btn-outline-secondary'">
+                                <i class="bi bi-people me-1"></i>Followers Only
+                            </a>
+                            <a th:href="@{/social(filter='MY_POSTS')}"
+                               class="btn btn-sm"
+                               th:classappend="${currentFilter == 'MY_POSTS'} ? 'btn-danger text-white' : 'btn-outline-secondary'">
+                                <i class="bi bi-person me-1"></i>My Posts
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Flash Messages -->
                 <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
                     <span th:text="${success}"></span>
@@ -87,6 +116,7 @@
                         <div class="d-flex gap-3 align-items-center">
                             <form th:action="@{'/social/like/' + ${post.postId}}" method="post" class="d-inline">
                                 <input type="hidden" name="page" th:value="${posts.number}">
+                                <input type="hidden" name="filter" th:value="${currentFilter}">
                                 <button type="submit" class="btn btn-sm btn-link text-decoration-none p-0">
                                     <i class="bi bi-heart-fill text-danger me-1"></i>
                                     <span th:text="${post.likeCount}">0</span>
@@ -104,14 +134,14 @@
                 <nav th:if="${posts.totalPages > 1}" class="mt-4">
                     <ul class="pagination justify-content-center">
                         <li class="page-item" th:classappend="${posts.first} ? 'disabled'">
-                            <a class="page-link" th:href="@{/social(page=${posts.number - 1})}">Previous</a>
+                            <a class="page-link" th:href="@{/social(page=${posts.number - 1}, filter=${currentFilter})}">Previous</a>
                         </li>
                         <li th:each="i : ${#numbers.sequence(0, posts.totalPages - 1)}"
                             class="page-item" th:classappend="${i == posts.number} ? 'active'">
-                            <a class="page-link" th:href="@{/social(page=${i})}" th:text="${i + 1}">1</a>
+                            <a class="page-link" th:href="@{/social(page=${i}, filter=${currentFilter})}" th:text="${i + 1}">1</a>
                         </li>
                         <li class="page-item" th:classappend="${posts.last} ? 'disabled'">
-                            <a class="page-link" th:href="@{/social(page=${posts.number + 1})}">Next</a>
+                            <a class="page-link" th:href="@{/social(page=${posts.number + 1}, filter=${currentFilter})}">Next</a>
                         </li>
                     </ul>
                 </nav>

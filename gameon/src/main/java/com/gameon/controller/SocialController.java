@@ -39,10 +39,12 @@ public class SocialController {
     @GetMapping("/social")
     public String feed(@AuthenticationPrincipal CustomUserDetails currentUser,
                        @RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "ALL") String filter,
                        Model model) {
-        Page<PostFeedDto> posts = postService.getFeed(currentUser.getUserId(), PageRequest.of(page, 10));
+        Page<PostFeedDto> posts = postService.getFilteredFeed(currentUser.getUserId(), filter, PageRequest.of(page, 10));
         model.addAttribute("posts", posts);
         model.addAttribute("currentUserId", currentUser.getUserId());
+        model.addAttribute("currentFilter", filter);
         return "social/feed";
     }
 
@@ -120,9 +122,10 @@ public class SocialController {
     @PostMapping("/social/like/{postId}")
     public String toggleLike(@PathVariable Long postId,
                              @AuthenticationPrincipal CustomUserDetails currentUser,
-                             @RequestParam(defaultValue = "0") int page) {
+                             @RequestParam(defaultValue = "0") int page,
+                             @RequestParam(defaultValue = "ALL") String filter) {
         likeService.toggleLike(currentUser.getUserId(), postId);
-        return "redirect:/social?page=" + page;
+        return "redirect:/social?page=" + page + "&filter=" + filter;
     }
 
     // ===== B300: Add Comment =====

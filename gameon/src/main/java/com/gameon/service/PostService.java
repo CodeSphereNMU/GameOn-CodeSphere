@@ -119,19 +119,46 @@ public class PostService {
      */
     @Transactional(readOnly = true)
     public Page<PostFeedDto> getFeed(Long userId, Pageable pageable) {
-        List<Long> followedIds = followRepository.findFollowingUserIds(userId);
+        return getFilteredFeed(userId, "ALL", pageable);
+    }
 
-        if (followedIds.isEmpty()) {
-            // Only show public posts
-            return postRepository.findPublicFeedPostDtos(pageable);
+    /**
+     * Gets a filtered social feed for a user (B300) as DTO projections.
+     * Filter options:
+     *   ALL       - public posts + followers-only from followed users + own posts
+     *   PUBLIC    - only public posts
+     *   FOLLOWERS - only followers-only posts from users the current user follows
+     *   MY_POSTS  - all posts by the current user regardless of privacy
+     *
+     * Privacy enforcement:
+     *   - Public posts are always visible to everyone.
+     *   - Followers-only posts are only visible to followers and the post owner.
+     *   - Users cannot access followers-only posts via URL manipulation.
+     */
+    @Transactional(readOnly = true)
+    public Page<PostFeedDto> getFilteredFeed(Long userId, String filter, Pageable pageable) {
+        switch (filter.toUpperCase()) {
+            case "PUBLIC":
+                return postRepository.findPublicPostDtos(pageable);
+
+            case "FOLLOWERS":
+                // Security: only show followers-only posts from users the current user actually follows
+                List<Long> followedIdsForFilter = followRepository.findFollowingUserIds(userId);
+                if (followedIdsForFilter.isEmpty()) {
+                    return Page.empty(pageable);
+                }
+                return postRepository.findFollowersOnlyPostDtos(followedIdsForFilter, pageable);
+
+            case "MY_POSTS":
+                return postRepository.findMyPostDtos(userId, pageable);
+
+            default: // "ALL" - all visible posts
+                List<Long> followedIds = followRepository.findFollowingUserIds(userId);
+                if (followedIds.isEmpty()) {
+                    return postRepository.findAllVisiblePostDtosNoFollows(userId, pageable);
+                }
+                return postRepository.findAllVisiblePostDtos(userId, followedIds, pageable);
         }
-
-        // All active users' public posts are visible, plus followers-only from followed users
-        List<Long> allVisibleUserIds = userRepository.findByIsActiveTrue().stream()
-                .map(User::getUserId)
-                .toList();
-
-        return postRepository.findFeedPostDtos(allVisibleUserIds, followedIds, pageable);
     }
 
     /**
