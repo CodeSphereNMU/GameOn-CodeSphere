@@ -32,15 +32,21 @@
                                 <label class="form-label">Select Team:</label>
                                 <div class="d-flex gap-3">
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="team" value="A" id="teamA" checked>
+                                        <input class="form-check-input" type="radio" name="team" value="A" id="teamA"
+                                               th:checked="${!teamAFull}"
+                                               th:disabled="${teamAFull}">
                                         <label class="form-check-label" for="teamA">
-                                            <span class="badge bg-danger">Team A</span>
+                                            <span class="badge bg-danger" th:classappend="${teamAFull} ? ' opacity-50' : ''">Team A</span>
+                                            <span th:if="${teamAFull}" class="text-muted small ms-1">(Full)</span>
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="team" value="B" id="teamB">
+                                        <input class="form-check-input" type="radio" name="team" value="B" id="teamB"
+                                               th:checked="${teamAFull && !teamBFull}"
+                                               th:disabled="${teamBFull}">
                                         <label class="form-check-label" for="teamB">
-                                            <span class="badge bg-primary">Team B</span>
+                                            <span class="badge bg-primary" th:classappend="${teamBFull} ? ' opacity-50' : ''">Team B</span>
+                                            <span th:if="${teamBFull}" class="text-muted small ms-1">(Full)</span>
                                         </label>
                                     </div>
                                 </div>

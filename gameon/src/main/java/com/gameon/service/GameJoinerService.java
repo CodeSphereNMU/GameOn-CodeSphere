@@ -67,8 +67,9 @@ public class GameJoinerService {
      * 3. BR9: Sport must be on user's profile
      * 4. User does not already participate (ACCEPTED/LOCKED)
      * 5. User does not have an active PENDING request
-     * 6. Scheduling conflict check with 60-min travel buffer
-     * 7. Capacity/position rules
+     * 6. Listing is not full (total capacity check)
+     * 7. Selected team is not full (per-team capacity check)
+     * 8. Scheduling conflict check with 60-min travel buffer
      */
     @Transactional
     public GameJoiner sendJoinRequest(Long userId, Long listingId, Team team,
@@ -98,7 +99,7 @@ public class GameJoinerService {
                     " to your profile before joining this listing.", "BR9");
         }
 
-        // Check existing joiner record
+        // Check existing joiner record (duplicate participant prevention)
         Optional<GameJoiner> existingJoiner = gameJoinerRepository.findByUserAndListing(userId, listingId);
         if (existingJoiner.isPresent()) {
             GameJoiner existing = existingJoiner.get();
@@ -113,6 +114,21 @@ public class GameJoinerService {
                     gameJoinerRepository.flush();
                     break;
             }
+        }
+
+        // Capacity check: listing must not be full
+        int maxPlayers = listing.getFormat().getNoPlayers();
+        long currentParticipants = countCurrentParticipants(listingId);
+        if (currentParticipants >= maxPlayers) {
+            throw new BusinessRuleException("This listing is full. No more players can join.");
+        }
+
+        // Team capacity check: selected team must not be full
+        int teamCapacity = maxPlayers / 2;
+        long teamCount = countTeamParticipants(listingId, team);
+        if (teamCount >= teamCapacity) {
+            throw new BusinessRuleException(
+                    "Team " + team.name() + " is full. Please select a different team.");
         }
 
         // Scheduling conflict check with 60-minute travel buffer
@@ -142,7 +158,11 @@ public class GameJoinerService {
 
     /**
      * Accepts a join request (C500). Only listing creator can accept.
-     * Also validates scheduling conflict for the joiner at acceptance time.
+     * Validates:
+     * - Scheduling conflict for the joiner at acceptance time
+     * - Listing capacity (total players)
+     * - Team capacity (per-team limit)
+     * - User is not already a participant (prevents duplicates)
      */
     @Transactional
     public GameJoiner acceptRequest(Long listingId, Long joinerId, Long creatorId) {
@@ -158,6 +178,24 @@ public class GameJoinerService {
 
         if (joiner.getStatus() != JoinerStatus.PENDING) {
             throw new BusinessRuleException("This request has already been processed.");
+        }
+
+        // Capacity check: listing must not be full
+        int maxPlayers = listing.getFormat().getNoPlayers();
+        long currentParticipants = countCurrentParticipants(listingId);
+        if (currentParticipants >= maxPlayers) {
+            throw new BusinessRuleException(
+                    "Cannot accept this request. The listing is already full (" +
+                    currentParticipants + "/" + maxPlayers + " players).");
+        }
+
+        // Team capacity check: the joiner's team must not be full
+        int teamCapacity = maxPlayers / 2;
+        long teamCount = countTeamParticipants(listingId, joiner.getTeam());
+        if (teamCount >= teamCapacity) {
+            throw new BusinessRuleException(
+                    "Cannot accept this request. Team " + joiner.getTeam().name() +
+                    " is already full (" + teamCount + "/" + teamCapacity + " players).");
         }
 
         // Re-validate scheduling conflict at acceptance time (situation may have changed)
@@ -289,6 +327,42 @@ public class GameJoinerService {
                 listingId, team, JoinerStatus.ACCEPTED) +
                gameJoinerRepository.countByIdGameListingIdAndTeamAndStatus(
                 listingId, team, JoinerStatus.LOCKED);
+    }
+
+    /**
+     * Counts current participants in a listing (ACCEPTED + LOCKED status).
+     * This includes the creator who is auto-added as ACCEPTED.
+     */
+    public long countCurrentParticipants(Long listingId) {
+        return gameJoinerRepository.countByIdGameListingIdAndStatusIn(
+                listingId, List.of(JoinerStatus.ACCEPTED, JoinerStatus.LOCKED));
+    }
+
+    /**
+     * Counts participants in a specific team (ACCEPTED + LOCKED status).
+     */
+    public long countTeamParticipants(Long listingId, Team team) {
+        return gameJoinerRepository.countByIdGameListingIdAndTeamAndStatus(listingId, team, JoinerStatus.ACCEPTED) +
+               gameJoinerRepository.countByIdGameListingIdAndTeamAndStatus(listingId, team, JoinerStatus.LOCKED);
+    }
+
+    /**
+     * Checks if a listing is full (all player positions filled).
+     */
+    @Transactional(readOnly = true)
+    public boolean isListingFull(Long listingId, int maxPlayers) {
+        long currentParticipants = countCurrentParticipants(listingId);
+        return currentParticipants >= maxPlayers;
+    }
+
+    /**
+     * Checks if a specific team is full.
+     */
+    @Transactional(readOnly = true)
+    public boolean isTeamFull(Long listingId, Team team, int maxPlayers) {
+        int teamCapacity = maxPlayers / 2;
+        long teamCount = countTeamParticipants(listingId, team);
+        return teamCount >= teamCapacity;
     }
 
     /**

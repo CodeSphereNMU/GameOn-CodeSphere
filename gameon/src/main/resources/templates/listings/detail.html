@@ -55,7 +55,7 @@
                                         Creator (auto)
                                     </li>
                                     <li th:each="joiner : ${listing.joiners}"
-                                        th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED')}"
+                                        th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED') && !joiner.user.userId.equals(listing.creator.userId)}"
                                         class="list-group-item small" th:text="${joiner.user.username}">Player</li>
                                 </ul>
                             </div>
@@ -73,8 +73,18 @@
 
                         <!-- Join Button (not own listing) -->
                         <div th:unless="${isCreator}" class="mt-4 text-center">
-                            <!-- No active request: show Join button -->
-                            <div th:if="${joinStatus == null}">
+                            <!-- Listing Full: show disabled badge -->
+                            <div th:if="${listingFull && joinStatus == null}">
+                                <span class="badge bg-secondary fs-6 px-3 py-2">
+                                    <i class="bi bi-x-circle me-1"></i>Listing Full
+                                </span>
+                                <p class="text-muted small mt-2 mb-0">
+                                    All player positions are filled
+                                    (<span th:text="${currentParticipants}">4</span>/<span th:text="${maxPlayers}">4</span>).
+                                </p>
+                            </div>
+                            <!-- No active request and not full: show Join button -->
+                            <div th:if="${!listingFull && joinStatus == null}">
                                 <form th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get">
                                     <button type="submit" class="btn btn-gameon">
                                         <i class="bi bi-person-plus me-1"></i>Join This Game
