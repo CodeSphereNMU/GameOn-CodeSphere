@@ -4,6 +4,7 @@ import com.gameon.model.entity.GameJoiner;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.MatchResult;
 import com.gameon.model.enums.JoinerStatus;
+import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.GameJoinerService;
 import com.gameon.service.GameListingService;
@@ -89,9 +90,23 @@ public class LobbyController {
         List<GameJoiner> pendingRequests = gameJoinerService.getPendingRequests(listingId);
         List<GameJoiner> acceptedJoiners = gameJoinerService.getJoinersByStatus(listingId, JoinerStatus.ACCEPTED);
 
+        // Capacity information for UI
+        int maxPlayers = listing.getFormat().getNoPlayers();
+        long currentParticipants = gameJoinerService.countCurrentParticipants(listingId);
+        boolean listingFull = currentParticipants >= maxPlayers;
+        int teamCapacity = maxPlayers / 2;
+        boolean teamAFull = gameJoinerService.isTeamFull(listingId, Team.A, maxPlayers);
+        boolean teamBFull = gameJoinerService.isTeamFull(listingId, Team.B, maxPlayers);
+
         model.addAttribute("listing", listing);
         model.addAttribute("pendingRequests", pendingRequests);
         model.addAttribute("acceptedJoiners", acceptedJoiners);
+        model.addAttribute("listingFull", listingFull);
+        model.addAttribute("currentParticipants", currentParticipants);
+        model.addAttribute("maxPlayers", maxPlayers);
+        model.addAttribute("teamCapacity", teamCapacity);
+        model.addAttribute("teamAFull", teamAFull);
+        model.addAttribute("teamBFull", teamBFull);
         return "lobby/requests";
     }
 

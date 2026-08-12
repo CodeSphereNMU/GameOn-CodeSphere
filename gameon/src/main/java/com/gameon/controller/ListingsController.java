@@ -201,6 +201,14 @@ public class ListingsController {
         model.addAttribute("listing", listing);
         model.addAttribute("isCreator", isCreator);
 
+        // Capacity information for UI
+        int maxPlayers = listing.getFormat().getNoPlayers();
+        long currentParticipants = gameJoinerService.countCurrentParticipants(id);
+        boolean listingFull = currentParticipants >= maxPlayers;
+        model.addAttribute("listingFull", listingFull);
+        model.addAttribute("currentParticipants", currentParticipants);
+        model.addAttribute("maxPlayers", maxPlayers);
+
         // Pass join request status for non-creators so the template can show appropriate UI
         if (!isCreator) {
             JoinerStatus joinStatus = gameJoinerService.getUserJoinRequestStatus(

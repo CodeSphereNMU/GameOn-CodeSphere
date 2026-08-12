@@ -72,8 +72,23 @@ public class GameJoinerController {
             return "redirect:/listings/" + listingId;
         }
 
+        // Capacity check: reject if listing is full
+        int maxPlayers = listing.getFormat().getNoPlayers();
+        if (gameJoinerService.isListingFull(listingId, maxPlayers)) {
+            redirectAttributes.addFlashAttribute("error", "This listing is full. No more players can join.");
+            return "redirect:/listings/" + listingId;
+        }
+
         model.addAttribute("listing", listing);
         model.addAttribute("teams", Team.values());
+
+        // Team capacity info for the form
+        int teamCapacity = maxPlayers / 2;
+        boolean teamAFull = gameJoinerService.isTeamFull(listingId, Team.A, maxPlayers);
+        boolean teamBFull = gameJoinerService.isTeamFull(listingId, Team.B, maxPlayers);
+        model.addAttribute("teamCapacity", teamCapacity);
+        model.addAttribute("teamAFull", teamAFull);
+        model.addAttribute("teamBFull", teamBFull);
 
         // If format has positions, load them
         if (listing.getFormat().getHasPositions()) {
