@@ -2,10 +2,12 @@ package com.gameon.controller;
 
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.SportFormat;
+import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.SkillLevel;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.FollowService;
+import com.gameon.service.GameJoinerService;
 import com.gameon.service.GameListingService;
 import com.gameon.service.SportService;
 import com.gameon.service.UserService;
@@ -32,15 +34,18 @@ public class ListingsController {
     private final SportService sportService;
     private final FollowService followService;
     private final UserService userService;
+    private final GameJoinerService gameJoinerService;
 
     public ListingsController(GameListingService gameListingService,
                               SportService sportService,
                               FollowService followService,
-                              UserService userService) {
+                              UserService userService,
+                              GameJoinerService gameJoinerService) {
         this.gameListingService = gameListingService;
         this.sportService = sportService;
         this.followService = followService;
         this.userService = userService;
+        this.gameJoinerService = gameJoinerService;
     }
 
     @GetMapping("/")
@@ -195,6 +200,14 @@ public class ListingsController {
 
         model.addAttribute("listing", listing);
         model.addAttribute("isCreator", isCreator);
+
+        // Pass join request status for non-creators so the template can show appropriate UI
+        if (!isCreator) {
+            JoinerStatus joinStatus = gameJoinerService.getUserJoinRequestStatus(
+                    currentUser.getUserId(), id);
+            model.addAttribute("joinStatus", joinStatus);
+        }
+
         return "listings/detail";
     }
 

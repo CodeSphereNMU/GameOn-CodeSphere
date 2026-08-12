@@ -1,6 +1,7 @@
 package com.gameon.controller;
 
 import com.gameon.model.entity.GameListing;
+import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
@@ -55,6 +56,19 @@ public class GameJoinerController {
         // Cannot join own listing
         if (listing.getCreator().getUserId().equals(currentUser.getUserId())) {
             redirectAttributes.addFlashAttribute("error", "You are already participating in this listing as the creator.");
+            return "redirect:/listings/" + listingId;
+        }
+
+        // Check for existing active join request (PENDING, ACCEPTED, LOCKED)
+        JoinerStatus existingStatus = gameJoinerService.getUserJoinRequestStatus(
+                currentUser.getUserId(), listingId);
+        if (existingStatus != null) {
+            String message = switch (existingStatus) {
+                case PENDING -> "You already have a join request for this listing and cannot select another team.";
+                case ACCEPTED, LOCKED -> "You are already a participant in this listing.";
+                default -> "You already have a join request for this listing.";
+            };
+            redirectAttributes.addFlashAttribute("error", message);
             return "redirect:/listings/" + listingId;
         }
 

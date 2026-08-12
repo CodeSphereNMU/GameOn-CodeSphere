@@ -290,4 +290,23 @@ public class GameJoinerService {
                gameJoinerRepository.countByIdGameListingIdAndTeamAndStatus(
                 listingId, team, JoinerStatus.LOCKED);
     }
+
+    /**
+     * Gets the user's current join request status for a listing.
+     * Returns the JoinerStatus if an active request exists (PENDING, ACCEPTED, LOCKED),
+     * or null if no active request exists (no record, REJECTED, or LEFT).
+     */
+    @Transactional(readOnly = true)
+    public JoinerStatus getUserJoinRequestStatus(Long userId, Long listingId) {
+        Optional<GameJoiner> existing = gameJoinerRepository.findByUserAndListing(userId, listingId);
+        if (existing.isPresent()) {
+            JoinerStatus status = existing.get().getStatus();
+            // REJECTED and LEFT are not considered active — user can re-request
+            if (status == JoinerStatus.REJECTED || status == JoinerStatus.LEFT) {
+                return null;
+            }
+            return status;
+        }
+        return null;
+    }
 }

@@ -73,11 +73,28 @@
 
                         <!-- Join Button (not own listing) -->
                         <div th:unless="${isCreator}" class="mt-4 text-center">
-                            <form th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get">
-                                <button type="submit" class="btn btn-gameon">
-                                    <i class="bi bi-person-plus me-1"></i>Join This Game
-                                </button>
-                            </form>
+                            <!-- No active request: show Join button -->
+                            <div th:if="${joinStatus == null}">
+                                <form th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get">
+                                    <button type="submit" class="btn btn-gameon">
+                                        <i class="bi bi-person-plus me-1"></i>Join This Game
+                                    </button>
+                                </form>
+                            </div>
+                            <!-- Pending request: show status badge -->
+                            <div th:if="${joinStatus != null && joinStatus.name() == 'PENDING'}">
+                                <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                                    <i class="bi bi-hourglass-split me-1"></i>Pending Approval
+                                </span>
+                                <p class="text-muted small mt-2 mb-0">Your join request is awaiting approval.</p>
+                            </div>
+                            <!-- Accepted/Locked: show participant badge -->
+                            <div th:if="${joinStatus != null && (joinStatus.name() == 'ACCEPTED' || joinStatus.name() == 'LOCKED')}">
+                                <span class="badge bg-success fs-6 px-3 py-2">
+                                    <i class="bi bi-check-circle me-1"></i>Participant
+                                </span>
+                                <p class="text-muted small mt-2 mb-0">You are already a participant in this listing.</p>
+                            </div>
                         </div>
 
                         <!-- Manage Listing (creator) -->
