@@ -6,6 +6,7 @@ IF COL_LENGTH('dbo.sport_formats', 'duration_minutes') IS NULL
 BEGIN
     ALTER TABLE sport_formats ADD duration_minutes INT NULL;
 END;
+GO
 
 -- Remove the legacy Any Position representation safely.
 UPDATE game_joiners
