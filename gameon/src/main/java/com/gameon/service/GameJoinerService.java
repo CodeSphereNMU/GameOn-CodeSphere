@@ -19,8 +19,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service handling join requests for game listings.
@@ -44,19 +46,22 @@ public class GameJoinerService {
     private final UserSportProfileRepository userSportProfileRepository;
     private final NotificationService notificationService;
     private final SchedulingConflictService schedulingConflictService;
+    private final SportService sportService;
 
     public GameJoinerService(GameJoinerRepository gameJoinerRepository,
                              GameListingRepository gameListingRepository,
                              UserRepository userRepository,
                              UserSportProfileRepository userSportProfileRepository,
                              NotificationService notificationService,
-                             SchedulingConflictService schedulingConflictService) {
+                             SchedulingConflictService schedulingConflictService,
+                             SportService sportService) {
         this.gameJoinerRepository = gameJoinerRepository;
         this.gameListingRepository = gameListingRepository;
         this.userRepository = userRepository;
         this.userSportProfileRepository = userSportProfileRepository;
         this.notificationService = notificationService;
         this.schedulingConflictService = schedulingConflictService;
+        this.sportService = sportService;
     }
 
     /**
@@ -84,6 +89,8 @@ public class GameJoinerService {
         if (listing.getIsCompleted()) {
             throw new BusinessRuleException("This listing is no longer active.");
         }
+
+        validateRequestWindowOpen(listing);
 
         // Cannot join own listing (creator is already a participant)
         if (listing.getCreator().getUserId().equals(userId)) {
@@ -131,6 +138,8 @@ public class GameJoinerService {
                     "Team " + team.name() + " is full. Please select a different team.");
         }
 
+        validatePositionSelection(listing, formatPositionId, altFormatPositionId);
+
         // Scheduling conflict check with 60-minute travel buffer
         int duration = listing.getSessionDuration() != null ? listing.getSessionDuration() : 1;
         String conflictMsg = schedulingConflictService.getConflictMessage(
@@ -172,6 +181,8 @@ public class GameJoinerService {
         if (!listing.getCreator().getUserId().equals(creatorId)) {
             throw new UnauthorizedAccessException("accept requests for", "game listing");
         }
+
+        validateRequestWindowOpen(listing);
 
         GameJoiner joiner = gameJoinerRepository.findById(new GameJoinerId(joinerId, listingId))
                 .orElseThrow(() -> new ResourceNotFoundException("Join request not found"));
@@ -232,6 +243,8 @@ public class GameJoinerService {
             throw new UnauthorizedAccessException("reject requests for", "game listing");
         }
 
+        validateRequestWindowOpen(listing);
+
         GameJoiner joiner = gameJoinerRepository.findById(new GameJoinerId(joinerId, listingId))
                 .orElseThrow(() -> new ResourceNotFoundException("Join request not found"));
 
@@ -267,14 +280,69 @@ public class GameJoinerService {
             throw new BusinessRuleException("As the creator, you cannot leave your own listing. Delete it instead.");
         }
 
+        if (listing != null && !isRequestWindowOpen(listing)) {
+            throw new BusinessRuleException("This listing is locked. Membership can no longer be changed.");
+        }
+
         if (joiner.getStatus() == JoinerStatus.LOCKED) {
             throw new BusinessRuleException(
                     "You cannot leave a locked listing. The session has been confirmed.", "BR6");
         }
 
+        if (joiner.getStatus() != JoinerStatus.PENDING && joiner.getStatus() != JoinerStatus.ACCEPTED) {
+            throw new BusinessRuleException("You do not have an active membership or request for this listing.");
+        }
+
         joiner.setStatus(JoinerStatus.LEFT);
         gameJoinerRepository.save(joiner);
         logger.info("User {} left listing {}", userId, listingId);
+    }
+
+    @Transactional(readOnly = true)
+    public void validateJoinAvailability(Long userId, GameListing listing) {
+        validateRequestWindowOpen(listing);
+        int duration = listing.getSessionDuration() != null ? listing.getSessionDuration() : 1;
+        String conflictMsg = schedulingConflictService.getConflictMessage(
+                userId, listing.getScheduledDate(), duration, null);
+        if (conflictMsg != null) {
+            throw new BusinessRuleException(conflictMsg);
+        }
+    }
+
+    public boolean isRequestWindowOpen(GameListing listing) {
+        return LocalDateTime.now().isBefore(
+                listing.getScheduledDate().minusHours(GameListingService.LOCK_IN_HOURS_BEFORE_START));
+    }
+
+    private void validateRequestWindowOpen(GameListing listing) {
+        if (!isRequestWindowOpen(listing)) {
+            throw new BusinessRuleException("Join requests close 2 hours before the session starts.");
+        }
+    }
+
+    private void validatePositionSelection(GameListing listing, Long primaryId, Long alternateId) {
+        if (!listing.getFormat().getHasPositions()) {
+            if (primaryId != null || alternateId != null) {
+                throw new BusinessRuleException("This format does not use player positions.");
+            }
+            return;
+        }
+
+        // NULL primary and alternate means Any Position / no preference.
+        if (primaryId == null) {
+            if (alternateId != null) {
+                throw new BusinessRuleException("Choose a primary position before an alternative position.");
+            }
+            return;
+        }
+        if (primaryId.equals(alternateId)) {
+            throw new BusinessRuleException("Primary and alternative positions must be different.");
+        }
+
+        Set<Long> validIds = sportService.getPositionIdsForFormat(listing.getFormat().getFormatId());
+        if (!validIds.contains(primaryId) || (alternateId != null && !validIds.contains(alternateId))) {
+            throw new BusinessRuleException("Select positions that belong to this sport format.");
+        }
     }
 
     /**

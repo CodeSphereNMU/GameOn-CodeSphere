@@ -38,6 +38,11 @@
             </span>
         </div>
 
+        <div th:unless="${requestWindowOpen}" class="alert alert-secondary">
+            <i class="bi bi-lock me-1"></i>
+            The request window closed 2 hours before the session. Requests can no longer be accepted or rejected.
+        </div>
+
         <!-- Accepted Players -->
         <div th:if="${!acceptedJoiners.isEmpty()}" class="card shadow-sm mb-4">
             <div class="card-header bg-white">
@@ -49,7 +54,7 @@
                         <i class="bi bi-person-circle me-2"></i>
                         <strong th:text="${joiner.user.username}">User</strong>
                         <span class="badge ms-2" th:classappend="${joiner.team.name() == 'A'} ? 'bg-danger' : 'bg-primary'"
-                              th:text="'Team ' + ${joiner.team}">Team</span>
+                              th:text="${'Team ' + joiner.team}">Team</span>
                     </div>
                     <span class="badge bg-success">Accepted</span>
                 </div>
@@ -73,11 +78,17 @@
                             <i class="bi bi-person-circle me-2"></i>
                             <a th:href="@{'/profile/' + ${req.user.userId}}" th:text="${req.user.username}" class="fw-bold text-decoration-none">User</a>
                             <span class="badge ms-2" th:classappend="${req.team.name() == 'A'} ? 'bg-danger' : 'bg-primary'"
-                                  th:text="'Team ' + ${req.team}">Team</span>
+                                  th:text="${'Team ' + req.team}">Team</span>
+                            <div th:if="${listing.format.hasPositions}" class="small text-muted mt-1">
+                                Preferred:
+                                <span th:text="${req.formatPositionId == null ? 'Any Position' : positionNames[req.formatPositionId]}">Any Position</span>
+                                <span th:if="${req.altFormatPositionId != null}"
+                                      th:text="${' · Alternative: ' + positionNames[req.altFormatPositionId]}"></span>
+                            </div>
                         </div>
                         <div class="d-flex gap-2"
                              th:with="teamFull=${(req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull)},
-                                      btnDisabled=${listingFull or ((req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull))},
+                                      btnDisabled=${!requestWindowOpen or listingFull or ((req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull))},
                                       btnTitle=${listingFull ? 'Listing is full' : (teamFull ? 'Team is full' : 'Accept request')}">
                             <form th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/accept/' + ${req.user.userId}}" method="post">
                                 <button type="submit" class="btn btn-success btn-sm"
@@ -87,7 +98,8 @@
                                 </button>
                             </form>
                             <form th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/reject/' + ${req.user.userId}}" method="post">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                        th:disabled="${!requestWindowOpen}">
                                     <i class="bi bi-x-lg"></i> Reject
                                 </button>
                             </form>

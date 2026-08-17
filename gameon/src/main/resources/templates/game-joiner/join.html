@@ -17,6 +17,7 @@
                                th:text="${listing.format.sport.sportName + ' - ' + listing.format.formatName}">Sport Format</small>
                     </div>
                     <div class="card-body">
+                        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
                         <!-- Listing Summary -->
                         <div class="card bg-light mb-3">
                             <div class="card-body py-2">
@@ -26,37 +27,17 @@
                             </div>
                         </div>
 
-                        <form th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="post">
-                            <!-- Team Selection -->
-                            <div class="mb-3">
-                                <label class="form-label">Select Team:</label>
-                                <div class="d-flex gap-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="team" value="A" id="teamA"
-                                               th:checked="${!teamAFull}"
-                                               th:disabled="${teamAFull}">
-                                        <label class="form-check-label" for="teamA">
-                                            <span class="badge bg-danger" th:classappend="${teamAFull} ? ' opacity-50' : ''">Team A</span>
-                                            <span th:if="${teamAFull}" class="text-muted small ms-1">(Full)</span>
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="team" value="B" id="teamB"
-                                               th:checked="${teamAFull && !teamBFull}"
-                                               th:disabled="${teamBFull}">
-                                        <label class="form-check-label" for="teamB">
-                                            <span class="badge bg-primary" th:classappend="${teamBFull} ? ' opacity-50' : ''">Team B</span>
-                                            <span th:if="${teamBFull}" class="text-muted small ms-1">(Full)</span>
-                                        </label>
-                                    </div>
-                                </div>
+                        <form th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="post" id="joinRequestForm">
+                            <input type="hidden" name="team" th:value="${selectedTeam}">
+                            <div class="alert alert-light border py-2">
+                                Requesting to join <strong th:text="${'Team ' + selectedTeam}">Team A</strong>
                             </div>
 
                             <!-- Position Selection (if applicable) -->
                             <div th:if="${positions != null && !positions.isEmpty()}" class="mb-3">
                                 <label class="form-label">Preferred Position:</label>
-                                <select class="form-select" name="formatPositionId">
-                                    <option value="">-- No preference --</option>
+                                <select class="form-select" name="formatPositionId" id="primaryPosition">
+                                    <option value="">Any Position</option>
                                     <option th:each="fp : ${positions}"
                                             th:value="${fp.position.positionId}"
                                             th:text="${fp.position.positionName}">Position</option>
@@ -65,7 +46,7 @@
 
                             <div th:if="${positions != null && !positions.isEmpty()}" class="mb-3">
                                 <label class="form-label">Alternative Position (optional):</label>
-                                <select class="form-select" name="altFormatPositionId">
+                                <select class="form-select" name="altFormatPositionId" id="alternatePosition">
                                     <option value="">-- No alternative --</option>
                                     <option th:each="fp : ${positions}"
                                             th:value="${fp.position.positionId}"
@@ -87,5 +68,18 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+        document.getElementById('joinRequestForm')?.addEventListener('submit', function (event) {
+            const primary = document.getElementById('primaryPosition');
+            const alternate = document.getElementById('alternatePosition');
+            if (primary && alternate && alternate.value && !primary.value) {
+                event.preventDefault();
+                alert('Choose a primary position before an alternative position.');
+            } else if (primary && alternate && primary.value && primary.value === alternate.value) {
+                event.preventDefault();
+                alert('Primary and alternative positions must be different.');
+            }
+        });
+    </script>
 </body>
 </html>

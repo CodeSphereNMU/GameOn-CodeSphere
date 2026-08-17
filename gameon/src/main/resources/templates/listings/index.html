@@ -24,15 +24,37 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
 
-        <!-- Skill Filter -->
-        <div class="mb-3">
-            <form th:action="@{/listings}" method="get" class="d-flex gap-2 align-items-center">
-                <label class="form-label mb-0 small text-muted">Filter:</label>
-                <select name="skill" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+        <!-- Sport, skill, date and time filters (A200) -->
+        <div class="card card-body mb-3 py-3">
+            <form th:action="@{/listings}" method="get" class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Sport</label>
+                    <select name="sportId" class="form-select form-select-sm">
+                        <option value="">All My Sports</option>
+                        <option th:each="sport : ${userSports}" th:value="${sport.sportId}" th:text="${sport.sportName}"
+                                th:selected="${selectedSportId != null && selectedSportId == sport.sportId}">Sport</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Skill Level</label>
+                    <select name="skill" class="form-select form-select-sm">
                     <option value="">All Levels</option>
                     <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}"
                             th:selected="${selectedSkill != null && selectedSkill.toUpperCase() == level.name()}">Level</option>
-                </select>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Date</label>
+                    <input type="date" name="date" class="form-control form-control-sm" th:value="${selectedDate}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Start Time</label>
+                    <input type="time" name="time" class="form-control form-control-sm" th:value="${selectedTime}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-gameon btn-sm">Apply</button>
+                    <a th:href="@{/listings}" class="btn btn-outline-secondary btn-sm">Clear</a>
+                </div>
             </form>
         </div>
 
@@ -85,14 +107,14 @@
         <nav th:if="${listings != null && listings.totalPages > 1}" class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item" th:classappend="${listings.first} ? 'disabled'">
-                    <a class="page-link" th:href="@{/listings(page=${listings.number - 1}, skill=${selectedSkill})}">Previous</a>
+                    <a class="page-link" th:href="@{/listings(page=${listings.number - 1}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, time=${selectedTime})}">Previous</a>
                 </li>
                 <li th:each="i : ${#numbers.sequence(0, listings.totalPages - 1)}"
                     class="page-item" th:classappend="${i == listings.number} ? 'active'">
-                    <a class="page-link" th:href="@{/listings(page=${i}, skill=${selectedSkill})}" th:text="${i + 1}">1</a>
+                    <a class="page-link" th:href="@{/listings(page=${i}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, time=${selectedTime})}" th:text="${i + 1}">1</a>
                 </li>
                 <li class="page-item" th:classappend="${listings.last} ? 'disabled'">
-                    <a class="page-link" th:href="@{/listings(page=${listings.number + 1}, skill=${selectedSkill})}">Next</a>
+                    <a class="page-link" th:href="@{/listings(page=${listings.number + 1}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, time=${selectedTime})}">Next</a>
                 </li>
             </ul>
         </nav>

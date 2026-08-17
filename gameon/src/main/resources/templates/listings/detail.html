@@ -49,25 +49,48 @@
                         <div class="row">
                             <!-- Team A -->
                             <div class="col-6">
-                                <h6 class="text-center text-danger">Team A</h6>
+                                <h6 class="text-center text-danger">Team A <small th:text="${teamACount + '/' + teamCapacity}"></small></h6>
                                 <ul class="list-group list-group-flush">
-                                    <li class="list-group-item small" th:text="${listing.creator.username}">
-                                        Creator (auto)
+                                    <li class="list-group-item small">
+                                        <span th:text="${listing.creator.username}">Creator</span>
+                                        <small class="d-block text-muted"
+                                               th:if="${creatorJoiner != null && listing.format.hasPositions}"
+                                               th:text="${creatorJoiner.formatPositionId == null ? 'Any Position' : positionNames[creatorJoiner.formatPositionId]}">Position</small>
                                     </li>
                                     <li th:each="joiner : ${listing.joiners}"
                                         th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED') && !joiner.user.userId.equals(listing.creator.userId)}"
-                                        class="list-group-item small" th:text="${joiner.user.username}">Player</li>
+                                        class="list-group-item small">
+                                        <span th:text="${joiner.user.username}">Player</span>
+                                        <small th:if="${listing.format.hasPositions}" class="d-block text-muted"
+                                               th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</small>
+                                    </li>
                                 </ul>
+                                <form th:if="${!isCreator && requestWindowOpen && joinStatus == null && !teamAFull}"
+                                      th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-3">
+                                    <input type="hidden" name="team" value="A">
+                                    <button type="submit" class="btn btn-gameon btn-sm w-100">Join Team A</button>
+                                </form>
+                                <button th:if="${!isCreator && teamAFull}" class="btn btn-secondary btn-sm w-100 mt-3" disabled>Team A Full</button>
                             </div>
                             <!-- Team B -->
                             <div class="col-6">
-                                <h6 class="text-center text-primary">Team B</h6>
+                                <h6 class="text-center text-primary">Team B <small th:text="${teamBCount + '/' + teamCapacity}"></small></h6>
                                 <ul class="list-group list-group-flush">
                                     <li th:each="joiner : ${listing.joiners}"
                                         th:if="${joiner.team.name() == 'B' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED')}"
-                                        class="list-group-item small" th:text="${joiner.user.username}">Player</li>
-                                    <li th:if="${#lists.isEmpty(listing.joiners)}" class="list-group-item small text-muted">No players yet</li>
+                                        class="list-group-item small">
+                                        <span th:text="${joiner.user.username}">Player</span>
+                                        <small th:if="${listing.format.hasPositions}" class="d-block text-muted"
+                                               th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</small>
+                                    </li>
+                                    <li th:if="${teamBCount == 0}" class="list-group-item small text-muted">No players yet</li>
                                 </ul>
+                                <form th:if="${!isCreator && requestWindowOpen && joinStatus == null && !teamBFull}"
+                                      th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-3">
+                                    <input type="hidden" name="team" value="B">
+                                    <button type="submit" class="btn btn-gameon btn-sm w-100">Join Team B</button>
+                                </form>
+                                <button th:if="${!isCreator && teamBFull}" class="btn btn-secondary btn-sm w-100 mt-3" disabled>Team B Full</button>
                             </div>
                         </div>
 
@@ -83,13 +106,8 @@
                                     (<span th:text="${currentParticipants}">4</span>/<span th:text="${maxPlayers}">4</span>).
                                 </p>
                             </div>
-                            <!-- No active request and not full: show Join button -->
-                            <div th:if="${!listingFull && joinStatus == null}">
-                                <form th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get">
-                                    <button type="submit" class="btn btn-gameon">
-                                        <i class="bi bi-person-plus me-1"></i>Join This Game
-                                    </button>
-                                </form>
+                            <div th:if="${!requestWindowOpen && joinStatus == null}">
+                                <span class="badge bg-secondary fs-6 px-3 py-2">Join Requests Closed</span>
                             </div>
                             <!-- Pending request: show status badge -->
                             <div th:if="${joinStatus != null && joinStatus.name() == 'PENDING'}">

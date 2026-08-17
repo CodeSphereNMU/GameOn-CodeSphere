@@ -37,10 +37,16 @@ public class GameJoinerController {
 
     @GetMapping("/join/{listingId}")
     public String showJoinForm(@PathVariable Long listingId,
+                               @RequestParam(required = false) Team team,
                                @AuthenticationPrincipal CustomUserDetails currentUser,
                                Model model,
                                RedirectAttributes redirectAttributes) {
         GameListing listing = gameListingService.getListingWithDetails(listingId);
+
+        if (team == null) {
+            redirectAttributes.addFlashAttribute("error", "Select the team you want to join.");
+            return "redirect:/listings/" + listingId;
+        }
 
         // Rule 7: Validate sport is on user's profile
         try {
@@ -79,8 +85,21 @@ public class GameJoinerController {
             return "redirect:/listings/" + listingId;
         }
 
+        if (gameJoinerService.isTeamFull(listingId, team, maxPlayers)) {
+            redirectAttributes.addFlashAttribute("error", "Team " + team.name() + " is full.");
+            return "redirect:/listings/" + listingId;
+        }
+
+        try {
+            gameJoinerService.validateJoinAvailability(currentUser.getUserId(), listing);
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/listings/" + listingId;
+        }
+
         model.addAttribute("listing", listing);
         model.addAttribute("teams", Team.values());
+        model.addAttribute("selectedTeam", team);
 
         // Team capacity info for the form
         int teamCapacity = maxPlayers / 2;
@@ -113,6 +132,7 @@ public class GameJoinerController {
             redirectAttributes.addFlashAttribute("success", "Join request sent! The creator will review it.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/game-joiner/join/" + listingId + "?team=" + team.name();
         }
         return "redirect:/listings/" + listingId;
     }
@@ -124,8 +144,13 @@ public class GameJoinerController {
                                @AuthenticationPrincipal CustomUserDetails currentUser,
                                RedirectAttributes redirectAttributes) {
         try {
+            JoinerStatus currentStatus = gameJoinerService.getUserJoinRequestStatus(
+                    currentUser.getUserId(), listingId);
             gameJoinerService.leaveListing(currentUser.getUserId(), listingId);
-            redirectAttributes.addFlashAttribute("success", "You have left the game listing.");
+            redirectAttributes.addFlashAttribute("success",
+                    currentStatus == JoinerStatus.PENDING
+                            ? "Your join request has been withdrawn."
+                            : "You have left the game listing.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }

@@ -14,6 +14,7 @@
                         <small class="text-muted">Step 1 - Enter listing details</small>
                     </div>
                     <div class="card-body">
+                        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
                         <div th:if="${formats.isEmpty()}" class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle me-1"></i>
                             You need to add a sport to your profile before creating a listing.
@@ -27,50 +28,41 @@
                                     <option value="">-- Select format --</option>
                                     <option th:each="format : ${formats}"
                                             th:value="${format.formatId}"
+                                            th:selected="${submittedFormatId != null ? submittedFormatId == format.formatId : (draft != null && draft.formatId == format.formatId)}"
                                             th:text="${format.sport.sportName + ' - ' + format.formatName + ' (' + format.noPlayers + ' players)'}">Format</option>
                                 </select>
                             </div>
                             <div class="mb-3">
                                 <label for="skillLevel" class="form-label">Skill Level</label>
                                 <select class="form-select" id="skillLevel" name="skillLevel" required>
-                                    <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}">Level</option>
+                                    <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}"
+                                            th:selected="${submittedSkillLevel != null ? submittedSkillLevel.toUpperCase() == level.name() : (draft != null && draft.skillLevel == level)}">Level</option>
                                 </select>
                             </div>
                             <div class="mb-3">
                                 <label for="scheduledDate" class="form-label">Date &amp; Time</label>
                                 <input type="datetime-local" class="form-control" id="scheduledDate"
-                                       name="scheduledDate" required>
-                            </div>
-                            <div class="mb-3">
-                                <label for="sessionDuration" class="form-label">Session Duration (hours)</label>
-                                <select class="form-select" id="sessionDuration" name="sessionDuration" required>
-                                    <option value="1">1 hour</option>
-                                    <option value="2" selected>2 hours</option>
-                                    <option value="3">3 hours</option>
-                                    <option value="4">4 hours</option>
-                                    <option value="5">5 hours</option>
-                                    <option value="6">6 hours</option>
-                                    <option value="7">7 hours</option>
-                                    <option value="8">8 hours</option>
-                                </select>
+                                       name="scheduledDate" required
+                                       th:value="${submittedScheduledDate != null ? submittedScheduledDate : (draft != null && draft.scheduledDate != null ? #temporals.format(draft.scheduledDate, 'yyyy-MM-dd''T''HH:mm') : '')}">
                             </div>
                             <div class="mb-3">
                                 <label for="location" class="form-label">Location</label>
                                 <input type="text" class="form-control" id="location" name="location"
-                                       placeholder="e.g. City Sports Centre, Court 3" required maxlength="200">
+                                       placeholder="e.g. City Sports Centre, Court 3" required maxlength="200"
+                                       th:value="${submittedLocation != null ? submittedLocation : (draft != null ? draft.location : '')}">
                             </div>
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Privacy</label>
                                 <select class="form-select" id="privacySetting" name="privacySetting" required>
-                                    <option value="PUBLIC">Public - visible to all players</option>
-                                    <option value="PRIVATE">Private - invite only</option>
+                                    <option value="PUBLIC" th:selected="${submittedPrivacySetting != null ? submittedPrivacySetting == 'PUBLIC' : (draft == null || draft.privacySetting.name() == 'PUBLIC')}">Public - visible to all players</option>
+                                    <option value="PRIVATE" th:selected="${submittedPrivacySetting != null ? submittedPrivacySetting == 'PRIVATE' : (draft != null && draft.privacySetting.name() == 'PRIVATE')}">Private - invite only</option>
                                 </select>
                             </div>
                             <div class="d-flex gap-2">
                                 <button type="submit" class="btn btn-gameon">
                                     Next <i class="bi bi-arrow-right ms-1"></i>
                                 </button>
-                                <a th:href="@{/listings}" class="btn btn-outline-secondary">Cancel</a>
+                                <a th:href="@{/listings/create/cancel}" class="btn btn-outline-secondary">Cancel</a>
                             </div>
                         </form>
                     </div>

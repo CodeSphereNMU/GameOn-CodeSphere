@@ -1,84 +1,46 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head('Confirm Listing')}"></head>
 <body class="bg-light">
-    <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
-    <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
-
-    <div class="container mt-4">
-        <div class="row justify-content-center">
-            <div class="col-md-7">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0"><i class="bi bi-check-circle me-2 text-success"></i>Confirm Listing</h5>
-                        <small class="text-muted">Review your listing and invite friends</small>
-                    </div>
-                    <div class="card-body">
-                        <!-- Preview Card -->
-                        <div class="card bg-light mb-4">
-                            <div class="card-body">
-                                <h6 th:text="${format.sport.sportName + ' - ' + format.formatName}">Sport Format</h6>
-                                <p class="mb-1 small"><i class="bi bi-people me-1"></i><span th:text="${format.noPlayers}">0</span> players</p>
-                                <p class="mb-1 small"><i class="bi bi-bar-chart me-1"></i>Skill: <span th:text="${skillLevel}">Level</span></p>
-                                <p class="mb-1 small"><i class="bi bi-calendar me-1"></i><span th:text="${scheduledDate}">Date</span></p>
-                                <p class="mb-1 small"><i class="bi bi-clock me-1"></i>Duration: <span th:text="${sessionDuration}">2</span> hour(s)</p>
-                                <p class="mb-1 small"><i class="bi bi-geo-alt me-1"></i><span th:text="${location}">Location</span></p>
-                                <p class="mb-0 small"><i class="bi bi-eye me-1"></i><span th:text="${privacySetting}">Privacy</span></p>
-                            </div>
-                        </div>
-
-                        <!-- Position Selection (if format has positions) -->
-                        <form th:action="@{/listings/confirm}" method="post">
-                            <input type="hidden" name="formatId" th:value="${formatId}">
-                            <input type="hidden" name="skillLevel" th:value="${skillLevel}">
-                            <input type="hidden" name="scheduledDate" th:value="${scheduledDate}">
-                            <input type="hidden" name="location" th:value="${location}">
-                            <input type="hidden" name="privacySetting" th:value="${privacySetting}">
-                            <input type="hidden" name="sessionDuration" th:value="${sessionDuration}">
-
-                            <div th:if="${positions != null && !positions.isEmpty()}" class="mb-4">
-                                <label class="form-label fw-bold">Select Position(s):</label>
-                                <small class="text-muted d-block mb-2">
-                                    Select at least one position. Choose "Any Position" alone or one or more specific positions.
-                                </small>
-                                <div class="list-group">
-                                    <label th:each="fp : ${positions}" class="list-group-item d-flex align-items-center">
-                                        <input class="form-check-input me-3" type="checkbox"
-                                               name="positionIds" th:value="${fp.position.positionId}">
-                                        <span th:text="${fp.position.positionName}">Position</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Invite Friends -->
-                            <div th:if="${friends != null && !friends.isEmpty()}" class="mb-4">
-                                <label class="form-label">Invite friends (optional):</label>
-                                <small class="text-muted d-block mb-2">
-                                    Note: Invitations are courtesy notifications only. Invited users must still submit a join request.
-                                </small>
-                                <div class="list-group">
-                                    <label th:each="friend : ${friends}" class="list-group-item d-flex align-items-center">
-                                        <input class="form-check-input me-3" type="checkbox"
-                                               name="invitedFriendIds" th:value="${friend.userId}">
-                                        <i class="bi bi-person-circle me-2 text-muted"></i>
-                                        <span th:text="${friend.username}">Friend</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-gameon">
-                                    <i class="bi bi-check-lg me-1"></i>Create Listing
-                                </button>
-                                <a th:href="@{/listings/create}" class="btn btn-outline-secondary">Back</a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+<nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
+<div th:replace="~{fragments/layout :: tabs('listings')}"></div>
+<div class="container mt-4"><div class="row justify-content-center"><div class="col-md-7">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-check-circle me-2 text-success"></i>Confirm Listing</h5>
+            <small class="text-muted">Final step - Preview the listing before creating it</small>
+        </div>
+        <div class="card-body">
+            <div th:if="${error}" class="alert alert-danger">
+                <span th:text="${error}"></span>
+                <div class="small mt-2">Your draft has been kept. Go back to change the relevant information.</div>
             </div>
+            <div class="card bg-light mb-4"><div class="card-body">
+                <h5 th:text="${format.sport.sportName + ' - ' + format.formatName}">Sport Format</h5>
+                <p class="mb-1"><i class="bi bi-people me-1"></i><span th:text="${format.noPlayers}"></span> players</p>
+                <p class="mb-1"><i class="bi bi-bar-chart me-1"></i>Skill: <span th:text="${draft.skillLevel}"></span></p>
+                <p class="mb-1"><i class="bi bi-calendar me-1"></i><span th:text="${#temporals.format(draft.scheduledDate, 'dd MMM yyyy HH:mm')}"></span></p>
+                <p class="mb-1"><i class="bi bi-clock me-1"></i>Duration: <span th:text="${draft.sessionDuration}"></span> hour(s)</p>
+                <p class="mb-1"><i class="bi bi-geo-alt me-1"></i><span th:text="${draft.location}"></span></p>
+                <p class="mb-1"><i class="bi bi-eye me-1"></i><span th:text="${draft.privacySetting}"></span></p>
+                <p th:if="${format.hasPositions}" class="mb-1">
+                    <i class="bi bi-person-badge me-1"></i>Positions:
+                    <span th:if="${draft.positionIds.isEmpty()}">Any Position</span>
+                    <span th:unless="${draft.positionIds.isEmpty()}"
+                          th:each="positionId, stat : ${draft.positionIds}"
+                          th:text="${positionNames[positionId] + (!stat.last ? ', ' : '')}"></span>
+                </p>
+                <p class="mb-0"><i class="bi bi-envelope me-1"></i>Friends invited: <span th:text="${draft.invitedFriendIds.size()}"></span></p>
+            </div></div>
+            <form th:action="@{/listings/confirm}" method="post">
+                <div class="d-flex gap-2">
+                    <a th:href="@{/listings/create/friends}" class="btn btn-outline-secondary">Back</a>
+                    <button type="submit" class="btn btn-gameon"><i class="bi bi-check-lg me-1"></i>Create Listing</button>
+                </div>
+            </form>
         </div>
     </div>
-
-    <div th:replace="~{fragments/layout :: scripts}"></div>
+</div></div></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
 </html>

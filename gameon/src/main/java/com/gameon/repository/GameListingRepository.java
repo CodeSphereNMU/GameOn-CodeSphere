@@ -98,24 +98,24 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "                             WHERE gj.id.userId = :userId AND gj.status IN ('ACCEPTED', 'LOCKED')))")
     List<GameListing> findUpcomingListingsForUserAfter(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
-    // A200: Browse available PUBLIC listings (future, not completed, not own)
+    // A200/A500: Browse available PUBLIC listings outside the two-hour lock-in window.
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
-           "AND gl.scheduledDate > :now " +
+           "AND gl.scheduledDate > :cutoff " +
            "AND gl.isCompleted = false " +
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> findAvailablePublicListings(
             @Param("formatIds") List<Long> formatIds,
-            @Param("now") LocalDateTime now,
+            @Param("cutoff") LocalDateTime cutoff,
             @Param("userId") Long userId,
             Pageable pageable);
 
     // Browse PUBLIC listings with skill filter
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
-           "AND gl.scheduledDate > :now " +
+           "AND gl.scheduledDate > :cutoff " +
            "AND gl.isCompleted = false " +
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
@@ -123,8 +123,29 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> findAvailablePublicListingsBySkill(
             @Param("formatIds") List<Long> formatIds,
-            @Param("now") LocalDateTime now,
+            @Param("cutoff") LocalDateTime cutoff,
             @Param("userId") Long userId,
             @Param("skillLevel") SkillLevel skillLevel,
+            Pageable pageable);
+
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.format.formatId IN :formatIds " +
+           "AND gl.scheduledDate > :cutoff " +
+           "AND gl.isCompleted = false " +
+           "AND gl.creator.userId != :userId " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "AND (:sportId IS NULL OR gl.format.sport.sportId = :sportId) " +
+           "AND (:skillLevel IS NULL OR gl.skillLevel = :skillLevel) " +
+           "AND (:fromDate IS NULL OR gl.scheduledDate >= :fromDate) " +
+           "AND (:toDate IS NULL OR gl.scheduledDate < :toDate) " +
+           "ORDER BY gl.scheduledDate ASC")
+    Page<GameListing> searchAvailablePublicListings(
+            @Param("formatIds") List<Long> formatIds,
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("userId") Long userId,
+            @Param("sportId") Long sportId,
+            @Param("skillLevel") SkillLevel skillLevel,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
             Pageable pageable);
 }

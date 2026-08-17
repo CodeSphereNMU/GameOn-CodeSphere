@@ -48,6 +48,7 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
            "JOIN FETCH sf.sport " +
            "WHERE gj.id.userId = :userId " +
            "AND gj.status IN ('ACCEPTED', 'LOCKED', 'PENDING') " +
+           "AND gl.creator.userId <> :userId " +
            "ORDER BY gl.scheduledDate ASC")
     List<GameJoiner> findJoinedListingsForUser(@Param("userId") Long userId);
 

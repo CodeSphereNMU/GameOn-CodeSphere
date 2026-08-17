@@ -29,6 +29,13 @@ public interface FollowRepository extends JpaRepository<Follow, FollowId> {
     @Query("SELECT f.follower.userId FROM Follow f WHERE f.followed.userId = :userId")
     List<Long> findFollowerUserIds(@Param("userId") Long userId);
 
+    @Query("SELECT f.followed.userId FROM Follow f " +
+           "WHERE f.follower.userId = :userId " +
+           "AND EXISTS (SELECT r FROM Follow r " +
+           "            WHERE r.follower.userId = f.followed.userId " +
+           "            AND r.followed.userId = :userId)")
+    List<Long> findMutualFollowUserIds(@Param("userId") Long userId);
+
     @Modifying
     @Query("DELETE FROM Follow f WHERE f.id.followerUserId = :followerId AND f.id.followedUserId = :followedId")
     void deleteByFollowerAndFollowed(@Param("followerId") Long followerId, @Param("followedId") Long followedId);
