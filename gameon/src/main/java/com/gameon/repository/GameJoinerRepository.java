@@ -41,13 +41,15 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime);
 
-    // Joined listings for lobby (user's perspective)
+    // Joined listings for lobby (user's perspective) — current/upcoming only
     @Query("SELECT gj FROM GameJoiner gj " +
            "JOIN FETCH gj.gameListing gl " +
            "JOIN FETCH gl.format sf " +
            "JOIN FETCH sf.sport " +
            "WHERE gj.id.userId = :userId " +
            "AND gj.status IN ('ACCEPTED', 'LOCKED', 'PENDING') " +
+           "AND gl.isCompleted = false " +
+           "AND gl.scheduledDate > CURRENT_TIMESTAMP " +
            "AND gl.creator.userId <> :userId " +
            "ORDER BY gl.scheduledDate ASC")
     List<GameJoiner> findJoinedListingsForUser(@Param("userId") Long userId);

@@ -107,6 +107,8 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "AND gl.isCompleted = false " +
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
+           "AND gl.gameListingId NOT IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
+           "     WHERE gj.id.userId = :userId AND gj.status IN ('ACCEPTED', 'LOCKED')) " +
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> findAvailablePublicListings(
             @Param("formatIds") List<Long> formatIds,
@@ -122,6 +124,8 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
            "AND gl.skillLevel = :skillLevel " +
+           "AND gl.gameListingId NOT IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
+           "     WHERE gj.id.userId = :userId AND gj.status IN ('ACCEPTED', 'LOCKED')) " +
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> findAvailablePublicListingsBySkill(
             @Param("formatIds") List<Long> formatIds,
@@ -143,6 +147,8 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "AND (:hideFull = false OR " +
            "     (SELECT COUNT(gj) FROM GameJoiner gj " +
            "      WHERE gj.gameListing = gl AND gj.status IN ('ACCEPTED', 'LOCKED')) < gl.format.noPlayers) " +
+           "AND gl.gameListingId NOT IN (SELECT gj2.id.gameListingId FROM GameJoiner gj2 " +
+           "     WHERE gj2.id.userId = :userId AND gj2.status IN ('ACCEPTED', 'LOCKED')) " +
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> searchAvailablePublicListings(
             @Param("formatIds") List<Long> formatIds,
