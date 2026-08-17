@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.HashSet;
@@ -242,7 +241,7 @@ public class GameListingService {
 
     @Transactional(readOnly = true)
     public Page<GameListing> browseAvailableListings(Long userId, Long sportId, SkillLevel skillLevel,
-                                                     LocalDate date, LocalTime time, Pageable pageable) {
+                                                     LocalDate date, boolean hideFull, Pageable pageable) {
         List<Long> userSportIds = userSportProfileRepository.findDistinctSportIdsByUserId(userId);
         if (userSportIds.isEmpty()) return Page.empty(pageable);
         if (sportId != null && !userSportIds.contains(sportId)) {
@@ -251,22 +250,15 @@ public class GameListingService {
         List<Long> formatIds = sportService.getFormatsBySportIds(userSportIds).stream()
                 .map(SportFormat::getFormatId).toList();
         if (formatIds.isEmpty()) return Page.empty(pageable);
-        if (time != null && date == null) {
-            throw new BusinessRuleException("Select a date when filtering by time.");
-        }
-
         LocalDateTime fromDate = null;
         LocalDateTime toDate = null;
-        if (date != null && time != null) {
-            fromDate = LocalDateTime.of(date, time);
-            toDate = fromDate.plusMinutes(1);
-        } else if (date != null) {
+        if (date != null) {
             fromDate = date.atStartOfDay();
             toDate = date.plusDays(1).atStartOfDay();
         }
         return gameListingRepository.searchAvailablePublicListings(
                 formatIds, LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START), userId,
-                sportId, skillLevel, fromDate, toDate, pageable);
+                sportId, skillLevel, fromDate, toDate, hideFull, pageable);
     }
 
     @Transactional(readOnly = true)

@@ -27,7 +27,7 @@
                               th:text="${listing.skillLevel}">Level</span>
                     </div>
                     <div class="card-body">
-                        <p><i class="bi bi-controller me-2"></i><strong>Format:</strong> <span th:text="${listing.format.formatName}">Format</span> (<span th:text="${listing.format.noPlayers}">0</span> players)</p>
+                        <p><i class="bi bi-controller me-2"></i><strong>Format:</strong> <span th:text="${listing.format.formatName}">Format</span></p>
                         <p><i class="bi bi-calendar me-2"></i><strong>Date:</strong> <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span></p>
                         <p><i class="bi bi-clock me-2"></i><strong>Duration:</strong> <span th:text="${listing.sessionDuration}">2</span> hour(s)</p>
                         <p><i class="bi bi-geo-alt me-2"></i><strong>Location:</strong> <span th:text="${listing.location}">Location</span></p>
@@ -65,12 +65,11 @@
                                                th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</small>
                                     </li>
                                 </ul>
-                                <form th:if="${!isCreator && requestWindowOpen && joinStatus == null && !teamAFull}"
+                                <form th:if="${!isCreator && requestWindowOpen && joinStatus == null}"
                                       th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-3">
                                     <input type="hidden" name="team" value="A">
                                     <button type="submit" class="btn btn-gameon btn-sm w-100">Join Team A</button>
                                 </form>
-                                <button th:if="${!isCreator && teamAFull}" class="btn btn-secondary btn-sm w-100 mt-3" disabled>Team A Full</button>
                             </div>
                             <!-- Team B -->
                             <div class="col-6">
@@ -85,27 +84,16 @@
                                     </li>
                                     <li th:if="${teamBCount == 0}" class="list-group-item small text-muted">No players yet</li>
                                 </ul>
-                                <form th:if="${!isCreator && requestWindowOpen && joinStatus == null && !teamBFull}"
+                                <form th:if="${!isCreator && requestWindowOpen && joinStatus == null}"
                                       th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-3">
                                     <input type="hidden" name="team" value="B">
                                     <button type="submit" class="btn btn-gameon btn-sm w-100">Join Team B</button>
                                 </form>
-                                <button th:if="${!isCreator && teamBFull}" class="btn btn-secondary btn-sm w-100 mt-3" disabled>Team B Full</button>
                             </div>
                         </div>
 
                         <!-- Join Button (not own listing) -->
                         <div th:unless="${isCreator}" class="mt-4 text-center">
-                            <!-- Listing Full: show disabled badge -->
-                            <div th:if="${listingFull && joinStatus == null}">
-                                <span class="badge bg-secondary fs-6 px-3 py-2">
-                                    <i class="bi bi-x-circle me-1"></i>Listing Full
-                                </span>
-                                <p class="text-muted small mt-2 mb-0">
-                                    All player positions are filled
-                                    (<span th:text="${currentParticipants}">4</span>/<span th:text="${maxPlayers}">4</span>).
-                                </p>
-                            </div>
                             <div th:if="${!requestWindowOpen && joinStatus == null}">
                                 <span class="badge bg-secondary fs-6 px-3 py-2">Join Requests Closed</span>
                             </div>

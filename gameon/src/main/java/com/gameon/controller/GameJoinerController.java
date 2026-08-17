@@ -84,18 +84,8 @@ public class GameJoinerController {
             return "redirect:/listings/" + listingId;
         }
 
-        // Capacity check: reject if listing is full
+        // Capacity is enforced when the creator accepts a request, not when it is submitted.
         int maxPlayers = listing.getFormat().getNoPlayers();
-        if (gameJoinerService.isListingFull(listingId, maxPlayers)) {
-            redirectAttributes.addFlashAttribute("error", "This listing is full. No more players can join.");
-            return "redirect:/listings/" + listingId;
-        }
-
-        if (gameJoinerService.isTeamFull(listingId, team, maxPlayers)) {
-            redirectAttributes.addFlashAttribute("error", "Team " + team.name() + " is full.");
-            return "redirect:/listings/" + listingId;
-        }
-
         try {
             gameJoinerService.validateJoinAvailability(currentUser.getUserId(), listing);
         } catch (Exception e) {

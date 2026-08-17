@@ -24,7 +24,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
 
-        <!-- Sport, skill, date and time filters (A200) -->
+        <!-- Sport, skill, date and capacity filters (A200) -->
         <div class="card card-body mb-3 py-3">
             <form th:action="@{/listings}" method="get" class="row g-2 align-items-end">
                 <div class="col-md-3">
@@ -48,8 +48,11 @@
                     <input type="date" name="date" class="form-control form-control-sm" th:value="${selectedDate}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small mb-1">Start Time</label>
-                    <input type="time" name="time" class="form-control form-control-sm" th:value="${selectedTime}">
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" id="hideFull" name="hideFull" value="true"
+                               th:checked="${hideFull}">
+                        <label class="form-check-label small" for="hideFull">Hide full listings</label>
+                    </div>
                 </div>
                 <div class="col-md-2 d-flex gap-1">
                     <button type="submit" class="btn btn-gameon btn-sm">Apply</button>
@@ -72,7 +75,9 @@
                         <p class="text-muted small mb-1">
                             <i class="bi bi-controller me-1"></i>
                             <span th:text="${listing.format.formatName}">Format</span>
-                            (<span th:text="${listing.format.noPlayers}">0</span> players)
+                            <span class="ms-1">
+                                <span th:text="${participantCounts[listing.gameListingId]}">1</span>/<span th:text="${listing.format.noPlayers}">8</span>
+                            </span>
                         </p>
                         <p class="text-muted small mb-1">
                             <i class="bi bi-calendar me-1"></i>
@@ -107,14 +112,14 @@
         <nav th:if="${listings != null && listings.totalPages > 1}" class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item" th:classappend="${listings.first} ? 'disabled'">
-                    <a class="page-link" th:href="@{/listings(page=${listings.number - 1}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, time=${selectedTime})}">Previous</a>
+                    <a class="page-link" th:href="@{/listings(page=${listings.number - 1}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, hideFull=${hideFull})}">Previous</a>
                 </li>
                 <li th:each="i : ${#numbers.sequence(0, listings.totalPages - 1)}"
                     class="page-item" th:classappend="${i == listings.number} ? 'active'">
-                    <a class="page-link" th:href="@{/listings(page=${i}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, time=${selectedTime})}" th:text="${i + 1}">1</a>
+                    <a class="page-link" th:href="@{/listings(page=${i}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, hideFull=${hideFull})}" th:text="${i + 1}">1</a>
                 </li>
                 <li class="page-item" th:classappend="${listings.last} ? 'disabled'">
-                    <a class="page-link" th:href="@{/listings(page=${listings.number + 1}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, time=${selectedTime})}">Next</a>
+                    <a class="page-link" th:href="@{/listings(page=${listings.number + 1}, skill=${selectedSkill}, sportId=${selectedSportId}, date=${selectedDate}, hideFull=${hideFull})}">Next</a>
                 </li>
             </ul>
         </nav>

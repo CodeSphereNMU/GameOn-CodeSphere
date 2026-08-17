@@ -5,6 +5,8 @@ import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.Invitation;
 import com.gameon.model.entity.User;
+import com.gameon.model.enums.JoinerStatus;
+import com.gameon.repository.GameJoinerRepository;
 import com.gameon.repository.InvitationRepository;
 import com.gameon.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -18,10 +20,14 @@ import java.util.List;
 public class InvitationService {
     private final InvitationRepository invitationRepository;
     private final UserRepository userRepository;
+    private final GameJoinerRepository gameJoinerRepository;
 
-    public InvitationService(InvitationRepository invitationRepository, UserRepository userRepository) {
+    public InvitationService(InvitationRepository invitationRepository,
+                             UserRepository userRepository,
+                             GameJoinerRepository gameJoinerRepository) {
         this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
+        this.gameJoinerRepository = gameJoinerRepository;
     }
 
     @Transactional
@@ -48,10 +54,20 @@ public class InvitationService {
 
     @Transactional(readOnly = true)
     public List<Invitation> getActiveInvitations(Long userId) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime browseUntil = LocalDateTime.now()
+                .plusHours(GameListingService.LOCK_IN_HOURS_BEFORE_START);
         return invitationRepository.findByInviteeUserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(invitation -> !invitation.getGameListing().getIsCompleted())
-                .filter(invitation -> invitation.getGameListing().getScheduledDate().isAfter(now))
+                .filter(invitation -> invitation.getGameListing().getScheduledDate().isAfter(browseUntil))
+                .filter(invitation -> hasNoActiveRequest(invitation, userId))
                 .toList();
+    }
+
+    private boolean hasNoActiveRequest(Invitation invitation, Long userId) {
+        return gameJoinerRepository.findByUserAndListing(
+                        userId, invitation.getGameListing().getGameListingId())
+                .map(joiner -> joiner.getStatus() == JoinerStatus.REJECTED
+                        || joiner.getStatus() == JoinerStatus.LEFT)
+                .orElse(true);
     }
 }

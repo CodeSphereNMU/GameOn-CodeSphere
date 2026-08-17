@@ -25,10 +25,11 @@ import jakarta.servlet.http.HttpSession;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Controller for the Listings tab - the main landing page after login.
@@ -70,7 +71,7 @@ public class ListingsController {
                         @RequestParam(required = false) String skill,
                         @RequestParam(required = false) Long sportId,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime time,
+                        @RequestParam(defaultValue = "false") boolean hideFull,
                         @RequestParam(defaultValue = "0") int page,
                         Model model) {
         Page<GameListing> listings = Page.empty();
@@ -78,7 +79,7 @@ public class ListingsController {
             SkillLevel selectedSkill = skill == null || skill.isBlank()
                     ? null : SkillLevel.valueOf(skill.toUpperCase());
             listings = gameListingService.browseAvailableListings(
-                    currentUser.getUserId(), sportId, selectedSkill, date, time, PageRequest.of(page, 12));
+                    currentUser.getUserId(), sportId, selectedSkill, date, hideFull, PageRequest.of(page, 12));
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -93,7 +94,12 @@ public class ListingsController {
         model.addAttribute("selectedSkill", skill);
         model.addAttribute("selectedSportId", sportId);
         model.addAttribute("selectedDate", date);
-        model.addAttribute("selectedTime", time);
+        model.addAttribute("hideFull", hideFull);
+        Map<Long, Long> participantCounts = new LinkedHashMap<>();
+        listings.forEach(listing -> participantCounts.put(
+                listing.getGameListingId(),
+                gameJoinerService.countCurrentParticipants(listing.getGameListingId())));
+        model.addAttribute("participantCounts", participantCounts);
         return "listings/index";
     }
 
@@ -318,18 +324,11 @@ public class ListingsController {
 
         // Capacity information for UI
         int maxPlayers = listing.getFormat().getNoPlayers();
-        long currentParticipants = gameJoinerService.countCurrentParticipants(id);
-        boolean listingFull = currentParticipants >= maxPlayers;
-        model.addAttribute("listingFull", listingFull);
-        model.addAttribute("currentParticipants", currentParticipants);
-        model.addAttribute("maxPlayers", maxPlayers);
         model.addAttribute("requestWindowOpen", gameJoinerService.isRequestWindowOpen(listing));
         listing.getJoiners().stream()
                 .filter(joiner -> joiner.getUser().getUserId().equals(listing.getCreator().getUserId()))
                 .findFirst()
                 .ifPresent(joiner -> model.addAttribute("creatorJoiner", joiner));
-        model.addAttribute("teamAFull", gameJoinerService.isTeamFull(id, com.gameon.model.enums.Team.A, maxPlayers));
-        model.addAttribute("teamBFull", gameJoinerService.isTeamFull(id, com.gameon.model.enums.Team.B, maxPlayers));
         model.addAttribute("teamACount", gameJoinerService.getTeamCount(id, com.gameon.model.enums.Team.A));
         model.addAttribute("teamBCount", gameJoinerService.getTeamCount(id, com.gameon.model.enums.Team.B));
         model.addAttribute("teamCapacity", maxPlayers / 2);

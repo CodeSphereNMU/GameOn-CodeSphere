@@ -56,7 +56,9 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.isCompleted = false " +
            "AND gl.scheduledDate BETWEEN :now AND :threshold " +
-           "AND gl.session IS NULL")
+           "AND gl.session IS NULL " +
+           "AND (SELECT COUNT(gj) FROM GameJoiner gj " +
+           "     WHERE gj.gameListing = gl AND gj.status IN ('ACCEPTED', 'LOCKED')) >= gl.format.noPlayers")
     List<GameListing> findFullListingsNeedingConfirmation(
             @Param("now") LocalDateTime now,
             @Param("threshold") LocalDateTime threshold);
@@ -138,6 +140,9 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "AND (:skillLevel IS NULL OR gl.skillLevel = :skillLevel) " +
            "AND (:fromDate IS NULL OR gl.scheduledDate >= :fromDate) " +
            "AND (:toDate IS NULL OR gl.scheduledDate < :toDate) " +
+           "AND (:hideFull = false OR " +
+           "     (SELECT COUNT(gj) FROM GameJoiner gj " +
+           "      WHERE gj.gameListing = gl AND gj.status IN ('ACCEPTED', 'LOCKED')) < gl.format.noPlayers) " +
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> searchAvailablePublicListings(
             @Param("formatIds") List<Long> formatIds,
@@ -147,5 +152,6 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
             @Param("skillLevel") SkillLevel skillLevel,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate,
+            @Param("hideFull") boolean hideFull,
             Pageable pageable);
 }

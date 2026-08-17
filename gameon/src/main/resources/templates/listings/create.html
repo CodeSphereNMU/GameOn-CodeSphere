@@ -29,7 +29,7 @@
                                     <option th:each="format : ${formats}"
                                             th:value="${format.formatId}"
                                             th:selected="${submittedFormatId != null ? submittedFormatId == format.formatId : (draft != null && draft.formatId == format.formatId)}"
-                                            th:text="${format.sport.sportName + ' - ' + format.formatName + ' (' + format.noPlayers + ' players)'}">Format</option>
+                                            th:text="${format.sport.sportName + ' - ' + format.formatName}">Format</option>
                                 </select>
                             </div>
                             <div class="mb-3">

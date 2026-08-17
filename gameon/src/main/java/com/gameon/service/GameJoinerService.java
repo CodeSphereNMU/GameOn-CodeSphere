@@ -75,9 +75,8 @@ public class GameJoinerService {
      * 3. BR9: Sport must be on user's profile
      * 4. User does not already participate (ACCEPTED/LOCKED)
      * 5. User does not have an active PENDING request
-     * 6. Listing is not full (total capacity check)
-     * 7. Selected team is not full (per-team capacity check)
-     * 8. Scheduling conflict check with 60-min travel buffer
+     * 6. Scheduling conflict check with 60-min travel buffer
+     * Capacity is deliberately checked only when a creator accepts the request.
      */
     @Transactional
     public GameJoiner sendJoinRequest(Long userId, Long listingId, Team team,
@@ -125,21 +124,6 @@ public class GameJoinerService {
                     gameJoinerRepository.flush();
                     break;
             }
-        }
-
-        // Capacity check: listing must not be full
-        int maxPlayers = listing.getFormat().getNoPlayers();
-        long currentParticipants = countCurrentParticipants(listingId);
-        if (currentParticipants >= maxPlayers) {
-            throw new BusinessRuleException("This listing is full. No more players can join.");
-        }
-
-        // Team capacity check: selected team must not be full
-        int teamCapacity = maxPlayers / 2;
-        long teamCount = countTeamParticipants(listingId, team);
-        if (teamCount >= teamCapacity) {
-            throw new BusinessRuleException(
-                    "Team " + team.name() + " is full. Please select a different team.");
         }
 
         validatePositionSelection(listing, formatPositionId, altFormatPositionId);

@@ -20,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -359,6 +360,27 @@ class GameListingServiceTest {
             ArgumentCaptor<LocalDateTime> cutoff = ArgumentCaptor.forClass(LocalDateTime.class);
             verify(gameListingRepository).findAvailablePublicListings(anyList(), cutoff.capture(), eq(1L), any());
             assertThat(cutoff.getValue()).isBetween(before, after);
+        }
+
+        @Test
+        @DisplayName("Date and hide-full filters are passed to browse query")
+        void browseUsesDateAndHideFullFilters() {
+            LocalDate selectedDate = LocalDate.now().plusDays(2);
+            when(userSportProfileRepository.findDistinctSportIdsByUserId(1L)).thenReturn(List.of(1L));
+            when(sportService.getFormatsBySportIds(List.of(1L))).thenReturn(List.of(testFormat));
+            when(gameListingRepository.searchAvailablePublicListings(
+                    anyList(), any(), eq(1L), isNull(), isNull(),
+                    eq(selectedDate.atStartOfDay()), eq(selectedDate.plusDays(1).atStartOfDay()),
+                    eq(true), any()))
+                    .thenReturn(Page.empty());
+
+            gameListingService.browseAvailableListings(
+                    1L, null, null, selectedDate, true, PageRequest.of(0, 12));
+
+            verify(gameListingRepository).searchAvailablePublicListings(
+                    anyList(), any(), eq(1L), isNull(), isNull(),
+                    eq(selectedDate.atStartOfDay()), eq(selectedDate.plusDays(1).atStartOfDay()),
+                    eq(true), any());
         }
     }
 }

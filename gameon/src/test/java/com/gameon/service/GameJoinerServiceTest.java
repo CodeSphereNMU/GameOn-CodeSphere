@@ -199,6 +199,30 @@ class GameJoinerServiceTest {
     }
 
     @Nested
+    @DisplayName("Requests for full listings")
+    class FullListingRequests {
+
+        @Test
+        @DisplayName("A request can remain pending even when capacity is currently full")
+        void fullListing_requestAllowed() {
+            when(userRepository.findById(2L)).thenReturn(Optional.of(joinerUser));
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(testListing));
+            when(userSportProfileRepository.existsByIdUserIdAndIdSportId(2L, 1L)).thenReturn(true);
+            when(gameJoinerRepository.findByUserAndListing(2L, 10L)).thenReturn(Optional.empty());
+            when(schedulingConflictService.getConflictMessage(eq(2L), any(), eq(2), isNull()))
+                    .thenReturn(null);
+            when(gameJoinerRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+            GameJoiner result = gameJoinerService.sendJoinRequest(2L, 10L, Team.A, null, null);
+
+            assertThat(result.getStatus()).isEqualTo(JoinerStatus.PENDING);
+            verify(gameJoinerRepository, never()).countByIdGameListingIdAndStatusIn(anyLong(), anyList());
+            verify(gameJoinerRepository, never())
+                    .countByIdGameListingIdAndTeamAndStatus(anyLong(), any(), any());
+        }
+    }
+
+    @Nested
     @DisplayName("Accept Request with Scheduling Conflict")
     class AcceptRequestConflict {
 
