@@ -121,6 +121,12 @@ public class FollowService {
         return followRepository.findFollowerUserIds(userId);
     }
 
+    /** A Game On friend is a mutual follow. */
+    @Transactional(readOnly = true)
+    public List<Long> getFriendIds(Long userId) {
+        return followRepository.findMutualFollowUserIds(userId);
+    }
+
     /**
      * Gets follower count for a user.
      */

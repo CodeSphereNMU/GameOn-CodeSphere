@@ -17,8 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Service handling game listing lifecycle.
@@ -29,7 +33,7 @@ import java.util.Optional;
  * - Scheduling conflict: new listing must not conflict with user's existing sessions (60-min buffer)
  * - Listing must be created at least 3 hours before start time
  * - BR8: User can only create listing if sport is on profile
- * - Position validation: if sport has positions, at least one must be selected
+ * - Position validation: Any Position (NULL) or up to two valid preferences
  * - Creator is automatically a participant
  * - Privacy: public listings appear in browse, private do not
  */
@@ -38,6 +42,7 @@ public class GameListingService {
 
     private static final Logger logger = LoggerFactory.getLogger(GameListingService.class);
     private static final int MIN_CREATION_HOURS_BEFORE_START = 3;
+    public static final int LOCK_IN_HOURS_BEFORE_START = 2;
 
     private final GameListingRepository gameListingRepository;
     private final GameJoinerRepository gameJoinerRepository;
@@ -79,47 +84,9 @@ public class GameListingService {
                                      List<Long> positionIds, List<Long> invitedFriendIds) {
         User creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", creatorId));
-
-        // Get format and validate
-        SportFormat format = sportService.getFormatById(formatId);
-        Long sportId = format.getSport().getSportId();
-
-        // BR8: Sport must be on creator's profile
-        if (!userSportProfileRepository.existsByIdUserIdAndIdSportId(creatorId, sportId)) {
-            throw new BusinessRuleException(
-                    "This sport is not included in your sports profile. " +
-                    "You must add " + format.getSport().getSportName() + " to your profile before creating a listing.", "BR8");
-        }
-
-        // Position validation: if format has positions, at least one must be selected
-        if (format.getHasPositions()) {
-            validatePositionSelection(positionIds);
-        }
-
-        // Validate scheduled date is in the future
-        if (scheduledDate.isBefore(LocalDateTime.now())) {
-            throw new BusinessRuleException("Scheduled date must be in the future.");
-        }
-
-        // Validate listing is created at least 3 hours before start time
-        LocalDateTime earliestAllowedStart = LocalDateTime.now().plusHours(MIN_CREATION_HOURS_BEFORE_START);
-        if (scheduledDate.isBefore(earliestAllowedStart)) {
-            throw new BusinessRuleException(
-                    "This listing must be created at least 3 hours before the start time. " +
-                    "The earliest allowed start time is " +
-                    earliestAllowedStart.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")) + ".");
-        }
-
-        // Validate session duration
-        if (sessionDuration == null || sessionDuration < 1 || sessionDuration > 8) {
-            throw new BusinessRuleException("Session duration must be between 1 and 8 hours.");
-        }
-
-        // Scheduling conflict check with 60-minute travel buffer
-        String conflictMsg = schedulingConflictService.getConflictMessage(creatorId, scheduledDate, sessionDuration, null);
-        if (conflictMsg != null) {
-            throw new BusinessRuleException(conflictMsg);
-        }
+        SportFormat format = validateListingDetails(
+                creatorId, formatId, skillLevel, scheduledDate, location, privacySetting, sessionDuration);
+        validatePositionSelection(format, positionIds);
 
         GameListing listing = new GameListing(creator, format, skillLevel, scheduledDate,
                 location, privacySetting, sessionDuration);
@@ -155,34 +122,77 @@ public class GameListingService {
 
     /**
      * Validates position selection rules.
-     * - At least one position must be selected if sport has positions
-     * - "Any Position" cannot be combined with specific positions
+     * - NULL is a missing choice; an empty list intentionally means Any Position
+     * - Up to two distinct positions, both valid for the selected format
      */
-    private void validatePositionSelection(List<Long> positionIds) {
-        if (positionIds == null || positionIds.isEmpty()) {
-            throw new BusinessRuleException("Please select at least one position for this sport format.");
-        }
-
-        // Look up the "Any Position" ID from the database
-        Long anyPositionId = getAnyPositionId();
-
-        if (anyPositionId != null) {
-            boolean hasAnyPosition = positionIds.contains(anyPositionId);
-            boolean hasSpecificPositions = positionIds.stream().anyMatch(id -> !id.equals(anyPositionId));
-
-            if (hasAnyPosition && hasSpecificPositions) {
-                throw new BusinessRuleException(
-                        "'Any Position' cannot be combined with specific positions. " +
-                        "Select either 'Any Position' alone or one or more specific positions.");
+    public void validatePositionSelection(SportFormat format, List<Long> positionIds) {
+        if (!format.getHasPositions()) {
+            if (positionIds != null && !positionIds.isEmpty()) {
+                throw new BusinessRuleException("This format does not use player positions.");
             }
+            return;
+        }
+        if (positionIds == null) {
+            throw new BusinessRuleException("Choose Any Position or up to 2 preferred positions.");
+        }
+        // An empty list intentionally represents Any Position.
+        if (positionIds.isEmpty()) {
+            return;
+        }
+        if (positionIds.size() > 2) {
+            throw new BusinessRuleException("Select no more than 2 preferred positions.");
+        }
+        Set<Long> selected = new HashSet<>(positionIds);
+        if (selected.size() != positionIds.size()) {
+            throw new BusinessRuleException("Preferred positions must be different.");
+        }
+        Set<Long> validIds = sportService.getPositionIdsForFormat(format.getFormatId());
+        if (!validIds.containsAll(positionIds)) {
+            throw new BusinessRuleException("Select positions that belong to this sport format.");
         }
     }
 
-    /**
-     * Gets the ID of the "Any Position" position, or null if not found.
-     */
-    private Long getAnyPositionId() {
-        return sportService.getAnyPositionId();
+    @Transactional(readOnly = true)
+    public SportFormat validateListingDetails(Long creatorId, Long formatId, SkillLevel skillLevel,
+                                              LocalDateTime scheduledDate, String location,
+                                              PrivacySetting privacySetting, Integer sessionDuration) {
+        SportFormat format = sportService.getFormatById(formatId);
+        Long sportId = format.getSport().getSportId();
+        if (!userSportProfileRepository.existsByIdUserIdAndIdSportId(creatorId, sportId)) {
+            throw new BusinessRuleException(
+                    "This sport is not included in your sports profile. You must add " +
+                    format.getSport().getSportName() + " before creating a listing.", "BR8");
+        }
+        if (skillLevel == null || privacySetting == null) {
+            throw new BusinessRuleException("Skill level and privacy are required.");
+        }
+        if (location == null || location.isBlank()) {
+            throw new BusinessRuleException("Location is required.");
+        }
+        if (scheduledDate == null) {
+            throw new BusinessRuleException("Date and time are required.");
+        }
+        LocalDateTime earliestAllowedStart = LocalDateTime.now().plusHours(MIN_CREATION_HOURS_BEFORE_START);
+        if (scheduledDate.isBefore(earliestAllowedStart)) {
+            throw new BusinessRuleException(
+                    "This listing must be created at least 3 hours before the start time. The earliest allowed start time is " +
+                    earliestAllowedStart.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")) + ".");
+        }
+        if (sessionDuration == null || sessionDuration < 1 || sessionDuration > 8) {
+            throw new BusinessRuleException("Session duration must be between 1 and 8 hours.");
+        }
+        if (format.getDurationMinutes() != null) {
+            int formatHours = (format.getDurationMinutes() + 59) / 60;
+            if (sessionDuration != formatHours) {
+                throw new BusinessRuleException("Session duration must match the selected sport format.");
+            }
+        }
+        String conflictMsg = schedulingConflictService.getConflictMessage(
+                creatorId, scheduledDate, sessionDuration, null);
+        if (conflictMsg != null) {
+            throw new BusinessRuleException(conflictMsg);
+        }
+        return format;
     }
 
     /**
@@ -202,7 +212,8 @@ public class GameListingService {
         if (formatIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        return gameListingRepository.findAvailablePublicListings(formatIds, LocalDateTime.now(), userId, pageable);
+        LocalDateTime browseCutoff = LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START);
+        return gameListingRepository.findAvailablePublicListings(formatIds, browseCutoff, userId, pageable);
     }
 
     /**
@@ -220,7 +231,37 @@ public class GameListingService {
         if (formatIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        return gameListingRepository.findAvailablePublicListingsBySkill(formatIds, LocalDateTime.now(), userId, skillLevel, pageable);
+        LocalDateTime browseCutoff = LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START);
+        return gameListingRepository.findAvailablePublicListingsBySkill(formatIds, browseCutoff, userId, skillLevel, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<GameListing> browseAvailableListings(Long userId, Long sportId, SkillLevel skillLevel,
+                                                     LocalDate date, LocalTime time, Pageable pageable) {
+        List<Long> userSportIds = userSportProfileRepository.findDistinctSportIdsByUserId(userId);
+        if (userSportIds.isEmpty()) return Page.empty(pageable);
+        if (sportId != null && !userSportIds.contains(sportId)) {
+            throw new BusinessRuleException("You can only browse sports included in your profile.");
+        }
+        List<Long> formatIds = sportService.getFormatsBySportIds(userSportIds).stream()
+                .map(SportFormat::getFormatId).toList();
+        if (formatIds.isEmpty()) return Page.empty(pageable);
+        if (time != null && date == null) {
+            throw new BusinessRuleException("Select a date when filtering by time.");
+        }
+
+        LocalDateTime fromDate = null;
+        LocalDateTime toDate = null;
+        if (date != null && time != null) {
+            fromDate = LocalDateTime.of(date, time);
+            toDate = fromDate.plusMinutes(1);
+        } else if (date != null) {
+            fromDate = date.atStartOfDay();
+            toDate = date.plusDays(1).atStartOfDay();
+        }
+        return gameListingRepository.searchAvailablePublicListings(
+                formatIds, LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START), userId,
+                sportId, skillLevel, fromDate, toDate, pageable);
     }
 
     @Transactional(readOnly = true)

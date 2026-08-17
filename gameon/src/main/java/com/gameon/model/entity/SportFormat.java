@@ -32,6 +32,10 @@ public class SportFormat {
     @Column(name = "has_positions", nullable = false)
     private Boolean hasPositions = false;
 
+    @Positive(message = "Duration must be positive")
+    @Column(name = "duration_minutes", nullable = false)
+    private Integer durationMinutes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -94,6 +98,14 @@ public class SportFormat {
 
     public void setHasPositions(Boolean hasPositions) {
         this.hasPositions = hasPositions;
+    }
+
+    public Integer getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(Integer durationMinutes) {
+        this.durationMinutes = durationMinutes;
     }
 
     public LocalDateTime getCreatedAt() {

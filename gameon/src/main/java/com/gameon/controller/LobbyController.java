@@ -9,6 +9,7 @@ import com.gameon.security.CustomUserDetails;
 import com.gameon.service.GameJoinerService;
 import com.gameon.service.GameListingService;
 import com.gameon.service.MatchResultService;
+import com.gameon.service.SportService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -29,13 +30,16 @@ public class LobbyController {
     private final GameListingService gameListingService;
     private final GameJoinerService gameJoinerService;
     private final MatchResultService matchResultService;
+    private final SportService sportService;
 
     public LobbyController(GameListingService gameListingService,
                            GameJoinerService gameJoinerService,
-                           MatchResultService matchResultService) {
+                           MatchResultService matchResultService,
+                           SportService sportService) {
         this.gameListingService = gameListingService;
         this.gameJoinerService = gameJoinerService;
         this.matchResultService = matchResultService;
+        this.sportService = sportService;
     }
 
     // ===== Lobby - Default (Created Tab) =====
@@ -61,6 +65,10 @@ public class LobbyController {
     public String joined(@AuthenticationPrincipal CustomUserDetails currentUser, Model model) {
         List<GameJoiner> joinedGames = gameJoinerService.getJoinedListings(currentUser.getUserId());
         model.addAttribute("joinedGames", joinedGames);
+        model.addAttribute("leaveOpenListingIds", joinedGames.stream()
+                .filter(joiner -> gameJoinerService.isRequestWindowOpen(joiner.getGameListing()))
+                .map(joiner -> joiner.getGameListing().getGameListingId())
+                .collect(java.util.stream.Collectors.toSet()));
         model.addAttribute("activeTab", "joined");
         return "lobby/index";
     }
@@ -107,6 +115,11 @@ public class LobbyController {
         model.addAttribute("teamCapacity", teamCapacity);
         model.addAttribute("teamAFull", teamAFull);
         model.addAttribute("teamBFull", teamBFull);
+        model.addAttribute("requestWindowOpen", gameJoinerService.isRequestWindowOpen(listing));
+        if (listing.getFormat().getHasPositions()) {
+            model.addAttribute("positionNames",
+                    sportService.getPositionNamesForFormat(listing.getFormat().getFormatId()));
+        }
         return "lobby/requests";
     }
 

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Choose Positions')}"></head>
+<body class="bg-light">
+<nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
+<div th:replace="~{fragments/layout :: tabs('listings')}"></div>
+<div class="container mt-4"><div class="row justify-content-center"><div class="col-md-7">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Your Positions</h5>
+            <small class="text-muted">Step 2 - Choose Any Position or up to 2 preferences</small>
+        </div>
+        <div class="card-body">
+            <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+            <p class="small text-muted" th:text="${format.sport.sportName + ' - ' + format.formatName}"></p>
+            <form th:action="@{/listings/create/positions}" method="post" id="positionForm">
+                <div class="form-check border rounded p-3 mb-2">
+                    <input class="form-check-input ms-0 me-2" type="checkbox" name="anyPosition"
+                           value="true" id="anyPosition" th:checked="${submittedAnyPosition == true || (submittedAnyPosition == null && draft.positionIds != null && draft.positionIds.isEmpty())}">
+                    <label class="form-check-label fw-bold" for="anyPosition">Any Position</label>
+                </div>
+                <div class="list-group mb-3">
+                    <label th:each="fp : ${positions}" class="list-group-item">
+                        <input class="form-check-input me-2 position-choice" type="checkbox" name="positionIds"
+                               th:value="${fp.position.positionId}"
+                               th:checked="${submittedPositionIds != null ? submittedPositionIds.contains(fp.position.positionId) : (draft.positionIds != null && draft.positionIds.contains(fp.position.positionId))}">
+                        <span th:text="${fp.position.positionName}">Position</span>
+                    </label>
+                </div>
+                <div class="d-flex gap-2">
+                    <a th:href="@{/listings/create}" class="btn btn-outline-secondary">Back</a>
+                    <button type="submit" class="btn btn-gameon">Next <i class="bi bi-arrow-right"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div></div></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    const any = document.getElementById('anyPosition');
+    const choices = [...document.querySelectorAll('.position-choice')];
+    any.addEventListener('change', () => { if (any.checked) choices.forEach(c => c.checked = false); });
+    choices.forEach(choice => choice.addEventListener('change', () => {
+        if (choice.checked) any.checked = false;
+        const selected = choices.filter(c => c.checked);
+        if (selected.length > 2) { choice.checked = false; alert('Select no more than 2 preferred positions.'); }
+    }));
+</script>
+</body>
+</html>

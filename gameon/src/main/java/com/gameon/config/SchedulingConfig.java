@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * Scheduled tasks for time-triggered features.
- * A500: Expired listings are hidden via query filter (scheduledDate > now).
+ * A500: Listings are hidden from Browse at the two-hour lock-in point.
  * A600: Game reminders sent when session is confirmed.
  * A700: Session confirmation 2 hours before scheduled time.
  */

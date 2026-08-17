@@ -46,6 +46,9 @@ class GameJoinerServiceTest {
     @Mock
     private SchedulingConflictService schedulingConflictService;
 
+    @Mock
+    private SportService sportService;
+
     @InjectMocks
     private GameJoinerService gameJoinerService;
 
@@ -70,7 +73,7 @@ class GameJoinerServiceTest {
         testFormat.setFormatId(1L);
 
         testListing = new GameListing(creator, testFormat, SkillLevel.INTERMEDIATE,
-                LocalDateTime.of(2026, 9, 1, 14, 0), "Location", PrivacySetting.PUBLIC, 2);
+                LocalDateTime.now().plusDays(14), "Location", PrivacySetting.PUBLIC, 2);
         testListing.setGameListingId(10L);
     }
 
@@ -230,6 +233,33 @@ class GameJoinerServiceTest {
 
             GameJoiner result = gameJoinerService.acceptRequest(10L, 2L, 1L);
             assertThat(result.getStatus()).isEqualTo(JoinerStatus.ACCEPTED);
+        }
+    }
+
+    @Nested
+    @DisplayName("Two-hour request lock-in")
+    class RequestLockIn {
+
+        @Test
+        @DisplayName("Accept is rejected at lock-in")
+        void acceptAtLockIn_rejected() {
+            testListing.setScheduledDate(LocalDateTime.now().plusHours(2));
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(testListing));
+
+            assertThatThrownBy(() -> gameJoinerService.acceptRequest(10L, 2L, 1L))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("close 2 hours");
+        }
+
+        @Test
+        @DisplayName("Reject is rejected at lock-in")
+        void rejectAtLockIn_rejected() {
+            testListing.setScheduledDate(LocalDateTime.now().plusHours(2));
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(testListing));
+
+            assertThatThrownBy(() -> gameJoinerService.rejectRequest(10L, 2L, 1L))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("close 2 hours");
         }
     }
 

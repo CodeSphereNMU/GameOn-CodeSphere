@@ -85,11 +85,13 @@
                             <span class="badge"
                                   th:classappend="${gj.status.name() == 'PENDING'} ? 'bg-warning text-dark' : (${gj.status.name() == 'ACCEPTED'} ? 'bg-success' : 'bg-info')"
                                   th:text="${gj.status}">Status</span>
-                            <form th:if="${gj.status.name() != 'LOCKED'}"
+                            <form th:if="${gj.status.name() != 'LOCKED' && leaveOpenListingIds.contains(gj.gameListing.gameListingId)}"
                                   th:action="@{'/game-joiner/leave/' + ${gj.gameListing.gameListingId}}" method="post"
-                                  onsubmit="return confirm('Leave this game?')">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Leave</button>
+                                  onsubmit="return confirm('Are you sure?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                        th:text="${gj.status.name() == 'PENDING'} ? 'Withdraw Request' : 'Leave'">Leave</button>
                             </form>
+                            <span th:if="${!leaveOpenListingIds.contains(gj.gameListing.gameListingId)}" class="badge bg-secondary">Locked</span>
                         </div>
                     </div>
                 </div>

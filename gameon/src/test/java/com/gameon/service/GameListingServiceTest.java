@@ -15,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -125,7 +127,7 @@ class GameListingServiceTest {
     class PositionValidation {
 
         @Test
-        @DisplayName("Sport with positions and no position selected - rejected")
+        @DisplayName("Sport with positions and no position choice submitted - rejected")
         void noPositionSelected_rejected() {
             LocalDateTime future = LocalDateTime.now().plusHours(5);
 
@@ -135,9 +137,9 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, Collections.emptyList(), null))
+                    "Location", PrivacySetting.PUBLIC, 2, null, null))
                     .isInstanceOf(BusinessRuleException.class)
-                    .hasMessageContaining("select at least one position");
+                    .hasMessageContaining("Choose Any Position");
         }
 
         @Test
@@ -148,7 +150,7 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(sportService.getAnyPositionId()).thenReturn(1L);
+            when(sportService.getPositionIdsForFormat(2L)).thenReturn(java.util.Set.of(5L, 6L));
             when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
@@ -173,7 +175,7 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(sportService.getAnyPositionId()).thenReturn(1L);
+            when(sportService.getPositionIdsForFormat(2L)).thenReturn(java.util.Set.of(5L, 6L));
             when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
@@ -198,7 +200,6 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(sportService.getAnyPositionId()).thenReturn(1L); // "Any Position" has ID 1
             when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
@@ -208,30 +209,27 @@ class GameListingServiceTest {
             });
             when(gameJoinerRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
-            // Select "Any Position" (id=1) alone
+            // Empty list intentionally represents Any Position.
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(1L), null);
+                    "Location", PrivacySetting.PUBLIC, 2, Collections.emptyList(), null);
 
             assertThat(result).isNotNull();
         }
 
         @Test
-        @DisplayName("Any Position + specific position - rejected")
-        void anyPositionPlusSpecific_rejected() {
+        @DisplayName("More than two preferred positions - rejected")
+        void moreThanTwoPositions_rejected() {
             LocalDateTime future = LocalDateTime.now().plusHours(5);
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(sportService.getAnyPositionId()).thenReturn(1L); // "Any Position" has ID 1
-
-            // Select "Any Position" (1L) + a specific position (5L)
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(1L, 5L), null))
+                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L, 6L, 7L), null))
                     .isInstanceOf(BusinessRuleException.class)
-                    .hasMessageContaining("'Any Position' cannot be combined with specific positions");
+                    .hasMessageContaining("no more than 2");
         }
     }
 
@@ -336,6 +334,28 @@ class GameListingServiceTest {
                     "Location", PrivacySetting.PUBLIC, 2, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("Conflict message");
+        }
+    }
+
+    @Nested
+    @DisplayName("A500 browse lock-in")
+    class BrowseLockIn {
+
+        @Test
+        @DisplayName("Browse cutoff is two hours from now")
+        void browseUsesTwoHourCutoff() {
+            when(userSportProfileRepository.findDistinctSportIdsByUserId(1L)).thenReturn(List.of(1L));
+            when(sportService.getFormatsBySportIds(List.of(1L))).thenReturn(List.of(testFormat));
+            when(gameListingRepository.findAvailablePublicListings(anyList(), any(), eq(1L), any()))
+                    .thenReturn(Page.empty());
+
+            LocalDateTime before = LocalDateTime.now().plusHours(2).minusSeconds(1);
+            gameListingService.browseAvailableListings(1L, PageRequest.of(0, 12));
+            LocalDateTime after = LocalDateTime.now().plusHours(2).plusSeconds(1);
+
+            ArgumentCaptor<LocalDateTime> cutoff = ArgumentCaptor.forClass(LocalDateTime.class);
+            verify(gameListingRepository).findAvailablePublicListings(anyList(), cutoff.capture(), eq(1L), any());
+            assertThat(cutoff.getValue()).isBetween(before, after);
         }
     }
 }
