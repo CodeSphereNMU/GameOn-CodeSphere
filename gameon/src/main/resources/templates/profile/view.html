@@ -103,6 +103,57 @@
                     </div>
                 </div>
 
+                <!-- Friends Leaderboard -->
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-trophy-fill me-2" style="color: #DC3545;"></i>Friends Leaderboard</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Empty State -->
+                        <div th:if="${leaderboard == null || leaderboard.isEmpty()}" class="text-center text-muted py-3">
+                            <i class="bi bi-people" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">No friends available for leaderboard rankings yet.</p>
+                        </div>
+
+                        <!-- Leaderboard Table -->
+                        <div th:if="${leaderboard != null && !leaderboard.isEmpty()}" class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">Rank</th>
+                                        <th>Player</th>
+                                        <th class="text-center">Wins</th>
+                                        <th class="text-center">Played</th>
+                                        <th class="text-center">Win %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="entry : ${leaderboard}"
+                                        th:style="${entry.userId() == currentUserId} ? 'background-color: #f8d7da;' : ''">
+                                        <td>
+                                            <span th:if="${entry.rank() == 1}" class="badge" style="background-color: #DC3545;">1</span>
+                                            <span th:if="${entry.rank() == 2}" class="badge bg-secondary">2</span>
+                                            <span th:if="${entry.rank() == 3}" class="badge bg-dark">3</span>
+                                            <span th:if="${entry.rank() > 3}" th:text="${entry.rank()}">4</span>
+                                        </td>
+                                        <td>
+                                            <a th:href="@{/profile/{id}(id=${entry.userId()})}"
+                                               class="text-decoration-none"
+                                               th:classappend="${entry.userId() == currentUserId} ? 'fw-bold text-danger' : 'text-dark'"
+                                               th:text="${entry.username()}">Player</a>
+                                            <span th:if="${entry.userId() == currentUserId}"
+                                                  class="badge ms-1" style="background-color: #DC3545; font-size: 0.7em;">You</span>
+                                        </td>
+                                        <td class="text-center fw-bold" th:text="${entry.totalWins()}">0</td>
+                                        <td class="text-center" th:text="${entry.totalMatchesPlayed()}">0</td>
+                                        <td class="text-center" th:text="${#numbers.formatDecimal(entry.winPercentage(), 1, 1) + '%'}">0%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- View Posts & Match Results Buttons -->
                 <div class="mt-3">
                     <a th:href="@{'/profile/' + ${user.userId} + '/posts'}" class="btn btn-gameon w-100 mb-2">
