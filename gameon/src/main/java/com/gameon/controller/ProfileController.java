@@ -1,5 +1,6 @@
 package com.gameon.controller;
 
+import com.gameon.model.dto.FriendsLeaderboardEntry;
 import com.gameon.model.entity.MatchResult;
 import com.gameon.model.entity.Post;
 import com.gameon.model.entity.User;
@@ -31,19 +32,22 @@ public class ProfileController {
     private final FollowService followService;
     private final PostService postService;
     private final MatchResultService matchResultService;
+    private final FriendsLeaderboardService friendsLeaderboardService;
 
     public ProfileController(ProfileService profileService,
                              UserService userService,
                              SportService sportService,
                              FollowService followService,
                              PostService postService,
-                             MatchResultService matchResultService) {
+                             MatchResultService matchResultService,
+                             FriendsLeaderboardService friendsLeaderboardService) {
         this.profileService = profileService;
         this.userService = userService;
         this.sportService = sportService;
         this.followService = followService;
         this.postService = postService;
         this.matchResultService = matchResultService;
+        this.friendsLeaderboardService = friendsLeaderboardService;
     }
 
     // ===== D200: View Own Profile =====
@@ -58,6 +62,12 @@ public class ProfileController {
         model.addAttribute("followerCount", profileService.getFollowerCount(currentUser.getUserId()));
         model.addAttribute("followingCount", profileService.getFollowingCount(currentUser.getUserId()));
         model.addAttribute("isOwnProfile", true);
+
+        // Friends Leaderboard
+        List<FriendsLeaderboardEntry> leaderboard = friendsLeaderboardService.getFriendsLeaderboard(currentUser.getUserId());
+        model.addAttribute("leaderboard", leaderboard);
+        model.addAttribute("currentUserId", currentUser.getUserId());
+
         return "profile/view";
     }
 
@@ -141,6 +151,12 @@ public class ProfileController {
         model.addAttribute("followingCount", profileService.getFollowingCount(userId));
         model.addAttribute("isOwnProfile", false);
         model.addAttribute("isFollowing", followService.isFollowing(currentUser.getUserId(), userId));
+
+        // Friends Leaderboard (shown from the viewed user's perspective)
+        List<FriendsLeaderboardEntry> leaderboard = friendsLeaderboardService.getFriendsLeaderboard(userId);
+        model.addAttribute("leaderboard", leaderboard);
+        model.addAttribute("currentUserId", currentUser.getUserId());
+
         return "profile/view";
     }
 

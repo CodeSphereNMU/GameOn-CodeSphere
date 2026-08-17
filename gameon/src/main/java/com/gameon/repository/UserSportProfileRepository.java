@@ -46,4 +46,16 @@ public interface UserSportProfileRepository extends JpaRepository<UserSportProfi
 
     @Query("SELECT DISTINCT usp.sport.sportId FROM UserSportProfile usp WHERE usp.id.userId = :userId")
     List<Long> findDistinctSportIdsByUserId(@Param("userId") Long userId);
+
+    /**
+     * Aggregates total wins and total matches played (wins + losses) across all sports
+     * for a set of user IDs. Returns Object[] rows: [userId, username, totalWins, totalMatchesPlayed].
+     * Used for the Friends Leaderboard feature.
+     */
+    @Query("SELECT usp.user.userId, usp.user.username, " +
+           "SUM(usp.wins), SUM(usp.wins + usp.losses) " +
+           "FROM UserSportProfile usp WHERE usp.id.userId IN :userIds " +
+           "GROUP BY usp.user.userId, usp.user.username " +
+           "ORDER BY SUM(usp.wins) DESC")
+    List<Object[]> findAggregatedStatsByUserIds(@Param("userIds") List<Long> userIds);
 }
