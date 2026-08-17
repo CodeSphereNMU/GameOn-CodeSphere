@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Service handling session confirmation (A700) and game reminders (A600).
+ * Service handling session confirmation (A700) and game reminders (A500).
  * BR3: Only one session can be scheduled from a Game Listing.
  * BR6: Users 2 hours before scheduled time are locked in.
  */
@@ -70,7 +70,7 @@ public class SessionService {
         // BR6: Lock all accepted joiners
         int lockedCount = gameJoinerRepository.lockAllAcceptedJoiners(listingId);
 
-        // Send game reminders (A600)
+        // Send game reminders (A500)
         List<Long> participantIds = gameJoinerRepository.findParticipants(listingId).stream()
                 .map(gj -> gj.getUser().getUserId())
                 .toList();
@@ -78,10 +78,6 @@ public class SessionService {
         String reminderText = "Reminder: Your " + listing.getFormat().getSport().getSportName() +
                 " game at " + listing.getLocation() + " starts in 2 hours!";
         notificationService.createBulkNotifications(participantIds, reminderText, NotificationType.GAME_REMINDER);
-
-        // Also notify the creator
-        notificationService.createNotification(
-                listing.getCreator().getUserId(), reminderText, NotificationType.GAME_REMINDER);
 
         logger.info("Session confirmed for listing {}: {} players locked", listingId, lockedCount);
         return saved;

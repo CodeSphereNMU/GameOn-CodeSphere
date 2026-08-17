@@ -12,8 +12,8 @@ import java.util.List;
 
 /**
  * Scheduled tasks for time-triggered features.
- * A500: Listings are hidden from Browse at the two-hour lock-in point.
- * A600: Game reminders sent when session is confirmed.
+ * A500: Game reminders sent when session is confirmed.
+ * A600: Listings are hidden from Browse at the two-hour lock-in point.
  * A700: Session confirmation 2 hours before scheduled time.
  */
 @Configuration
@@ -31,7 +31,7 @@ public class SchedulingConfig {
     /**
      * Runs every 15 minutes to check for listings needing session confirmation.
      * A700: If a listing is full and within 2 hours of start, confirm and lock users.
-     * A600: Sends game reminder notifications to all participants.
+     * A500: Sends game reminder notifications to all participants.
      */
     @Scheduled(fixedRate = 900000) // 15 minutes
     public void confirmUpcomingSessions() {
