@@ -13,12 +13,20 @@
                         <h5 class="mb-0"><i class="bi bi-pencil-square me-2 text-danger"></i>Create Post</h5>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{/social/create}" method="post">
+                        <form th:action="@{/social/create}" method="post" enctype="multipart/form-data">
                             <div class="mb-3">
                                 <label for="content" class="form-label">What's on your mind?</label>
                                 <textarea class="form-control" id="content" name="content" rows="4"
-                                          required maxlength="500" placeholder="Share something with the community..."></textarea>
+                                          maxlength="500" placeholder="Share something with the community..."></textarea>
                                 <div class="form-text">Max 500 characters</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Add Photo</label>
+                                <input type="file"
+                                       class="form-control"
+                                       name="image"
+                                       accept=".jpg,.jpeg,.png,.webp,image/*">
+                                <div class="form-text">Supported: JPG, PNG, WEBP (max 5MB)</div>
                             </div>
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Who can see this?</label>

@@ -13,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
@@ -58,12 +59,13 @@ public class SocialController {
 
     @PostMapping("/social/create")
     public String createPost(@AuthenticationPrincipal CustomUserDetails currentUser,
-                             @RequestParam String content,
+                             @RequestParam(required = false) String content,
                              @RequestParam String privacySetting,
+                             @RequestParam(required = false) MultipartFile image,
                              RedirectAttributes redirectAttributes) {
         try {
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
-            postService.createPost(currentUser.getUserId(), content, privacy);
+            postService.createPost(currentUser.getUserId(), content, privacy, image);
             redirectAttributes.addFlashAttribute("success", "Post created!");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -89,12 +91,14 @@ public class SocialController {
     @PostMapping("/social/edit/{postId}")
     public String editPost(@PathVariable Long postId,
                            @AuthenticationPrincipal CustomUserDetails currentUser,
-                           @RequestParam String content,
+                           @RequestParam(required = false) String content,
                            @RequestParam String privacySetting,
+                           @RequestParam(required = false) MultipartFile image,
+                           @RequestParam(required = false, defaultValue = "false") boolean removeImage,
                            RedirectAttributes redirectAttributes) {
         try {
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
-            postService.updatePost(postId, currentUser.getUserId(), content, privacy);
+            postService.updatePost(postId, currentUser.getUserId(), content, privacy, image, removeImage);
             redirectAttributes.addFlashAttribute("success", "Post updated!");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());

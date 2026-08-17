@@ -20,7 +20,12 @@
                                 <small class="text-muted" th:text="${#temporals.format(post.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
                             </div>
                         </div>
-                        <p class="card-text fs-6" th:text="${post.content}">Content</p>
+                        <p class="card-text fs-6" th:if="${post.content}" th:text="${post.content}">Content</p>
+
+                        <!-- Post Image -->
+                        <img th:if="${post.imagePath}" class="img-fluid rounded mb-3 post-image"
+                             th:src="@{${post.imagePath}}"
+                             alt="Post Image">
 
                         <div class="d-flex gap-3 align-items-center mt-3">
                             <form th:action="@{'/social/like/' + ${post.postId}}" method="post" class="d-inline">

@@ -42,7 +42,7 @@ public class SecurityConfig {
             // Authorization Rules
             .authorizeHttpRequests(auth -> auth
                 // Public resources
-                .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**", "/favicon.ico").permitAll()
+                .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**", "/favicon.ico", "/uploads/**").permitAll()
 
                 // Authentication pages - accessible to anonymous users only
                 .requestMatchers("/login", "/register", "/register-sports").permitAll()

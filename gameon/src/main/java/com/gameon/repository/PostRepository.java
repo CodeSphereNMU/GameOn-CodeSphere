@@ -30,7 +30,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * Computes like/comment counts via subqueries — no lazy collections touched.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
@@ -47,7 +47,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * Public-only feed with DTO projection (used when user follows nobody).
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
@@ -78,7 +78,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * Public-only posts from all users (filter: PUBLIC).
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
@@ -92,7 +92,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * Security: only returns FOLLOWERS posts where the author is in the followedUserIds list.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
@@ -107,7 +107,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * All posts by a specific user regardless of privacy (filter: MY_POSTS).
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
@@ -121,7 +121,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * Shows: public posts + followers-only from followed users + all own posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
@@ -140,7 +140,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * Shows: public posts + own posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
