@@ -2,6 +2,7 @@ package com.gameon.repository;
 
 import com.gameon.model.entity.User;
 import com.gameon.model.enums.UserRole;
+import com.gameon.model.enums.AccountStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,25 +20,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByUsername(String username);
 
-    boolean existsByEmail(String email);
-
     List<User> findByUsernameContainingIgnoreCase(String query);
 
     Page<User> findByUsernameContainingIgnoreCase(String query, Pageable pageable);
 
-    List<User> findByUserRole(UserRole role);
+    List<User> findByTypeOfUser(UserRole role);
 
-    List<User> findByIsActiveTrue();
+    List<User> findByAccountStatus(AccountStatus accountStatus);
 
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.sportProfiles WHERE u.userId = :userId")
     Optional<User> findByIdWithSportProfiles(@Param("userId") Long userId);
 
-    @Query("SELECT u FROM User u WHERE u.isActive = true AND u.userRole = :role")
-    List<User> findActiveUsersByRole(@Param("role") UserRole role);
+    @Query("SELECT u FROM User u WHERE u.accountStatus = :status AND u.typeOfUser = :role")
+    List<User> findActiveUsersByRole(@Param("role") UserRole role,
+                                     @Param("status") AccountStatus status);
 
-    @Query("SELECT COUNT(u) FROM User u WHERE u.isActive = true")
-    long countActiveUsers();
+    @Query("SELECT COUNT(u) FROM User u WHERE u.accountStatus = :status")
+    long countActiveUsers(@Param("status") AccountStatus status);
 
-    @Query("SELECT u FROM User u WHERE u.isActive = true AND LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%'))")
-    List<User> searchActiveUsersByUsername(@Param("query") String query, Pageable pageable);
+    @Query("SELECT u FROM User u WHERE u.accountStatus = :status AND LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<User> searchActiveUsersByUsername(@Param("query") String query,
+                                           @Param("status") AccountStatus status,
+                                           Pageable pageable);
 }

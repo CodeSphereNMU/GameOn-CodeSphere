@@ -1,6 +1,7 @@
 package com.gameon.security;
 
 import com.gameon.model.entity.User;
+import com.gameon.model.enums.AccountStatus;
 import com.gameon.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,12 +37,12 @@ public class CustomUserDetailsService implements UserDetailsService {
                     return new UsernameNotFoundException("User not found: " + username);
                 });
 
-        if (!user.getIsActive()) {
+        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
             logger.warn("Authentication failed: user '{}' is deactivated", username);
             throw new UsernameNotFoundException("User account is deactivated: " + username);
         }
 
-        logger.debug("User '{}' loaded successfully with role: {}", username, user.getUserRole());
+        logger.debug("User '{}' loaded successfully with type: {}", username, user.getTypeOfUser());
         return new CustomUserDetails(user);
     }
 }

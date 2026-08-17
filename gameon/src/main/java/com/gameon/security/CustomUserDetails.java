@@ -1,6 +1,7 @@
 package com.gameon.security;
 
 import com.gameon.model.entity.User;
+import com.gameon.model.enums.AccountStatus;
 import com.gameon.model.enums.UserRole;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -24,7 +25,7 @@ public class CustomUserDetails implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // Map UserRole to Spring Security role format (ROLE_ prefix)
-        return List.of(new SimpleGrantedAuthority("ROLE_" + user.getUserRole().name()));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + user.getTypeOfUser().name()));
     }
 
     @Override
@@ -44,7 +45,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return user.getIsActive();
+        return user.getAccountStatus() == AccountStatus.ACTIVE;
     }
 
     @Override
@@ -54,7 +55,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return user.getIsActive();
+        return user.getAccountStatus() == AccountStatus.ACTIVE;
     }
 
     // ===== Custom accessors =====
@@ -63,23 +64,15 @@ public class CustomUserDetails implements UserDetails {
         return user.getUserId();
     }
 
-    public String getEmail() {
-        return user.getEmail();
-    }
-
-    public UserRole getUserRole() {
-        return user.getUserRole();
+    public UserRole getTypeOfUser() {
+        return user.getTypeOfUser();
     }
 
     public User getUser() {
         return user;
     }
 
-    public boolean isModerator() {
-        return user.getUserRole() == UserRole.MODERATOR;
-    }
-
     public boolean isAdmin() {
-        return user.getUserRole() == UserRole.ADMIN;
+        return user.getTypeOfUser() == UserRole.ADMIN;
     }
 }

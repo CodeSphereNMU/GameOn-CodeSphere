@@ -41,7 +41,6 @@ public class DataInitializer {
             Sport rugby = sportRepository.save(new Sport("Rugby", 30));
 
             // === POSITIONS ===
-            Position anyPos = positionRepository.save(new Position("Any Position"));
             Position goalkeeper = positionRepository.save(new Position("Goalkeeper"));
             Position defense = positionRepository.save(new Position("Defense"));
             Position midfield = positionRepository.save(new Position("Midfield"));
@@ -67,41 +66,34 @@ public class DataInitializer {
             SportFormat rugby15s = sportFormatRepository.save(new SportFormat("15s", 30, true, rugby));
 
             // === FORMAT POSITIONS ===
-            formatPositionRepository.save(new FormatPosition(basketball3v3, anyPos));
             formatPositionRepository.save(new FormatPosition(basketball3v3, guard));
             formatPositionRepository.save(new FormatPosition(basketball3v3, forward));
             formatPositionRepository.save(new FormatPosition(basketball3v3, center));
 
-            formatPositionRepository.save(new FormatPosition(basketball5v5, anyPos));
             formatPositionRepository.save(new FormatPosition(basketball5v5, guard));
             formatPositionRepository.save(new FormatPosition(basketball5v5, forward));
             formatPositionRepository.save(new FormatPosition(basketball5v5, center));
 
-            formatPositionRepository.save(new FormatPosition(football5v5, anyPos));
             formatPositionRepository.save(new FormatPosition(football5v5, goalkeeper));
             formatPositionRepository.save(new FormatPosition(football5v5, defense));
             formatPositionRepository.save(new FormatPosition(football5v5, midfield));
             formatPositionRepository.save(new FormatPosition(football5v5, attack));
 
-            formatPositionRepository.save(new FormatPosition(football7v7, anyPos));
             formatPositionRepository.save(new FormatPosition(football7v7, goalkeeper));
             formatPositionRepository.save(new FormatPosition(football7v7, defense));
             formatPositionRepository.save(new FormatPosition(football7v7, midfield));
             formatPositionRepository.save(new FormatPosition(football7v7, attack));
 
-            formatPositionRepository.save(new FormatPosition(football11v11, anyPos));
             formatPositionRepository.save(new FormatPosition(football11v11, goalkeeper));
             formatPositionRepository.save(new FormatPosition(football11v11, defense));
             formatPositionRepository.save(new FormatPosition(football11v11, midfield));
             formatPositionRepository.save(new FormatPosition(football11v11, attack));
 
-            formatPositionRepository.save(new FormatPosition(rugby7s, anyPos));
             formatPositionRepository.save(new FormatPosition(rugby7s, scrumhalf));
             formatPositionRepository.save(new FormatPosition(rugby7s, flyhalf));
             formatPositionRepository.save(new FormatPosition(rugby7s, wing));
             formatPositionRepository.save(new FormatPosition(rugby7s, fullback));
 
-            formatPositionRepository.save(new FormatPosition(rugby15s, anyPos));
             formatPositionRepository.save(new FormatPosition(rugby15s, defense));
             formatPositionRepository.save(new FormatPosition(rugby15s, scrumhalf));
             formatPositionRepository.save(new FormatPosition(rugby15s, flyhalf));
@@ -109,14 +101,14 @@ public class DataInitializer {
             formatPositionRepository.save(new FormatPosition(rugby15s, fullback));
 
             // === TEST USERS ===
-            String encodedPassword = passwordEncoder.encode("Test123");
+            String userPassword = passwordEncoder.encode("Test123");
             String adminPassword = passwordEncoder.encode("Admin123");
 
-            User zane = userRepository.save(new User("Zane", encodedPassword, UserRole.USER));
-            User lihlumelo = userRepository.save(new User("Lihlumelo", encodedPassword, UserRole.USER));
-            User gerard = userRepository.save(new User("Gerard", encodedPassword, UserRole.USER));
-            User robert = userRepository.save(new User("Robert", encodedPassword, UserRole.USER));
-            User moderator = userRepository.save(new User("Moderator", adminPassword, UserRole.MODERATOR));
+            User zane = userRepository.save(new User("Zane", userPassword, UserRole.USER));
+            User lihlumelo = userRepository.save(new User("Lihlumelo", userPassword, UserRole.USER));
+            User gerard = userRepository.save(new User("Gerard", userPassword, UserRole.USER));
+            User robert = userRepository.save(new User("Robert", userPassword, UserRole.USER));
+            User moderator = userRepository.save(new User("Moderator", adminPassword, UserRole.ADMIN));
             User admin = userRepository.save(new User("Admin", adminPassword, UserRole.ADMIN));
 
             // === USER SPORT PROFILES ===
@@ -131,8 +123,7 @@ public class DataInitializer {
 
             logger.info("=== SEED DATA COMPLETE ===");
             logger.info("  Users: Zane / Lihlumelo / Gerard / Robert  (password: Test123)");
-            logger.info("  Moderator: Moderator  (password: Admin123)");
-            logger.info("  Admin: Admin  (password: Admin123)");
+            logger.info("  Administrators: Moderator / Admin  (password: Admin123)");
             logger.info("==========================");
         };
     }

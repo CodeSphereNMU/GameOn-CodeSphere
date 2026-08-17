@@ -54,6 +54,9 @@ class GameListingServiceTest {
     @Mock
     private SchedulingConflictService schedulingConflictService;
 
+    @Mock
+    private InvitationService invitationService;
+
     @InjectMocks
     private GameListingService gameListingService;
 

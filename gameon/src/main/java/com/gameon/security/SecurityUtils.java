@@ -53,14 +53,6 @@ public final class SecurityUtils {
     }
 
     /**
-     * Checks if the current user has the MODERATOR role.
-     */
-    public static boolean isModerator() {
-        CustomUserDetails userDetails = getCurrentUserDetails();
-        return userDetails != null && userDetails.isModerator();
-    }
-
-    /**
      * Checks if the current user has the ADMIN role.
      */
     public static boolean isAdmin() {

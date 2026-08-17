@@ -51,6 +51,7 @@ public class GameListingService {
     private final SportService sportService;
     private final NotificationService notificationService;
     private final SchedulingConflictService schedulingConflictService;
+    private final InvitationService invitationService;
 
     public GameListingService(GameListingRepository gameListingRepository,
                               GameJoinerRepository gameJoinerRepository,
@@ -58,7 +59,8 @@ public class GameListingService {
                               UserSportProfileRepository userSportProfileRepository,
                               SportService sportService,
                               NotificationService notificationService,
-                              SchedulingConflictService schedulingConflictService) {
+                              SchedulingConflictService schedulingConflictService,
+                              InvitationService invitationService) {
         this.gameListingRepository = gameListingRepository;
         this.gameJoinerRepository = gameJoinerRepository;
         this.userRepository = userRepository;
@@ -66,6 +68,7 @@ public class GameListingService {
         this.sportService = sportService;
         this.notificationService = notificationService;
         this.schedulingConflictService = schedulingConflictService;
+        this.invitationService = invitationService;
     }
 
     /**
@@ -104,6 +107,8 @@ public class GameListingService {
         }
         gameJoinerRepository.save(creatorJoiner);
 
+        invitationService.createInvitations(saved, creatorId, invitedFriendIds);
+
         logger.info("Game listing created: ID={} | Creator={} | Sport={} | Date={} | Duration={}h",
                 saved.getGameListingId(), creator.getUsername(),
                 format.getSport().getSportName(), scheduledDate, sessionDuration);
@@ -113,7 +118,7 @@ public class GameListingService {
             String notifText = creator.getUsername() + " invited you to a " +
                     format.getSport().getSportName() + " " + format.getFormatName() + " game on " +
                     scheduledDate.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM HH:mm")) +
-                    ". Submit a join request to participate.";
+                    " (listing #" + saved.getGameListingId() + "). Submit a join request to participate.";
             notificationService.createBulkNotifications(invitedFriendIds, notifText, NotificationType.LISTING_INVITE);
         }
 

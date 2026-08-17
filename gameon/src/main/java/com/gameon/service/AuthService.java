@@ -8,6 +8,7 @@ import com.gameon.model.entity.Sport;
 import com.gameon.model.entity.User;
 import com.gameon.model.entity.UserSportProfile;
 import com.gameon.model.entity.UserSportProfileId;
+import com.gameon.model.enums.AccountStatus;
 import com.gameon.model.enums.UserRole;
 import com.gameon.repository.SportRepository;
 import com.gameon.repository.UserRepository;
@@ -52,7 +53,7 @@ public class AuthService {
     }
 
     /**
-     * Registers a new user (Step 1): creates the user account with encoded password.
+     * Registers a new user (Step 1): creates the user account.
      * Returns the created user's ID for step 2.
      */
     @Transactional
@@ -67,12 +68,12 @@ public class AuthService {
             throw new DuplicateResourceException("Username already taken: " + dto.getUsername());
         }
 
-        // Create user with encoded password
+        // Project specification requires passwords to be stored as entered.
         User user = new User();
         user.setUsername(dto.getUsername());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setUserRole(UserRole.USER);
-        user.setIsActive(true);
+        user.setTypeOfUser(UserRole.USER);
+        user.setAccountStatus(AccountStatus.ACTIVE);
 
         User savedUser = userRepository.save(user);
         logger.info("User registered successfully: {} (ID: {})", savedUser.getUsername(), savedUser.getUserId());

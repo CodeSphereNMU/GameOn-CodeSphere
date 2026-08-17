@@ -2,6 +2,7 @@ package com.gameon.service;
 
 import com.gameon.dto.UserSearchDto;
 import com.gameon.model.entity.User;
+import com.gameon.model.enums.AccountStatus;
 import com.gameon.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class UserSearchService {
         logger.debug("Searching users with query: '{}'", trimmedQuery);
 
         List<User> users = userRepository.searchActiveUsersByUsername(
-                trimmedQuery, PageRequest.of(0, MAX_RESULTS));
+                trimmedQuery, AccountStatus.ACTIVE, PageRequest.of(0, MAX_RESULTS));
 
         return users.stream()
                 .map(this::mapToDto)

@@ -3,6 +3,7 @@ package com.gameon.controller;
 import com.gameon.model.entity.Notification;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.NotificationService;
+import com.gameon.service.InvitationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,9 +21,12 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final InvitationService invitationService;
 
-    public NotificationController(NotificationService notificationService) {
+    public NotificationController(NotificationService notificationService,
+                                  InvitationService invitationService) {
         this.notificationService = notificationService;
+        this.invitationService = invitationService;
     }
 
     @GetMapping
@@ -34,6 +38,7 @@ public class NotificationController {
 
         model.addAttribute("notifications", notifications);
         model.addAttribute("unreadCount", notificationService.getUnreadCount(currentUser.getUserId()));
+        model.addAttribute("invitations", invitationService.getActiveInvitations(currentUser.getUserId()));
         return "notifications/index";
     }
 

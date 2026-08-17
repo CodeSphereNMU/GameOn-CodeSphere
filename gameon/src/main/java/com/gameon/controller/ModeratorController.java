@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * Controller for B400 (View Reports) - Moderator only.
- * BR13: Only moderator can remove users/posts/comments.
+ * Controller for B400 (View Reports) - administrator only.
+ * BR13: Only an administrator can remove users/posts/comments.
  */
 @Controller
 @RequestMapping("/moderator")
-@PreAuthorize("hasRole('MODERATOR')")
+@PreAuthorize("hasRole('ADMIN')")
 public class ModeratorController {
 
     private final ReportService reportService;

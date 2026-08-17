@@ -12,6 +12,7 @@ import com.gameon.service.GameJoinerService;
 import com.gameon.service.GameListingService;
 import com.gameon.service.SportService;
 import com.gameon.service.UserService;
+import com.gameon.service.InvitationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -41,17 +42,20 @@ public class ListingsController {
     private final FollowService followService;
     private final UserService userService;
     private final GameJoinerService gameJoinerService;
+    private final InvitationService invitationService;
 
     public ListingsController(GameListingService gameListingService,
                               SportService sportService,
                               FollowService followService,
                               UserService userService,
-                              GameJoinerService gameJoinerService) {
+                              GameJoinerService gameJoinerService,
+                              InvitationService invitationService) {
         this.gameListingService = gameListingService;
         this.sportService = sportService;
         this.followService = followService;
         this.userService = userService;
         this.gameJoinerService = gameJoinerService;
+        this.invitationService = invitationService;
     }
 
     @GetMapping("/")
@@ -291,7 +295,8 @@ public class ListingsController {
             // Check if user is a participant (accepted/pending joiner)
             boolean isParticipant = listing.getJoiners().stream()
                     .anyMatch(j -> j.getUser().getUserId().equals(currentUser.getUserId()));
-            if (!isParticipant) {
+            boolean isInvited = invitationService.isInvited(id, currentUser.getUserId());
+            if (!isParticipant && !isInvited) {
                 redirectAttributes.addFlashAttribute("error",
                         "Private listings are only accessible through invitations.");
                 return "redirect:/listings";
@@ -299,7 +304,7 @@ public class ListingsController {
         }
 
         // Rule 7: Validate sport is on user's profile (unless creator)
-        if (!isCreator) {
+        if (!isCreator && !invitationService.isInvited(id, currentUser.getUserId())) {
             try {
                 gameListingService.validateSportProfileAccess(currentUser.getUserId(), listing);
             } catch (Exception e) {

@@ -151,7 +151,7 @@ public class SocialController {
                                 @AuthenticationPrincipal CustomUserDetails currentUser,
                                 RedirectAttributes redirectAttributes) {
         try {
-            commentService.deleteComment(commentId, currentUser.getUserId(), currentUser.isModerator());
+            commentService.deleteComment(commentId, currentUser.getUserId(), currentUser.isAdmin());
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }

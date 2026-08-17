@@ -1,8 +1,8 @@
 package com.gameon.model.entity;
 
+import com.gameon.model.enums.AccountStatus;
 import com.gameon.model.enums.UserRole;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -15,7 +15,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "users")
-public class User extends Auditable {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,20 +27,17 @@ public class User extends Auditable {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    @Email(message = "Email must be valid")
-    @Column(name = "email", length = 100)
-    private String email;
-
     @NotBlank(message = "Password is required")
     @Column(name = "password", nullable = false, length = 255)
     private String password;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "user_role", nullable = false, length = 20)
-    private UserRole userRole = UserRole.USER;
+    @Column(name = "type_of_user", nullable = false, length = 20)
+    private UserRole typeOfUser = UserRole.USER;
 
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_status", nullable = false, length = 20)
+    private AccountStatus accountStatus = AccountStatus.ACTIVE;
 
     // ===== Relationships =====
 
@@ -76,10 +73,10 @@ public class User extends Auditable {
     public User() {
     }
 
-    public User(String username, String password, UserRole userRole) {
+    public User(String username, String password, UserRole typeOfUser) {
         this.username = username;
         this.password = password;
-        this.userRole = userRole;
+        this.typeOfUser = typeOfUser;
     }
 
     // ===== Getters and Setters =====
@@ -100,14 +97,6 @@ public class User extends Auditable {
         this.username = username;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
     public String getPassword() {
         return password;
     }
@@ -116,20 +105,20 @@ public class User extends Auditable {
         this.password = password;
     }
 
-    public UserRole getUserRole() {
-        return userRole;
+    public UserRole getTypeOfUser() {
+        return typeOfUser;
     }
 
-    public void setUserRole(UserRole userRole) {
-        this.userRole = userRole;
+    public void setTypeOfUser(UserRole typeOfUser) {
+        this.typeOfUser = typeOfUser;
     }
 
-    public Boolean getIsActive() {
-        return isActive;
+    public AccountStatus getAccountStatus() {
+        return accountStatus;
     }
 
-    public void setIsActive(Boolean isActive) {
-        this.isActive = isActive;
+    public void setAccountStatus(AccountStatus accountStatus) {
+        this.accountStatus = accountStatus;
     }
 
     public List<UserSportProfile> getSportProfiles() {

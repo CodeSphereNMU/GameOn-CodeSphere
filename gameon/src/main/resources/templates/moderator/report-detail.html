@@ -37,9 +37,9 @@
                                 <i class="bi bi-person-circle fs-3 me-3 text-muted"></i>
                                 <div>
                                     <strong th:text="${reportedUser.username}">Username</strong>
-                                    <br><small class="text-muted" th:text="${reportedUser.userRole}">Role</small>
-                                    <br><small th:classappend="${reportedUser.isActive} ? 'text-success' : 'text-danger'"
-                                              th:text="${reportedUser.isActive} ? 'Active' : 'Deactivated'">Status</small>
+                                    <br><small class="text-muted" th:text="${reportedUser.typeOfUser}">Type</small>
+                                    <br><small th:classappend="${reportedUser.accountStatus.name() == 'ACTIVE'} ? 'text-success' : 'text-danger'"
+                                              th:text="${reportedUser.accountStatus}">Status</small>
                                 </div>
                             </div>
                         </div>

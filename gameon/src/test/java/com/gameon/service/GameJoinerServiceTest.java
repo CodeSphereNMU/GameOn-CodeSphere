@@ -49,6 +49,9 @@ class GameJoinerServiceTest {
     @Mock
     private SportService sportService;
 
+    @Mock
+    private InvitationService invitationService;
+
     @InjectMocks
     private GameJoinerService gameJoinerService;
 

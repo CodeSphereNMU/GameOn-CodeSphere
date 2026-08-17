@@ -47,6 +47,7 @@ public class GameJoinerService {
     private final NotificationService notificationService;
     private final SchedulingConflictService schedulingConflictService;
     private final SportService sportService;
+    private final InvitationService invitationService;
 
     public GameJoinerService(GameJoinerRepository gameJoinerRepository,
                              GameListingRepository gameListingRepository,
@@ -54,7 +55,8 @@ public class GameJoinerService {
                              UserSportProfileRepository userSportProfileRepository,
                              NotificationService notificationService,
                              SchedulingConflictService schedulingConflictService,
-                             SportService sportService) {
+                             SportService sportService,
+                             InvitationService invitationService) {
         this.gameJoinerRepository = gameJoinerRepository;
         this.gameListingRepository = gameListingRepository;
         this.userRepository = userRepository;
@@ -62,6 +64,7 @@ public class GameJoinerService {
         this.notificationService = notificationService;
         this.schedulingConflictService = schedulingConflictService;
         this.sportService = sportService;
+        this.invitationService = invitationService;
     }
 
     /**
@@ -99,7 +102,8 @@ public class GameJoinerService {
 
         // BR9: Sport must be on profile
         Long sportId = listing.getFormat().getSport().getSportId();
-        if (!userSportProfileRepository.existsByIdUserIdAndIdSportId(userId, sportId)) {
+        if (!userSportProfileRepository.existsByIdUserIdAndIdSportId(userId, sportId)
+                && !invitationService.isInvited(listingId, userId)) {
             throw new BusinessRuleException(
                     "This sport is not included in your sports profile. " +
                     "You must add " + listing.getFormat().getSport().getSportName() +

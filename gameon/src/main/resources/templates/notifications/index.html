@@ -24,6 +24,19 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
 
+        <div th:if="${invitations != null && !invitations.isEmpty()}" class="card shadow-sm mb-4">
+            <div class="card-header bg-white"><strong>Game Invitations</strong></div>
+            <div class="list-group list-group-flush">
+                <a th:each="invitation : ${invitations}"
+                   th:href="@{'/listings/' + ${invitation.gameListing.gameListingId}}"
+                   class="list-group-item list-group-item-action">
+                    <strong th:text="${invitation.gameListing.format.sport.sportName + ' - ' + invitation.gameListing.format.formatName}">Game</strong>
+                    <span class="text-muted ms-2" th:text="${#temporals.format(invitation.gameListing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
+                    <span class="badge bg-danger float-end">View Listing</span>
+                </a>
+            </div>
+        </div>
+
         <!-- Notification List -->
         <div th:if="${notifications.isEmpty()}" class="text-center text-muted py-5">
             <i class="bi bi-bell-slash" style="font-size: 3rem;"></i>

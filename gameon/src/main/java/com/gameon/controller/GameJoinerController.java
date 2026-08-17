@@ -8,6 +8,7 @@ import com.gameon.security.CustomUserDetails;
 import com.gameon.service.GameJoinerService;
 import com.gameon.service.GameListingService;
 import com.gameon.service.SportService;
+import com.gameon.service.InvitationService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,13 +25,16 @@ public class GameJoinerController {
     private final GameJoinerService gameJoinerService;
     private final GameListingService gameListingService;
     private final SportService sportService;
+    private final InvitationService invitationService;
 
     public GameJoinerController(GameJoinerService gameJoinerService,
                                 GameListingService gameListingService,
-                                SportService sportService) {
+                                SportService sportService,
+                                InvitationService invitationService) {
         this.gameJoinerService = gameJoinerService;
         this.gameListingService = gameListingService;
         this.sportService = sportService;
+        this.invitationService = invitationService;
     }
 
     // ===== A300: Show Join Form (select team + position) =====
@@ -49,11 +53,13 @@ public class GameJoinerController {
         }
 
         // Rule 7: Validate sport is on user's profile
-        try {
-            gameListingService.validateSportProfileAccess(currentUser.getUserId(), listing);
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/listings/" + listingId;
+        if (!invitationService.isInvited(listingId, currentUser.getUserId())) {
+            try {
+                gameListingService.validateSportProfileAccess(currentUser.getUserId(), listing);
+            } catch (Exception e) {
+                redirectAttributes.addFlashAttribute("error", e.getMessage());
+                return "redirect:/listings/" + listingId;
+            }
         }
 
         // Rule 4: Cannot join private listing unless invited (allowed to view join form if they got this far)

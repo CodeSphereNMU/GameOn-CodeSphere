@@ -4,6 +4,7 @@ import com.gameon.exception.DuplicateResourceException;
 import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.User;
 import com.gameon.model.enums.UserRole;
+import com.gameon.model.enums.AccountStatus;
 import com.gameon.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,27 +78,27 @@ public class UserService {
     @Transactional
     public void deactivateUser(Long userId) {
         User user = getUserById(userId);
-        user.setIsActive(false);
+        user.setAccountStatus(AccountStatus.BANNED);
         userRepository.save(user);
-        logger.info("User {} ({}) deactivated", userId, user.getUsername());
+        logger.info("User {} ({}) banned", userId, user.getUsername());
     }
 
     @Transactional
     public void activateUser(Long userId) {
         User user = getUserById(userId);
-        user.setIsActive(true);
+        user.setAccountStatus(AccountStatus.ACTIVE);
         userRepository.save(user);
         logger.info("User {} ({}) activated", userId, user.getUsername());
     }
 
     @Transactional(readOnly = true)
     public List<User> getUsersByRole(UserRole role) {
-        return userRepository.findByUserRole(role);
+        return userRepository.findByTypeOfUser(role);
     }
 
     @Transactional(readOnly = true)
     public long getActiveUserCount() {
-        return userRepository.countActiveUsers();
+        return userRepository.countActiveUsers(AccountStatus.ACTIVE);
     }
 
     @Transactional(readOnly = true)

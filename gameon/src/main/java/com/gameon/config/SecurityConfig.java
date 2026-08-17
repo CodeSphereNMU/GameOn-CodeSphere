@@ -9,8 +9,8 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.gameon.security.PlainTextPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -53,11 +53,8 @@ public class SecurityConfig {
                 // H2 Console (local profile only)
                 .requestMatchers("/h2-console/**").permitAll()
 
-                // Moderator-only endpoints
-                .requestMatchers("/moderator/**").hasRole("MODERATOR")
-
-                // Admin-only endpoints
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                // Administration endpoints
+                .requestMatchers("/moderator/**", "/admin/**").hasRole("ADMIN")
 
                 // All other requests require authentication
                 .anyRequest().authenticated()
@@ -113,7 +110,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(10);
+        return new PlainTextPasswordEncoder();
     }
 
     @Bean
@@ -136,14 +133,10 @@ public class SecurityConfig {
     @Bean
     public AuthenticationSuccessHandler authenticationSuccessHandler() {
         return (request, response, authentication) -> {
-            boolean isModerator = authentication.getAuthorities().stream()
-                    .anyMatch(auth -> auth.getAuthority().equals("ROLE_MODERATOR"));
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"));
 
             if (isAdmin) {
-                response.sendRedirect("/admin/dashboard");
-            } else if (isModerator) {
                 response.sendRedirect("/moderator/reports");
             } else {
                 response.sendRedirect("/listings");
