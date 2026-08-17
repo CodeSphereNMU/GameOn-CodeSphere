@@ -23,13 +23,24 @@
 
                         <form th:unless="${formats.isEmpty()}" th:action="@{/listings/create}" method="post">
                             <div class="mb-3">
-                                <label for="formatId" class="form-label">Sport &amp; Format</label>
+                                <label for="sportId" class="form-label">Sport</label>
+                                <select class="form-select" id="sportId" name="sportId" required>
+                                    <option value="">-- Select sport --</option>
+                                    <option th:each="sport : ${sports}"
+                                            th:value="${sport.sportId}"
+                                            th:selected="${submittedSportId != null ? submittedSportId == sport.sportId : (draftSportId != null && draftSportId == sport.sportId)}"
+                                            th:text="${sport.sportName}">Sport</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="formatId" class="form-label">Format</label>
                                 <select class="form-select" id="formatId" name="formatId" required>
                                     <option value="">-- Select format --</option>
                                     <option th:each="format : ${formats}"
                                             th:value="${format.formatId}"
+                                            th:data-sport="${format.sport.sportId}"
                                             th:selected="${submittedFormatId != null ? submittedFormatId == format.formatId : (draft != null && draft.formatId == format.formatId)}"
-                                            th:text="${format.sport.sportName + ' - ' + format.formatName}">Format</option>
+                                            th:text="${format.formatName}">Format</option>
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -72,5 +83,40 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+        (function() {
+            const sportSelect = document.getElementById('sportId');
+            const formatSelect = document.getElementById('formatId');
+            if (!sportSelect || !formatSelect) return;
+
+            const allOptions = [...formatSelect.querySelectorAll('option[data-sport]')];
+            const placeholder = formatSelect.querySelector('option[value=""]');
+
+            function filterFormats() {
+                const selectedSport = sportSelect.value;
+                const currentFormat = formatSelect.value;
+                // Remove all format options
+                allOptions.forEach(opt => opt.remove());
+                // Re-add matching ones
+                let hasCurrentSelection = false;
+                allOptions.forEach(opt => {
+                    if (opt.getAttribute('data-sport') === selectedSport) {
+                        formatSelect.appendChild(opt);
+                        if (opt.value === currentFormat) hasCurrentSelection = true;
+                    }
+                });
+                // Reset selection if current format doesn't belong to new sport
+                if (!hasCurrentSelection) {
+                    formatSelect.value = '';
+                }
+            }
+
+            sportSelect.addEventListener('change', filterFormats);
+            // Run on page load to filter based on pre-selected sport
+            if (sportSelect.value) {
+                filterFormats();
+            }
+        })();
+    </script>
 </body>
 </html>

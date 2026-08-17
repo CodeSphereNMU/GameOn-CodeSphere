@@ -26,9 +26,10 @@
                 <p th:if="${format.hasPositions}" class="mb-1">
                     <i class="bi bi-person-badge me-1"></i>Positions:
                     <span th:if="${draft.positionIds.isEmpty()}">Any Position</span>
-                    <span th:unless="${draft.positionIds.isEmpty()}"
-                          th:each="positionId, stat : ${draft.positionIds}"
-                          th:text="${positionNames[positionId] + (!stat.last ? ', ' : '')}"></span>
+                    <th:block th:unless="${draft.positionIds.isEmpty()}"><th:block
+                        th:each="positionId, stat : ${draft.positionIds}"><span
+                        th:text="${positionNames.get(positionId)}"></span><span
+                        th:if="${!stat.last}">, </span></th:block></th:block>
                 </p>
                 <p class="mb-0"><i class="bi bi-envelope me-1"></i>Friends invited: <span th:text="${draft.invitedFriendIds.size()}"></span></p>
             </div></div>

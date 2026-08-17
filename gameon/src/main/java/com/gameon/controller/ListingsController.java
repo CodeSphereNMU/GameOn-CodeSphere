@@ -6,6 +6,7 @@ import com.gameon.model.dto.CreateListingDraft;
 import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.SkillLevel;
+import com.gameon.exception.BusinessRuleException;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.FollowService;
 import com.gameon.service.GameJoinerService;
@@ -116,6 +117,7 @@ public class ListingsController {
 
     @PostMapping("/listings/create")
     public String processCreate(@AuthenticationPrincipal CustomUserDetails currentUser,
+                                @RequestParam Long sportId,
                                 @RequestParam Long formatId,
                                 @RequestParam String skillLevel,
                                 @RequestParam String scheduledDate,
@@ -124,10 +126,16 @@ public class ListingsController {
                                 HttpSession session,
                                 Model model) {
         try {
+            // Validate format belongs to the selected sport
+            SportFormat selectedFormat = sportService.getFormatById(formatId);
+            if (!selectedFormat.getSport().getSportId().equals(sportId)) {
+                throw new BusinessRuleException(
+                        "Selected format does not belong to the chosen sport.");
+            }
+
             LocalDateTime dateTime = LocalDateTime.parse(scheduledDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             SkillLevel skill = SkillLevel.valueOf(skillLevel.toUpperCase());
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
-            SportFormat selectedFormat = sportService.getFormatById(formatId);
             Integer sessionDuration = (selectedFormat.getDurationMinutes() + 59) / 60;
             SportFormat format = gameListingService.validateListingDetails(
                     currentUser.getUserId(), formatId, skill, dateTime, location, privacy, sessionDuration);
@@ -147,6 +155,7 @@ public class ListingsController {
                     : "redirect:/listings/create/friends";
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
+            model.addAttribute("submittedSportId", sportId);
             model.addAttribute("submittedFormatId", formatId);
             model.addAttribute("submittedSkillLevel", skillLevel);
             model.addAttribute("submittedScheduledDate", scheduledDate);
@@ -260,16 +269,30 @@ public class ListingsController {
     }
 
     private void populateCreateForm(Long userId, HttpSession session, Model model) {
-        model.addAttribute("formats", sportService.getFormatsForUserSports(userId));
+        List<SportFormat> formats = sportService.getFormatsForUserSports(userId);
+        model.addAttribute("formats", formats);
+        // Build distinct sports list for the Sport dropdown
+        model.addAttribute("sports", formats.stream()
+                .map(SportFormat::getSport)
+                .collect(java.util.stream.Collectors.toMap(
+                        sport -> sport.getSportId(), sport -> sport, (first, dup) -> first))
+                .values());
         model.addAttribute("skillLevels", SkillLevel.values());
         model.addAttribute("privacySettings", PrivacySetting.values());
-        model.addAttribute("draft", getDraft(session));
+        CreateListingDraft draft = getDraft(session);
+        model.addAttribute("draft", draft);
+        // Derive selectedSportId from existing draft format for pre-selection
+        if (draft != null && draft.getFormatId() != null) {
+            SportFormat draftFormat = sportService.getFormatById(draft.getFormatId());
+            model.addAttribute("draftSportId", draftFormat.getSport().getSportId());
+        }
     }
 
     private void populatePreview(CreateListingDraft draft, Model model) {
         model.addAttribute("draft", draft);
-        model.addAttribute("format", sportService.getFormatById(draft.getFormatId()));
-        if (draft.getPositionIds() != null && !draft.getPositionIds().isEmpty()) {
+        SportFormat format = sportService.getFormatById(draft.getFormatId());
+        model.addAttribute("format", format);
+        if (format.getHasPositions()) {
             model.addAttribute("positionNames", sportService.getPositionNamesForFormat(draft.getFormatId()));
         }
     }
