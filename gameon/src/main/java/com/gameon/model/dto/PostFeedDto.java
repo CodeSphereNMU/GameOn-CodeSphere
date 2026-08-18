@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public record PostFeedDto(
         Long postId,
         String content,
+        String imagePath,
         PrivacySetting privacySetting,
         LocalDateTime createdAt,
         Long userId,

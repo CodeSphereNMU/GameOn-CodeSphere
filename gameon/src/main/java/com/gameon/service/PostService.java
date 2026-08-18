@@ -15,7 +15,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -31,27 +33,59 @@ public class PostService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final ImageStorageService imageStorageService;
 
     public PostService(PostRepository postRepository,
                        UserRepository userRepository,
-                       FollowRepository followRepository) {
+                       FollowRepository followRepository,
+                       ImageStorageService imageStorageService) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.followRepository = followRepository;
+        this.imageStorageService = imageStorageService;
     }
 
     /**
      * Creates a new post (B100).
      * BR4: No limit on number of posts.
+     * Supports: text only, image only, or text + image.
      */
     @Transactional
     public Post createPost(Long userId, String content, PrivacySetting privacySetting) {
+        return createPost(userId, content, privacySetting, null);
+    }
+
+    /**
+     * Creates a new post with optional image (B100).
+     * Rejects post only if BOTH text and image are empty.
+     */
+    @Transactional
+    public Post createPost(Long userId, String content, PrivacySetting privacySetting, MultipartFile image) {
+        boolean hasContent = content != null && !content.isBlank();
+        boolean hasImage = image != null && !image.isEmpty();
+
+        if (!hasContent && !hasImage) {
+            throw new IllegalArgumentException("Post must have either text content or an image.");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        Post post = new Post(user, content, privacySetting);
+        Post post = new Post(user, hasContent ? content : null, privacySetting);
+
+        // Handle image upload
+        if (hasImage) {
+            try {
+                String imagePath = imageStorageService.storeImage(image);
+                post.setImagePath(imagePath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload image: " + e.getMessage(), e);
+            }
+        }
+
         Post saved = postRepository.save(post);
-        logger.info("Post created: ID={} | User={} | Privacy={}", saved.getPostId(), user.getUsername(), privacySetting);
+        logger.info("Post created: ID={} | User={} | Privacy={} | HasImage={}",
+                saved.getPostId(), user.getUsername(), privacySetting, hasImage);
         return saved;
     }
 
@@ -60,14 +94,53 @@ public class PostService {
      */
     @Transactional
     public Post updatePost(Long postId, Long userId, String content, PrivacySetting privacySetting) {
+        return updatePost(postId, userId, content, privacySetting, null, false);
+    }
+
+    /**
+     * Updates a post with image handling (B200). Only the post owner can edit.
+     * Supports: keep existing image, replace image, or remove image.
+     *
+     * @param removeImage if true, removes the existing image without replacement
+     */
+    @Transactional
+    public Post updatePost(Long postId, Long userId, String content, PrivacySetting privacySetting,
+                           MultipartFile image, boolean removeImage) {
         Post post = getPostById(postId);
 
         if (!post.getUser().getUserId().equals(userId)) {
             throw new UnauthorizedAccessException("edit", "post");
         }
 
-        if (content != null) post.setContent(content);
+        boolean hasContent = content != null && !content.isBlank();
+        boolean hasNewImage = image != null && !image.isEmpty();
+        boolean willHaveImage = hasNewImage || (!removeImage && post.getImagePath() != null);
+
+        // Reject if both text and image would be empty after edit
+        if (!hasContent && !willHaveImage) {
+            throw new IllegalArgumentException("Post must have either text content or an image.");
+        }
+
+        post.setContent(hasContent ? content : null);
         if (privacySetting != null) post.setPrivacySetting(privacySetting);
+
+        // Handle image changes
+        if (hasNewImage) {
+            // Replace: delete old image, store new one
+            if (post.getImagePath() != null) {
+                imageStorageService.deleteImage(post.getImagePath());
+            }
+            try {
+                String imagePath = imageStorageService.storeImage(image);
+                post.setImagePath(imagePath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload image: " + e.getMessage(), e);
+            }
+        } else if (removeImage && post.getImagePath() != null) {
+            // Remove existing image
+            imageStorageService.deleteImage(post.getImagePath());
+            post.setImagePath(null);
+        }
 
         logger.info("Post {} updated by user {}", postId, userId);
         return postRepository.save(post);
@@ -75,7 +148,7 @@ public class PostService {
 
     /**
      * Deletes a post (B200). Only the post owner can delete.
-     * Comments and likes are cascade-deleted.
+     * Comments and likes are cascade-deleted. Image file is removed from disk.
      */
     @Transactional
     public void deletePost(Long postId, Long userId) {
@@ -83,6 +156,11 @@ public class PostService {
 
         if (!post.getUser().getUserId().equals(userId)) {
             throw new UnauthorizedAccessException("delete", "post");
+        }
+
+        // Delete image file from disk if present
+        if (post.getImagePath() != null) {
+            imageStorageService.deleteImage(post.getImagePath());
         }
 
         postRepository.delete(post);
@@ -95,6 +173,12 @@ public class PostService {
     @Transactional
     public void deletePostAsModerator(Long postId) {
         Post post = getPostById(postId);
+
+        // Delete image file from disk if present
+        if (post.getImagePath() != null) {
+            imageStorageService.deleteImage(post.getImagePath());
+        }
+
         postRepository.delete(post);
         logger.info("Post {} removed by moderator", postId);
     }

@@ -13,12 +13,37 @@
                         <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Post</h5>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{'/social/edit/' + ${post.postId}}" method="post">
+                        <form th:action="@{'/social/edit/' + ${post.postId}}" method="post" enctype="multipart/form-data">
                             <div class="mb-3">
                                 <label for="content" class="form-label">Content</label>
                                 <textarea class="form-control" id="content" name="content" rows="4"
-                                          required maxlength="500" th:text="${post.content}"></textarea>
+                                          maxlength="500" th:text="${post.content}"></textarea>
                             </div>
+
+                            <!-- Existing Image Preview -->
+                            <div th:if="${post.imagePath}" class="mb-3">
+                                <label class="form-label">Current Image</label>
+                                <div class="border rounded p-2">
+                                    <img th:src="@{${post.imagePath}}" class="img-fluid rounded post-image mb-2" alt="Current Post Image">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="removeImage" name="removeImage" value="true">
+                                        <label class="form-check-label text-danger" for="removeImage">
+                                            <i class="bi bi-trash me-1"></i>Remove image
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Upload New/Replace Image -->
+                            <div class="mb-3">
+                                <label class="form-label" th:text="${post.imagePath != null} ? 'Replace Image' : 'Add Photo'">Add Photo</label>
+                                <input type="file"
+                                       class="form-control"
+                                       name="image"
+                                       accept=".jpg,.jpeg,.png,.webp,image/*">
+                                <div class="form-text">Supported: JPG, PNG, WEBP (max 5MB)</div>
+                            </div>
+
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Privacy</label>
                                 <select class="form-select" id="privacySetting" name="privacySetting" required>

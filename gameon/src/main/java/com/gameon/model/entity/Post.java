@@ -2,7 +2,6 @@ package com.gameon.model.entity;
 
 import com.gameon.model.enums.PrivacySetting;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.util.ArrayList;
@@ -21,10 +20,12 @@ public class Post extends Auditable {
     @Column(name = "post_id")
     private Long postId;
 
-    @NotBlank(message = "Content is required")
     @Size(max = 500, message = "Content must be at most 500 characters")
-    @Column(name = "content", nullable = false, length = 500)
+    @Column(name = "content", length = 500)
     private String content;
+
+    @Column(name = "image_path", length = 500)
+    private String imagePath;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "privacy_setting", nullable = false, length = 10)
@@ -101,5 +102,13 @@ public class Post extends Auditable {
 
     public void setLikes(List<Like> likes) {
         this.likes = likes;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }
