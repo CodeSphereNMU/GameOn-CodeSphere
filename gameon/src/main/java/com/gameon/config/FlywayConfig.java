@@ -33,7 +33,7 @@ public class FlywayConfig {
     @Bean
     public FlywayMigrationStrategy flywayMigrationStrategy() {
         return flyway -> {
-            logger.info("Starting Flyway migration for GameOnDb...");
+            logger.info("Starting Flyway migration for the configured database...");
             flyway.repair();
             flyway.migrate();
             logger.info("Flyway migration completed successfully");

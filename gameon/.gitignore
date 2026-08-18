@@ -4,7 +4,6 @@
 
 # === Build Output ===
 target/
-!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -20,10 +19,8 @@ target/
 *.swo
 *~
 
-# === Maven ===
-.mvn/
-mvnw
-mvnw.cmd
+# === Maven Wrapper ===
+# .mvn/, mvnw, and mvnw.cmd are intentionally tracked.
 
 # === Logs ===
 logs/
