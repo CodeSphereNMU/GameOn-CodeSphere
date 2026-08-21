@@ -53,6 +53,13 @@ public class MatchResultController {
             return "match-result/form";
         }
 
+        try {
+            matchResultService.validateResultWindow(listing);
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/lobby/created";
+        }
+
         model.addAttribute("listing", listing);
         model.addAttribute("isUpdate", false);
         return "match-result/form";

@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * Post entity - Social content posted by users.
@@ -35,6 +36,13 @@ public class Post extends Auditable {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @Column(name = "removed_at")
+    private LocalDateTime removedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "removed_by_user_id")
+    private User removedBy;
 
     @OneToMany(mappedBy = "post", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
@@ -86,6 +94,17 @@ public class Post extends Auditable {
     public void setUser(User user) {
         this.user = user;
     }
+
+    public LocalDateTime getRemovedAt() { return removedAt; }
+    public void setRemovedAt(LocalDateTime removedAt) { this.removedAt = removedAt; }
+    public User getRemovedBy() { return removedBy; }
+    public void setRemovedBy(User removedBy) { this.removedBy = removedBy; }
+
+    @Transient
+    public boolean isRemoved() { return removedAt != null; }
+
+    @Transient
+    public boolean isRemovedByAuthor() { return removedAt != null && removedBy == null; }
 
     public List<Comment> getComments() {
         return comments;

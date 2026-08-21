@@ -14,7 +14,7 @@ public class CreateListingDraft implements Serializable {
     private LocalDateTime scheduledDate;
     private String location;
     private PrivacySetting privacySetting;
-    private Integer sessionDuration;
+    private Integer durationMinutes;
     private List<Long> positionIds = new ArrayList<>();
     private List<Long> invitedFriendIds = new ArrayList<>();
 
@@ -28,8 +28,8 @@ public class CreateListingDraft implements Serializable {
     public void setLocation(String location) { this.location = location; }
     public PrivacySetting getPrivacySetting() { return privacySetting; }
     public void setPrivacySetting(PrivacySetting privacySetting) { this.privacySetting = privacySetting; }
-    public Integer getSessionDuration() { return sessionDuration; }
-    public void setSessionDuration(Integer sessionDuration) { this.sessionDuration = sessionDuration; }
+    public Integer getDurationMinutes() { return durationMinutes; }
+    public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
     public List<Long> getPositionIds() { return positionIds; }
     public void setPositionIds(List<Long> positionIds) {
         this.positionIds = positionIds == null ? null : new ArrayList<>(positionIds);

@@ -8,8 +8,8 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
 /**
- * GameJoiner entity - Tracks join requests and accepted members for each listing.
- * Maps to 'game_joiners' table in GameOnDb.
+ * GameJoiner entity - the accepted participant roster for a listing.
+ * Join-request history is stored separately in {@link JoinRequest}.
  * Composite PK: (userId, gameListingId)
  */
 @Entity
@@ -29,21 +29,29 @@ public class GameJoiner {
     @JoinColumn(name = "game_listing_id")
     private GameListing gameListing;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "join_request_id")
+    private JoinRequest joinRequest;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "format_id", nullable = false)
+    private SportFormat format;
+
     @NotNull(message = "Team is required")
     @Enumerated(EnumType.STRING)
     @Column(name = "team", nullable = false, length = 1)
     private Team team;
 
-    @Column(name = "format_position_id")
-    private Long formatPositionId;
+    @Column(name = "primary_position_id")
+    private Long primaryPositionId;
 
-    @Column(name = "alt_format_position_id")
-    private Long altFormatPositionId;
+    @Column(name = "alternate_position_id")
+    private Long alternatePositionId;
 
     @NotNull(message = "Status is required")
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private JoinerStatus status = JoinerStatus.PENDING;
+    private JoinerStatus status = JoinerStatus.ACCEPTED;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -60,8 +68,9 @@ public class GameJoiner {
         this.id = new GameJoinerId(user.getUserId(), gameListing.getGameListingId());
         this.user = user;
         this.gameListing = gameListing;
+        this.format = gameListing.getFormat();
         this.team = team;
-        this.status = JoinerStatus.PENDING;
+        this.status = JoinerStatus.ACCEPTED;
     }
 
     // ===== Getters and Setters =====
@@ -98,20 +107,52 @@ public class GameJoiner {
         this.team = team;
     }
 
+    public JoinRequest getJoinRequest() {
+        return joinRequest;
+    }
+
+    public void setJoinRequest(JoinRequest joinRequest) {
+        this.joinRequest = joinRequest;
+    }
+
+    public SportFormat getFormat() {
+        return format;
+    }
+
+    public void setFormat(SportFormat format) {
+        this.format = format;
+    }
+
+    public Long getPrimaryPositionId() {
+        return primaryPositionId;
+    }
+
+    public void setPrimaryPositionId(Long primaryPositionId) {
+        this.primaryPositionId = primaryPositionId;
+    }
+
+    public Long getAlternatePositionId() {
+        return alternatePositionId;
+    }
+
+    public void setAlternatePositionId(Long alternatePositionId) {
+        this.alternatePositionId = alternatePositionId;
+    }
+
     public Long getFormatPositionId() {
-        return formatPositionId;
+        return primaryPositionId;
     }
 
     public void setFormatPositionId(Long formatPositionId) {
-        this.formatPositionId = formatPositionId;
+        this.primaryPositionId = formatPositionId;
     }
 
     public Long getAltFormatPositionId() {
-        return altFormatPositionId;
+        return alternatePositionId;
     }
 
     public void setAltFormatPositionId(Long altFormatPositionId) {
-        this.altFormatPositionId = altFormatPositionId;
+        this.alternatePositionId = altFormatPositionId;
     }
 
     public JoinerStatus getStatus() {

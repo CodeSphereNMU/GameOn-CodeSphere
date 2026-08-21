@@ -3,7 +3,6 @@ package com.gameon.controller;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.SportFormat;
 import com.gameon.model.dto.CreateListingDraft;
-import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.SkillLevel;
 import com.gameon.exception.BusinessRuleException;
@@ -136,9 +135,9 @@ public class ListingsController {
             LocalDateTime dateTime = LocalDateTime.parse(scheduledDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             SkillLevel skill = SkillLevel.valueOf(skillLevel.toUpperCase());
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
-            Integer sessionDuration = (selectedFormat.getDurationMinutes() + 59) / 60;
+            Integer durationMinutes = selectedFormat.getDurationMinutes();
             SportFormat format = gameListingService.validateListingDetails(
-                    currentUser.getUserId(), formatId, skill, dateTime, location, privacy, sessionDuration);
+                    currentUser.getUserId(), formatId, skill, dateTime, location, privacy, durationMinutes);
 
             CreateListingDraft draft = new CreateListingDraft();
             draft.setFormatId(formatId);
@@ -146,7 +145,7 @@ public class ListingsController {
             draft.setScheduledDate(dateTime);
             draft.setLocation(location.trim());
             draft.setPrivacySetting(privacy);
-            draft.setSessionDuration(sessionDuration);
+            draft.setDurationMinutes(durationMinutes);
             draft.setPositionIds(format.getHasPositions() ? null : new ArrayList<>());
             session.setAttribute("listingDraft", draft);
 
@@ -256,7 +255,7 @@ public class ListingsController {
             gameListingService.createListing(
                     currentUser.getUserId(), draft.getFormatId(), draft.getSkillLevel(),
                     draft.getScheduledDate(), draft.getLocation(), draft.getPrivacySetting(),
-                    draft.getSessionDuration(), draft.getPositionIds(), draft.getInvitedFriendIds());
+                    draft.getDurationMinutes(), draft.getPositionIds(), draft.getInvitedFriendIds());
 
             session.removeAttribute("listingDraft");
             redirectAttributes.addFlashAttribute("success", "Game listing created successfully!");
@@ -360,11 +359,12 @@ public class ListingsController {
                     sportService.getPositionNamesForFormat(listing.getFormat().getFormatId()));
         }
 
-        // Pass join request status for non-creators so the template can show appropriate UI
+        // Join requests and actual participants are separate records.
         if (!isCreator) {
-            JoinerStatus joinStatus = gameJoinerService.getUserJoinRequestStatus(
-                    currentUser.getUserId(), id);
-            model.addAttribute("joinStatus", joinStatus);
+            String joinState = gameJoinerService.hasPendingRequest(currentUser.getUserId(), id)
+                    ? "PENDING"
+                    : gameJoinerService.isParticipant(currentUser.getUserId(), id) ? "PARTICIPANT" : null;
+            model.addAttribute("joinState", joinState);
         }
 
         return "listings/detail";
@@ -381,6 +381,12 @@ public class ListingsController {
         if (!listing.getCreator().getUserId().equals(currentUser.getUserId())) {
             redirectAttributes.addFlashAttribute("error", "You can only edit your own listings.");
             return "redirect:/lobby/created";
+        }
+        try {
+            gameListingService.validateEditable(listing);
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/listings/" + id;
         }
         model.addAttribute("listing", listing);
         model.addAttribute("skillLevels", SkillLevel.values());
@@ -414,15 +420,15 @@ public class ListingsController {
         return "redirect:/listings/" + id;
     }
 
-    // ===== C300: Delete Listing =====
+    // ===== C300: Cancel Listing =====
 
-    @PostMapping("/listings/{id}/delete")
+    @PostMapping("/listings/{id}/cancel")
     public String deleteListing(@PathVariable Long id,
                                 @AuthenticationPrincipal CustomUserDetails currentUser,
                                 RedirectAttributes redirectAttributes) {
         try {
-            gameListingService.deleteListing(id, currentUser.getUserId());
-            redirectAttributes.addFlashAttribute("success", "Listing deleted. All joiners have been notified.");
+            gameListingService.cancelListing(id, currentUser.getUserId());
+            redirectAttributes.addFlashAttribute("success", "Listing cancelled. Affected users have been notified.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }

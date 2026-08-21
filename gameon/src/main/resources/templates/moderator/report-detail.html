@@ -47,6 +47,11 @@
                         <!-- Post Report -->
                         <div th:if="${reportedPost != null}">
                             <p class="mb-1"><strong th:text="${reportedPost.user.username}">Author</strong></p>
+                            <div th:if="${reportedPost.removed}" class="alert alert-warning py-2 mb-2">
+                                <span th:if="${reportedPost.removedByAuthor}">This post was already removed by its author.</span>
+                                <span th:unless="${reportedPost.removedByAuthor}">This post was already removed by a moderator.</span>
+                                <small class="d-block" th:text="${#temporals.format(reportedPost.removedAt, 'dd MMM yyyy HH:mm')}">Removal time</small>
+                            </div>
                             <p class="mb-1 p-2 bg-light rounded" th:text="${reportedPost.content}">Content</p>
                             <small class="text-muted" th:text="${#temporals.format(reportedPost.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
                         </div>

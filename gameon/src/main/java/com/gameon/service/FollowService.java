@@ -79,7 +79,8 @@ public class FollowService {
 
         // Notify the followed user
         String notifText = follower.getUsername() + " started following you.";
-        notificationService.createNotification(followedId, notifText, NotificationType.FOLLOW_NEW);
+        notificationService.createNotification(followedId, notifText,
+                NotificationType.FOLLOW_NEW, follower, null, null, null);
 
         logger.info("User {} followed user {}", follower.getUsername(), followed.getUsername());
     }

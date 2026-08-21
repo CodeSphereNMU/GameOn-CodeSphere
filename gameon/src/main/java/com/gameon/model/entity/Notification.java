@@ -26,7 +26,7 @@ public class Notification {
 
     @NotNull(message = "Notification type is required")
     @Enumerated(EnumType.STRING)
-    @Column(name = "notification_type", nullable = false, length = 30)
+    @Column(name = "notification_type", nullable = false, length = 50)
     private NotificationType notificationType;
 
     @Column(name = "is_read", nullable = false)
@@ -35,14 +35,30 @@ public class Notification {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
 
     // ===== Relationships =====
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "actor_user_id")
+    private User actor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "game_listing_id")
+    private GameListing gameListing;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "join_request_id")
+    private JoinRequest joinRequest;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "match_result_id")
+    private MatchResult matchResult;
 
     // ===== Constructors =====
 
@@ -87,7 +103,7 @@ public class Notification {
 
     public void setIsRead(Boolean isRead) {
         this.isRead = isRead;
-        this.updatedAt = LocalDateTime.now();
+        this.readAt = Boolean.TRUE.equals(isRead) ? LocalDateTime.now() : null;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -98,13 +114,8 @@ public class Notification {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
+    public LocalDateTime getReadAt() { return readAt; }
+    public void setReadAt(LocalDateTime readAt) { this.readAt = readAt; }
 
     public User getRecipient() {
         return recipient;
@@ -113,4 +124,13 @@ public class Notification {
     public void setRecipient(User recipient) {
         this.recipient = recipient;
     }
+
+    public User getActor() { return actor; }
+    public void setActor(User actor) { this.actor = actor; }
+    public GameListing getGameListing() { return gameListing; }
+    public void setGameListing(GameListing gameListing) { this.gameListing = gameListing; }
+    public JoinRequest getJoinRequest() { return joinRequest; }
+    public void setJoinRequest(JoinRequest joinRequest) { this.joinRequest = joinRequest; }
+    public MatchResult getMatchResult() { return matchResult; }
+    public void setMatchResult(MatchResult matchResult) { this.matchResult = matchResult; }
 }

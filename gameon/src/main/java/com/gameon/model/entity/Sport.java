@@ -2,7 +2,6 @@ package com.gameon.model.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,10 +24,6 @@ public class Sport {
     @Column(name = "sport_name", nullable = false, unique = true, length = 50)
     private String sportName;
 
-    @Positive(message = "Number of players must be positive")
-    @Column(name = "no_players", nullable = false)
-    private Integer noPlayers;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -48,9 +43,8 @@ public class Sport {
     public Sport() {
     }
 
-    public Sport(String sportName, Integer noPlayers) {
+    public Sport(String sportName) {
         this.sportName = sportName;
-        this.noPlayers = noPlayers;
     }
 
     // ===== Getters and Setters =====
@@ -69,14 +63,6 @@ public class Sport {
 
     public void setSportName(String sportName) {
         this.sportName = sportName;
-    }
-
-    public Integer getNoPlayers() {
-        return noPlayers;
-    }
-
-    public void setNoPlayers(Integer noPlayers) {
-        this.noPlayers = noPlayers;
     }
 
     public LocalDateTime getCreatedAt() {

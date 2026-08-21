@@ -48,14 +48,22 @@
                             </small>
                         </div>
                         <div class="d-flex gap-2 align-items-center">
-                            <span th:if="${listing.isCompleted}" class="badge bg-secondary">Completed</span>
-                            <span th:unless="${listing.isCompleted}" class="badge bg-success">Active</span>
-                            <a th:unless="${listing.isCompleted}" th:href="@{'/lobby/requests/' + ${listing.gameListingId}}"
+                            <span class="badge"
+                                  th:classappend="${listing.effectiveStatus == 'COMPLETED'} ? 'bg-secondary' : (${#strings.startsWith(listing.effectiveStatus, 'CANCELLED')} ? 'bg-danger' : 'bg-success')"
+                                  th:text="${#strings.replace(listing.effectiveStatus, '_', ' ')}">Status</span>
+                            <a th:if="${listing.listingStatus.name() == 'OPEN'}" th:href="@{'/lobby/requests/' + ${listing.gameListingId}}"
                                class="btn btn-outline-gameon btn-sm">Requests</a>
-                            <a th:href="@{'/match-result/submit/' + ${listing.gameListingId}}"
+                            <a th:if="${listing.effectiveStatus == 'AWAITING_RESULT' || listing.effectiveStatus == 'COMPLETED'}"
+                               th:href="@{'/match-result/submit/' + ${listing.gameListingId}}"
                                class="btn btn-sm btn-outline-secondary">Score</a>
-                            <a th:unless="${listing.isCompleted}" th:href="@{'/listings/' + ${listing.gameListingId} + '/edit'}"
+                            <a th:if="${editableListingIds.contains(listing.gameListingId)}"
+                               th:href="@{'/listings/' + ${listing.gameListingId} + '/edit'}"
                                class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <form th:if="${listing.listingStatus.name() == 'OPEN' || listing.listingStatus.name() == 'CONFIRMED'}"
+                                  th:action="@{'/listings/' + ${listing.gameListingId} + '/cancel'}" method="post"
+                                  onsubmit="return confirm('Cancel this listing? Affected users will be notified.')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                            </form>
                             <a th:href="@{'/listings/' + ${listing.gameListingId}}" class="btn btn-sm btn-outline-secondary">View</a>
                         </div>
                     </div>
@@ -65,11 +73,31 @@
 
         <!-- ===== JOINED TAB ===== -->
         <div th:if="${activeTab == 'joined'}">
-            <div th:if="${joinedGames == null || joinedGames.isEmpty()}" class="text-center text-muted py-5">
+            <div th:if="${(joinedGames == null || joinedGames.isEmpty()) && (pendingRequests == null || pendingRequests.isEmpty())}" class="text-center text-muted py-5">
                 <i class="bi bi-people" style="font-size: 3rem;"></i>
                 <p class="mt-2">You haven't joined any games yet.</p>
                 <a th:href="@{/listings}" class="btn btn-gameon btn-sm">Browse Listings</a>
             </div>
+
+            <div th:if="${pendingRequests != null && !pendingRequests.isEmpty()}" class="mb-4">
+                <h6 class="text-muted">Pending requests</h6>
+                <div class="list-group">
+                    <div th:each="request : ${pendingRequests}" class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong th:text="${request.gameListing.format.sport.sportName + ' - ' + request.gameListing.format.formatName}">Sport</strong>
+                                <small class="d-block text-muted"
+                                       th:text="${#temporals.format(request.gameListing.scheduledDate, 'dd MMM yyyy HH:mm') + ' · Team ' + request.team}">Date</small>
+                            </div>
+                            <form th:action="@{'/game-joiner/leave/' + ${request.gameListing.gameListingId}}" method="post"
+                                  onsubmit="return confirm('Withdraw this join request?')">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Withdraw</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div th:unless="${joinedGames == null || joinedGames.isEmpty()}" class="list-group">
                 <div th:each="gj : ${joinedGames}" class="list-group-item">
                     <div class="d-flex justify-content-between align-items-center">
@@ -83,13 +111,12 @@
                         </div>
                         <div class="d-flex gap-2 align-items-center">
                             <span class="badge"
-                                  th:classappend="${gj.status.name() == 'PENDING'} ? 'bg-warning text-dark' : (${gj.status.name() == 'ACCEPTED'} ? 'bg-success' : 'bg-info')"
+                                  th:classappend="${gj.status.name() == 'ACCEPTED'} ? 'bg-success' : 'bg-info'"
                                   th:text="${gj.status.name() == 'LOCKED'} ? 'Confirmed' : ${gj.status}">Status</span>
                             <form th:if="${leaveOpenListingIds.contains(gj.gameListing.gameListingId)}"
                                   th:action="@{'/game-joiner/leave/' + ${gj.gameListing.gameListingId}}" method="post"
                                   onsubmit="return confirm('Are you sure?')">
-                                <button type="submit" class="btn btn-outline-danger btn-sm"
-                                        th:text="${gj.status.name() == 'PENDING'} ? 'Withdraw Request' : 'Leave'">Leave</button>
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Leave</button>
                             </form>
                         </div>
                     </div>

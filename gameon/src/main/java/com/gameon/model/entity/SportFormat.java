@@ -60,9 +60,15 @@ public class SportFormat {
     }
 
     public SportFormat(String formatName, Integer noPlayers, Boolean hasPositions, Sport sport) {
+        this(formatName, noPlayers, hasPositions, 60, sport);
+    }
+
+    public SportFormat(String formatName, Integer noPlayers, Boolean hasPositions,
+                       Integer durationMinutes, Sport sport) {
         this.formatName = formatName;
         this.noPlayers = noPlayers;
         this.hasPositions = hasPositions;
+        this.durationMinutes = durationMinutes;
         this.sport = sport;
     }
 

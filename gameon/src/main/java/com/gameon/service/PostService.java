@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * Service handling post creation and management.
@@ -74,8 +75,7 @@ public class PostService {
     }
 
     /**
-     * Deletes a post (B200). Only the post owner can delete.
-     * Comments and likes are cascade-deleted.
+     * Soft-removes a post (B200). The post, comments, likes, and reports remain stored.
      */
     @Transactional
     public void deletePost(Long postId, Long userId) {
@@ -85,29 +85,43 @@ public class PostService {
             throw new UnauthorizedAccessException("delete", "post");
         }
 
-        postRepository.delete(post);
-        logger.info("Post {} deleted by user {}", postId, userId);
+        post.setRemovedAt(LocalDateTime.now());
+        post.setRemovedBy(null);
+        postRepository.save(post);
+        logger.info("Post {} soft-removed by author {}", postId, userId);
     }
 
     /**
-     * Deletes a post by moderator (B400).
+     * Soft-removes an active post by moderator. Existing removal attribution is preserved.
      */
     @Transactional
-    public void deletePostAsModerator(Long postId) {
-        Post post = getPostById(postId);
-        postRepository.delete(post);
-        logger.info("Post {} removed by moderator", postId);
+    public void deletePostAsModerator(Long postId, Long moderatorId) {
+        Post post = getPostForModeration(postId);
+        if (!post.isRemoved()) {
+            User moderator = userRepository.findById(moderatorId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", moderatorId));
+            post.setRemovedAt(LocalDateTime.now());
+            post.setRemovedBy(moderator);
+            postRepository.save(post);
+        }
+        logger.info("Post {} reviewed for removal by moderator {}", postId, moderatorId);
     }
 
     @Transactional(readOnly = true)
     public Post getPostById(Long postId) {
-        return postRepository.findById(postId)
+        return postRepository.findByPostIdAndRemovedAtIsNull(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
     }
 
     @Transactional(readOnly = true)
     public Post getPostWithUser(Long postId) {
-        return postRepository.findByIdWithUser(postId)
+        return postRepository.findActiveByIdWithUser(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
+    }
+
+    @Transactional(readOnly = true)
+    public Post getPostForModeration(Long postId) {
+        return postRepository.findByIdWithUserForModeration(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
     }
 
@@ -166,7 +180,7 @@ public class PostService {
      */
     @Transactional(readOnly = true)
     public Page<Post> getPostsByUser(Long userId, Pageable pageable) {
-        return postRepository.findByUserUserIdOrderByCreatedAtDesc(userId, pageable);
+        return postRepository.findByUserUserIdAndRemovedAtIsNullOrderByCreatedAtDesc(userId, pageable);
     }
 
     /**
@@ -177,14 +191,14 @@ public class PostService {
     @Transactional(readOnly = true)
     public Page<Post> getVisiblePostsByUser(Long profileUserId, Long viewerId, Pageable pageable) {
         if (profileUserId.equals(viewerId)) {
-            return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
+            return postRepository.findByUserUserIdAndRemovedAtIsNullOrderByCreatedAtDesc(profileUserId, pageable);
         }
 
         boolean isFollowing = followRepository.existsByIdFollowerUserIdAndIdFollowedUserId(viewerId, profileUserId);
         if (isFollowing) {
-            return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
+            return postRepository.findByUserUserIdAndRemovedAtIsNullOrderByCreatedAtDesc(profileUserId, pageable);
         }
 
-        return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
+        return postRepository.findByUserUserIdAndRemovedAtIsNullOrderByCreatedAtDesc(profileUserId, pageable);
     }
 }

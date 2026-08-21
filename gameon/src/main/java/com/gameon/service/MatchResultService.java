@@ -8,6 +8,7 @@ import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.MatchResult;
 import com.gameon.model.entity.UserSportProfile;
 import com.gameon.model.enums.JoinerStatus;
+import com.gameon.model.enums.ListingStatus;
 import com.gameon.model.enums.NotificationType;
 import com.gameon.model.enums.Team;
 import com.gameon.repository.GameJoinerRepository;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * Service handling match result recording and stat updates.
@@ -66,6 +68,8 @@ public class MatchResultService {
         if (!listing.getCreator().getUserId().equals(creatorId)) {
             throw new UnauthorizedAccessException("record match result for", "game listing");
         }
+        validateScores(teamAScore, teamBScore);
+        validateResultWindow(listing);
 
         // BR10: One result per listing
         if (matchResultRepository.existsByGameListingGameListingId(listingId)) {
@@ -77,19 +81,23 @@ public class MatchResultService {
         MatchResult saved = matchResultRepository.save(result);
 
         // Mark listing as completed
-        listing.setIsCompleted(true);
+        listing.setListingStatus(ListingStatus.COMPLETED);
         gameListingRepository.save(listing);
 
         // Update win/loss stats for participants
         updateParticipantStats(listing, saved.getWinners());
 
         // Notify all participants
+        String outcomeText = "DRAW".equals(saved.getWinners())
+                ? "Draw"
+                : saved.getWinners().replace("_", " ") + " wins";
         String notifText = "Match result posted: Team A " + teamAScore + " - " + teamBScore +
-                " Team B (" + saved.getWinners().replace("_", " ") + " wins!)";
+                " Team B (" + outcomeText + ").";
         List<Long> participantIds = gameJoinerRepository.findParticipants(listingId).stream()
                 .map(gj -> gj.getUser().getUserId())
                 .toList();
-        notificationService.createBulkNotifications(participantIds, notifText, NotificationType.MATCH_RESULT_POSTED);
+        notificationService.createBulkNotifications(participantIds, notifText,
+                NotificationType.MATCH_RESULT_POSTED, listing.getCreator(), listing, null, saved);
 
         logger.info("Match result recorded: Listing {} | Score: {} - {} | Winner: {}",
                 listingId, teamAScore, teamBScore, saved.getWinners());
@@ -109,6 +117,10 @@ public class MatchResultService {
         if (!listing.getCreator().getUserId().equals(creatorId)) {
             throw new UnauthorizedAccessException("update match result for", "game listing");
         }
+        validateScores(teamAScore, teamBScore);
+        if (listing.getListingStatus() != ListingStatus.COMPLETED) {
+            throw new BusinessRuleException("Only a completed game's result can be corrected.");
+        }
 
         MatchResult result = matchResultRepository.findByGameListingGameListingId(listingId)
                 .orElseThrow(() -> new ResourceNotFoundException("No match result found for this listing"));
@@ -117,7 +129,6 @@ public class MatchResultService {
 
         result.setTeamAScore(teamAScore);
         result.setTeamBScore(teamBScore);
-        result.setWinners(MatchResult.calculateWinner(teamAScore, teamBScore));
 
         MatchResult saved = matchResultRepository.save(result);
 
@@ -126,6 +137,14 @@ public class MatchResultService {
             reverseParticipantStats(listing, oldWinners);
             updateParticipantStats(listing, saved.getWinners());
         }
+
+        String notifText = "Match result updated: Team A " + teamAScore + " - " + teamBScore + " Team B.";
+        List<Long> participantIds = gameJoinerRepository.findParticipants(listingId).stream()
+                .map(joiner -> joiner.getUser().getUserId())
+                .distinct()
+                .toList();
+        notificationService.createBulkNotifications(participantIds, notifText,
+                NotificationType.MATCH_RESULT_UPDATED, listing.getCreator(), listing, null, saved);
 
         logger.info("Match result updated: Listing {} | New Score: {} - {} | Winner: {}",
                 listingId, teamAScore, teamBScore, saved.getWinners());
@@ -156,9 +175,6 @@ public class MatchResultService {
         Long sportId = listing.getFormat().getSport().getSportId();
         List<GameJoiner> participants = gameJoinerRepository.findByIdGameListingIdAndStatus(
                 listing.getGameListingId(), JoinerStatus.LOCKED);
-
-        // Also include creator (implicit Team A)
-        updateStatForUser(listing.getCreator().getUserId(), sportId, winners, Team.A);
 
         for (GameJoiner joiner : participants) {
             updateStatForUser(joiner.getUser().getUserId(), sportId, winners, joiner.getTeam());
@@ -191,8 +207,6 @@ public class MatchResultService {
         List<GameJoiner> participants = gameJoinerRepository.findByIdGameListingIdAndStatus(
                 listing.getGameListingId(), JoinerStatus.LOCKED);
 
-        reverseStatForUser(listing.getCreator().getUserId(), sportId, oldWinners, Team.A);
-
         for (GameJoiner joiner : participants) {
             reverseStatForUser(joiner.getUser().getUserId(), sportId, oldWinners, joiner.getTeam());
         }
@@ -214,5 +228,20 @@ public class MatchResultService {
                 userSportProfileRepository.save(profile);
             }
         });
+    }
+
+    private void validateScores(int teamAScore, int teamBScore) {
+        if (teamAScore < 0 || teamBScore < 0) {
+            throw new BusinessRuleException("Scores must be zero or higher.");
+        }
+    }
+
+    public void validateResultWindow(GameListing listing) {
+        if (listing.getListingStatus() != ListingStatus.CONFIRMED) {
+            throw new BusinessRuleException("A result can only be recorded for a confirmed game.");
+        }
+        if (LocalDateTime.now().isBefore(listing.getSessionEndTime())) {
+            throw new BusinessRuleException("A result can only be recorded after the game has ended.");
+        }
     }
 }

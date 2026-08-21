@@ -17,10 +17,9 @@ import java.util.Optional;
 public interface GameListingRepository extends JpaRepository<GameListing, Long> {
 
     // BR1: Check if user has active listing
-    @Query("SELECT gl FROM GameListing gl WHERE gl.creator.userId = :userId AND gl.isCompleted = false")
+    @Query("SELECT gl FROM GameListing gl WHERE gl.creator.userId = :userId " +
+           "AND gl.listingStatus IN ('OPEN', 'CONFIRMED')")
     Optional<GameListing> findActiveByCreator(@Param("userId") Long userId);
-
-    long countByCreatorUserIdAndIsCompletedFalse(Long userId);
 
     List<GameListing> findByCreatorUserId(Long userId);
 
@@ -28,7 +27,7 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
            "AND gl.scheduledDate > :now " +
-           "AND gl.isCompleted = false " +
+           "AND gl.listingStatus = 'OPEN' " +
            "AND gl.creator.userId != :userId " +
            "ORDER BY gl.scheduledDate ASC")
     Page<GameListing> findAvailableListings(
@@ -41,7 +40,7 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
            "AND gl.scheduledDate > :now " +
-           "AND gl.isCompleted = false " +
+           "AND gl.listingStatus = 'OPEN' " +
            "AND gl.creator.userId != :userId " +
            "AND gl.skillLevel = :skillLevel " +
            "ORDER BY gl.scheduledDate ASC")
@@ -52,16 +51,11 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
             @Param("skillLevel") SkillLevel skillLevel,
             Pageable pageable);
 
-    // A700: Find full listings needing confirmation (2hrs before scheduled)
+    // A700: Find every open listing that has reached the two-hour lock-in point.
     @Query("SELECT gl FROM GameListing gl " +
-           "WHERE gl.isCompleted = false " +
-           "AND gl.scheduledDate BETWEEN :now AND :threshold " +
-           "AND gl.session IS NULL " +
-           "AND (SELECT COUNT(gj) FROM GameJoiner gj " +
-           "     WHERE gj.gameListing = gl AND gj.status IN ('ACCEPTED', 'LOCKED')) >= gl.format.noPlayers")
-    List<GameListing> findFullListingsNeedingConfirmation(
-            @Param("now") LocalDateTime now,
-            @Param("threshold") LocalDateTime threshold);
+           "WHERE gl.listingStatus = 'OPEN' AND gl.scheduledDate <= :threshold " +
+           "ORDER BY gl.scheduledDate ASC")
+    List<GameListing> findListingsNeedingLockIn(@Param("threshold") LocalDateTime threshold);
 
     // Lobby: Created listings for user
     @Query("SELECT gl FROM GameListing gl WHERE gl.creator.userId = :userId ORDER BY gl.scheduledDate DESC")
@@ -86,14 +80,15 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     Optional<GameListing> findDetailById(@Param("id") Long id);
 
     // Count active listings by sport format
-    @Query("SELECT COUNT(gl) FROM GameListing gl WHERE gl.format.formatId = :formatId AND gl.isCompleted = false")
+    @Query("SELECT COUNT(gl) FROM GameListing gl WHERE gl.format.formatId = :formatId " +
+           "AND gl.listingStatus IN ('OPEN', 'CONFIRMED')")
     long countActiveByFormat(@Param("formatId") Long formatId);
 
     // Upcoming listings where user is creator or accepted/locked participant (for scheduling conflict checks)
     @Query("SELECT DISTINCT gl FROM GameListing gl " +
            "LEFT JOIN FETCH gl.format sf " +
            "LEFT JOIN FETCH sf.sport " +
-           "WHERE gl.isCompleted = false " +
+           "WHERE gl.listingStatus IN ('OPEN', 'CONFIRMED') " +
            "AND gl.scheduledDate > :now " +
            "AND (gl.creator.userId = :userId " +
            "     OR gl.gameListingId IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
@@ -104,7 +99,7 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
            "AND gl.scheduledDate > :cutoff " +
-           "AND gl.isCompleted = false " +
+           "AND gl.listingStatus = 'OPEN' " +
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
            "AND gl.gameListingId NOT IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
@@ -120,7 +115,7 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
            "AND gl.scheduledDate > :cutoff " +
-           "AND gl.isCompleted = false " +
+           "AND gl.listingStatus = 'OPEN' " +
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
            "AND gl.skillLevel = :skillLevel " +
@@ -137,7 +132,7 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.format.formatId IN :formatIds " +
            "AND gl.scheduledDate > :cutoff " +
-           "AND gl.isCompleted = false " +
+           "AND gl.listingStatus = 'OPEN' " +
            "AND gl.creator.userId != :userId " +
            "AND gl.privacySetting = 'PUBLIC' " +
            "AND (:sportId IS NULL OR gl.format.sport.sportId = :sportId) " +

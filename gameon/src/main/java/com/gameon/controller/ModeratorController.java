@@ -5,9 +5,11 @@ import com.gameon.model.enums.ReportType;
 import com.gameon.service.PostService;
 import com.gameon.service.ReportService;
 import com.gameon.service.UserService;
+import com.gameon.security.CustomUserDetails;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -60,7 +62,7 @@ public class ModeratorController {
             }
         } else if (report.getReportType() == ReportType.POST) {
             try {
-                model.addAttribute("reportedPost", postService.getPostWithUser(report.getReferenceId()));
+                model.addAttribute("reportedPost", postService.getPostForModeration(report.getReferenceId()));
             } catch (Exception e) {
                 model.addAttribute("itemNotFound", true);
             }
@@ -71,8 +73,10 @@ public class ModeratorController {
     // ===== B400: Dismiss Report =====
 
     @PostMapping("/reports/{reportId}/dismiss")
-    public String dismissReport(@PathVariable Long reportId, RedirectAttributes redirectAttributes) {
-        reportService.dismissReport(reportId);
+    public String dismissReport(@PathVariable Long reportId,
+                                @AuthenticationPrincipal CustomUserDetails currentUser,
+                                RedirectAttributes redirectAttributes) {
+        reportService.dismissReport(reportId, currentUser.getUserId());
         redirectAttributes.addFlashAttribute("success", "Report dismissed.");
         return "redirect:/moderator/reports";
     }
@@ -80,17 +84,18 @@ public class ModeratorController {
     // ===== B400: Action Report (Remove content) =====
 
     @PostMapping("/reports/{reportId}/action")
-    public String actionReport(@PathVariable Long reportId, RedirectAttributes redirectAttributes) {
+    public String actionReport(@PathVariable Long reportId,
+                               @AuthenticationPrincipal CustomUserDetails currentUser,
+                               RedirectAttributes redirectAttributes) {
         Report report = reportService.getReportById(reportId);
 
         // Remove the referenced item
         if (report.getReportType() == ReportType.USER) {
             userService.deactivateUser(report.getReferenceId());
+            reportService.resolveReport(reportId, currentUser.getUserId());
         } else if (report.getReportType() == ReportType.POST) {
-            postService.deletePostAsModerator(report.getReferenceId());
+            reportService.resolvePostReport(reportId, currentUser.getUserId());
         }
-
-        reportService.actionReport(reportId);
         redirectAttributes.addFlashAttribute("success", "Report actioned. Content has been removed.");
         return "redirect:/moderator/reports";
     }

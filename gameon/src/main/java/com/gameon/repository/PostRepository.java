@@ -16,12 +16,18 @@ import java.util.Optional;
 @Repository
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    List<Post> findByUserUserId(Long userId);
+    List<Post> findByUserUserIdAndRemovedAtIsNull(Long userId);
 
-    Page<Post> findByUserUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    Page<Post> findByUserUserIdAndRemovedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-    @Query("SELECT p FROM Post p JOIN FETCH p.user WHERE p.postId = :postId")
-    Optional<Post> findByIdWithUser(@Param("postId") Long postId);
+    @Query("SELECT p FROM Post p JOIN FETCH p.user WHERE p.postId = :postId AND p.removedAt IS NULL")
+    Optional<Post> findActiveByIdWithUser(@Param("postId") Long postId);
+
+    @Query("SELECT p FROM Post p JOIN FETCH p.user LEFT JOIN FETCH p.removedBy " +
+           "WHERE p.postId = :postId")
+    Optional<Post> findByIdWithUserForModeration(@Param("postId") Long postId);
+
+    Optional<Post> findByPostIdAndRemovedAtIsNull(Long postId);
 
     // ===== Feed DTO projections (counts computed at DB level) =====
 
@@ -35,8 +41,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE (p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
-           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "WHERE p.removedAt IS NULL AND ((p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds)) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findFeedPostDtos(
             @Param("visibleUserIds") List<Long> visibleUserIds,
@@ -52,25 +58,26 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
+           "WHERE p.removedAt IS NULL AND p.privacySetting = 'PUBLIC' " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findPublicFeedPostDtos(Pageable pageable);
 
     // ===== Legacy entity queries (used by edit/delete/detail flows) =====
 
     @Query("SELECT p FROM Post p " +
-           "WHERE (p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
-           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "WHERE p.removedAt IS NULL AND ((p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds)) " +
            "ORDER BY p.createdAt DESC")
     Page<Post> findFeedPosts(
             @Param("visibleUserIds") List<Long> visibleUserIds,
             @Param("followedUserIds") List<Long> followedUserIds,
             Pageable pageable);
 
-    Page<Post> findByPrivacySettingOrderByCreatedAtDesc(PrivacySetting privacySetting, Pageable pageable);
+    Page<Post> findByPrivacySettingAndRemovedAtIsNullOrderByCreatedAtDesc(
+            PrivacySetting privacySetting, Pageable pageable);
 
     // Count posts by user
-    long countByUserUserId(Long userId);
+    long countByUserUserIdAndRemovedAtIsNull(Long userId);
 
     // ===== Filtered Feed DTO projections =====
 
@@ -83,7 +90,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
+           "WHERE p.removedAt IS NULL AND p.privacySetting = 'PUBLIC' " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findPublicPostDtos(Pageable pageable);
 
@@ -97,7 +104,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
+           "WHERE p.removedAt IS NULL AND p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findFollowersOnlyPostDtos(
             @Param("followedUserIds") List<Long> followedUserIds,
@@ -112,7 +119,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.user.userId = :userId " +
+           "WHERE p.removedAt IS NULL AND p.user.userId = :userId " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findMyPostDtos(@Param("userId") Long userId, Pageable pageable);
 
@@ -126,9 +133,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
+           "WHERE p.removedAt IS NULL AND (p.privacySetting = 'PUBLIC' " +
            "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
-           "OR p.user.userId = :userId " +
+           "OR p.user.userId = :userId) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findAllVisiblePostDtos(
             @Param("userId") Long userId,
@@ -145,8 +152,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
-           "OR p.user.userId = :userId " +
+           "WHERE p.removedAt IS NULL AND (p.privacySetting = 'PUBLIC' " +
+           "OR p.user.userId = :userId) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findAllVisiblePostDtosNoFollows(@Param("userId") Long userId, Pageable pageable);
 }

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDateTime;
+
 /**
  * MatchResult entity - Final score of a completed game.
  * Maps to 'match_results' table in GameOnDb.
@@ -11,7 +13,7 @@ import jakarta.validation.constraints.NotNull;
  */
 @Entity
 @Table(name = "match_results")
-public class MatchResult extends Auditable {
+public class MatchResult {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,9 +30,11 @@ public class MatchResult extends Auditable {
     @Column(name = "team_b_score", nullable = false)
     private Integer teamBScore;
 
-    @NotNull(message = "Winners must be specified")
-    @Column(name = "winners", nullable = false, length = 10)
-    private String winners;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
     // ===== Relationships =====
 
@@ -47,7 +51,6 @@ public class MatchResult extends Auditable {
         this.gameListing = gameListing;
         this.teamAScore = teamAScore;
         this.teamBScore = teamBScore;
-        this.winners = calculateWinner(teamAScore, teamBScore);
     }
 
     // ===== Business Methods =====
@@ -77,6 +80,7 @@ public class MatchResult extends Auditable {
 
     public void setTeamAScore(Integer teamAScore) {
         this.teamAScore = teamAScore;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public Integer getTeamBScore() {
@@ -85,14 +89,12 @@ public class MatchResult extends Auditable {
 
     public void setTeamBScore(Integer teamBScore) {
         this.teamBScore = teamBScore;
+        this.updatedAt = LocalDateTime.now();
     }
 
+    @Transient
     public String getWinners() {
-        return winners;
-    }
-
-    public void setWinners(String winners) {
-        this.winners = winners;
+        return calculateWinner(teamAScore, teamBScore);
     }
 
     public GameListing getGameListing() {
@@ -102,4 +104,9 @@ public class MatchResult extends Auditable {
     public void setGameListing(GameListing gameListing) {
         this.gameListing = gameListing;
     }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

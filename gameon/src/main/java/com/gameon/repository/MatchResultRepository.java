@@ -25,7 +25,7 @@ public interface MatchResultRepository extends JpaRepository<MatchResult, Long> 
            "OR EXISTS (SELECT gj FROM GameJoiner gj " +
            "           WHERE gj.id.gameListingId = gl.gameListingId " +
            "           AND gj.id.userId = :userId " +
-           "           AND gj.status IN ('ACCEPTED', 'LOCKED')) " +
+           "           AND gj.status = 'LOCKED') " +
            "ORDER BY gl.scheduledDate DESC")
     List<MatchResult> findMatchHistoryForUser(@Param("userId") Long userId);
 

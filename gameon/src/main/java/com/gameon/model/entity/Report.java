@@ -4,7 +4,6 @@ import com.gameon.model.enums.ReportStatus;
 import com.gameon.model.enums.ReportType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -22,23 +21,14 @@ public class Report {
     @Column(name = "report_id")
     private Long reportId;
 
-    @NotNull(message = "Reference ID is required")
-    @Column(name = "reference_id", nullable = false)
-    private Long referenceId;
-
-    @NotNull(message = "Report type is required")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "report_type", nullable = false, length = 10)
-    private ReportType reportType;
-
     @NotBlank(message = "Report reason is required")
     @Size(max = 50, message = "Report reason must be at most 50 characters")
     @Column(name = "report_reason", nullable = false, length = 50)
     private String reportReason;
 
     @Size(max = 200, message = "Content must be at most 200 characters")
-    @Column(name = "content", length = 200)
-    private String content;
+    @Column(name = "description", length = 200)
+    private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -56,15 +46,28 @@ public class Report {
     @JoinColumn(name = "reporter_id", nullable = false)
     private User reporter;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reported_user_id")
+    private User reportedUser;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reported_post_id")
+    private Post reportedPost;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "reviewed_by_user_id")
+    private User reviewedBy;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
     // ===== Constructors =====
 
     public Report() {
     }
 
-    public Report(User reporter, Long referenceId, ReportType reportType, String reportReason) {
+    public Report(User reporter, String reportReason) {
         this.reporter = reporter;
-        this.referenceId = referenceId;
-        this.reportType = reportType;
         this.reportReason = reportReason;
     }
 
@@ -78,20 +81,15 @@ public class Report {
         this.reportId = reportId;
     }
 
-    public Long getReferenceId() {
-        return referenceId;
-    }
-
-    public void setReferenceId(Long referenceId) {
-        this.referenceId = referenceId;
-    }
-
+    @Transient
     public ReportType getReportType() {
-        return reportType;
+        return reportedUser != null ? ReportType.USER : ReportType.POST;
     }
 
-    public void setReportType(ReportType reportType) {
-        this.reportType = reportType;
+    @Transient
+    public Long getReferenceId() {
+        return reportedUser != null ? reportedUser.getUserId()
+                : reportedPost != null ? reportedPost.getPostId() : null;
     }
 
     public String getReportReason() {
@@ -103,11 +101,11 @@ public class Report {
     }
 
     public String getContent() {
-        return content;
+        return description;
     }
 
     public void setContent(String content) {
-        this.content = content;
+        this.description = content;
     }
 
     public ReportStatus getStatus() {
@@ -142,4 +140,13 @@ public class Report {
     public void setReporter(User reporter) {
         this.reporter = reporter;
     }
+
+    public User getReportedUser() { return reportedUser; }
+    public void setReportedUser(User reportedUser) { this.reportedUser = reportedUser; }
+    public Post getReportedPost() { return reportedPost; }
+    public void setReportedPost(Post reportedPost) { this.reportedPost = reportedPost; }
+    public User getReviewedBy() { return reviewedBy; }
+    public void setReviewedBy(User reviewedBy) { this.reviewedBy = reviewedBy; }
+    public LocalDateTime getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
 }

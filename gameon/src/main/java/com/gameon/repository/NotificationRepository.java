@@ -24,12 +24,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByRecipientUserIdAndNotificationType(Long userId, NotificationType type);
 
     @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true, n.updatedAt = CURRENT_TIMESTAMP " +
+    @Query("UPDATE Notification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP " +
            "WHERE n.recipient.userId = :userId AND n.isRead = false")
     int markAllAsReadForUser(@Param("userId") Long userId);
 
     @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true, n.updatedAt = CURRENT_TIMESTAMP " +
+    @Query("UPDATE Notification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP " +
            "WHERE n.notificationId = :notificationId")
     int markAsRead(@Param("notificationId") Long notificationId);
 }

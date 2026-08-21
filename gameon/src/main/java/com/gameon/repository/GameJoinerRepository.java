@@ -30,11 +30,11 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
 
     long countByIdGameListingIdAndStatusIn(Long gameListingId, List<JoinerStatus> statuses);
 
-    // BR10: Time conflict check (within 3 hours)
+    // Time conflict candidate lookup for actual participants only.
     @Query("SELECT gj FROM GameJoiner gj " +
            "JOIN gj.gameListing gl " +
            "WHERE gj.id.userId = :userId " +
-           "AND gj.status IN ('PENDING', 'ACCEPTED', 'LOCKED') " +
+           "AND gj.status IN ('ACCEPTED', 'LOCKED') " +
            "AND gl.scheduledDate BETWEEN :startTime AND :endTime")
     List<GameJoiner> findUserJoinedListingsInTimeRange(
             @Param("userId") Long userId,
@@ -47,8 +47,8 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
            "JOIN FETCH gl.format sf " +
            "JOIN FETCH sf.sport " +
            "WHERE gj.id.userId = :userId " +
-           "AND gj.status IN ('ACCEPTED', 'LOCKED', 'PENDING') " +
-           "AND gl.isCompleted = false " +
+           "AND gj.status IN ('ACCEPTED', 'LOCKED') " +
+           "AND gl.listingStatus IN ('OPEN', 'CONFIRMED') " +
            "AND gl.scheduledDate > CURRENT_TIMESTAMP " +
            "AND gl.creator.userId <> :userId " +
            "ORDER BY gl.scheduledDate ASC")
@@ -66,19 +66,18 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
            "AND gj.status IN ('ACCEPTED', 'LOCKED')")
     List<GameJoiner> findParticipants(@Param("listingId") Long listingId);
 
-    // Check if user has an active (PENDING) join request for a listing
-    @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
-           "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId " +
-           "AND gj.status = 'PENDING'")
-    boolean existsPendingRequest(@Param("userId") Long userId, @Param("listingId") Long listingId);
-
     // Check if user is already an accepted/locked participant
     @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
            "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId " +
            "AND gj.status IN ('ACCEPTED', 'LOCKED')")
     boolean existsAcceptedOrLocked(@Param("userId") Long userId, @Param("listingId") Long listingId);
 
-    // Find joiner by user and listing with specific statuses (for re-request logic)
+    @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
+           "WHERE gj.id.gameListingId = :listingId AND gj.id.userId <> :creatorId " +
+           "AND gj.status IN ('ACCEPTED', 'LOCKED')")
+    boolean existsNonCreatorParticipant(@Param("listingId") Long listingId,
+                                        @Param("creatorId") Long creatorId);
+
     @Query("SELECT gj FROM GameJoiner gj " +
            "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId")
     java.util.Optional<GameJoiner> findByUserAndListing(@Param("userId") Long userId, @Param("listingId") Long listingId);

@@ -2,6 +2,7 @@ package com.gameon.model.entity;
 
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.SkillLevel;
+import com.gameon.model.enums.ListingStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 
@@ -28,23 +29,24 @@ public class GameListing extends Auditable {
     private SkillLevel skillLevel;
 
     @NotNull(message = "Scheduled date is required")
-    @Future(message = "Scheduled date must be in the future")
     @Column(name = "scheduled_date", nullable = false)
     private LocalDateTime scheduledDate;
 
-    @Column(name = "is_completed", nullable = false)
-    private Boolean isCompleted = false;
+    @NotNull(message = "Listing status is required")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "listing_status", nullable = false, length = 40)
+    private ListingStatus listingStatus = ListingStatus.OPEN;
 
     @NotBlank(message = "Location is required")
     @Size(max = 200, message = "Location must be at most 200 characters")
     @Column(name = "location", nullable = false, length = 200)
     private String location;
 
-    @NotNull(message = "Session duration is required")
-    @Min(value = 1, message = "Session duration must be at least 1 hour")
-    @Max(value = 8, message = "Session duration must not exceed 8 hours")
-    @Column(name = "session_duration", nullable = false)
-    private Integer sessionDuration = 1;
+    @NotNull(message = "Duration is required")
+    @Min(value = 1, message = "Duration must be at least 1 minute")
+    @Max(value = 480, message = "Duration must not exceed 480 minutes")
+    @Column(name = "duration_minutes", nullable = false)
+    private Integer durationMinutes = 60;
 
     @NotNull(message = "Privacy setting is required")
     @Enumerated(EnumType.STRING)
@@ -65,9 +67,6 @@ public class GameListing extends Auditable {
     private List<GameJoiner> joiners = new ArrayList<>();
 
     @OneToOne(mappedBy = "gameListing", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Session session;
-
-    @OneToOne(mappedBy = "gameListing", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private MatchResult matchResult;
 
     // ===== Constructors =====
@@ -77,14 +76,14 @@ public class GameListing extends Auditable {
 
     public GameListing(User creator, SportFormat format, SkillLevel skillLevel,
                        LocalDateTime scheduledDate, String location, PrivacySetting privacySetting,
-                       Integer sessionDuration) {
+                       Integer durationMinutes) {
         this.creator = creator;
         this.format = format;
         this.skillLevel = skillLevel;
         this.scheduledDate = scheduledDate;
         this.location = location;
         this.privacySetting = privacySetting;
-        this.sessionDuration = sessionDuration;
+        this.durationMinutes = durationMinutes;
     }
 
     // ===== Getters and Setters =====
@@ -113,12 +112,12 @@ public class GameListing extends Auditable {
         this.scheduledDate = scheduledDate;
     }
 
-    public Boolean getIsCompleted() {
-        return isCompleted;
+    public ListingStatus getListingStatus() {
+        return listingStatus;
     }
 
-    public void setIsCompleted(Boolean isCompleted) {
-        this.isCompleted = isCompleted;
+    public void setListingStatus(ListingStatus listingStatus) {
+        this.listingStatus = listingStatus;
     }
 
     public String getLocation() {
@@ -137,19 +136,19 @@ public class GameListing extends Auditable {
         this.privacySetting = privacySetting;
     }
 
-    public Integer getSessionDuration() {
-        return sessionDuration;
+    public Integer getDurationMinutes() {
+        return durationMinutes;
     }
 
-    public void setSessionDuration(Integer sessionDuration) {
-        this.sessionDuration = sessionDuration;
+    public void setDurationMinutes(Integer durationMinutes) {
+        this.durationMinutes = durationMinutes;
     }
 
     /**
      * Returns the end time of this listing's session (start + duration).
      */
     public LocalDateTime getSessionEndTime() {
-        return scheduledDate.plusHours(sessionDuration != null ? sessionDuration : 1);
+        return scheduledDate.plusMinutes(durationMinutes != null ? durationMinutes : 60);
     }
 
     /**
@@ -183,19 +182,27 @@ public class GameListing extends Auditable {
         this.joiners = joiners;
     }
 
-    public Session getSession() {
-        return session;
-    }
-
-    public void setSession(Session session) {
-        this.session = session;
-    }
-
     public MatchResult getMatchResult() {
         return matchResult;
     }
 
     public void setMatchResult(MatchResult matchResult) {
         this.matchResult = matchResult;
+    }
+
+    /** Time-based phase shown in the UI and readable database view. */
+    @Transient
+    public String getEffectiveStatus() {
+        if (listingStatus != ListingStatus.CONFIRMED || scheduledDate == null) {
+            return listingStatus.name();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (!now.isBefore(getSessionEndTime())) {
+            return "AWAITING_RESULT";
+        }
+        if (!now.isBefore(scheduledDate)) {
+            return "IN_PROGRESS";
+        }
+        return ListingStatus.CONFIRMED.name();
     }
 }

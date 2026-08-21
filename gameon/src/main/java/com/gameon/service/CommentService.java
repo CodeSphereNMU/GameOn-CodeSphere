@@ -44,7 +44,7 @@ public class CommentService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        Post post = postRepository.findById(postId)
+        Post post = postRepository.findByPostIdAndRemovedAtIsNull(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
 
         Comment comment = new Comment(user, post, text);

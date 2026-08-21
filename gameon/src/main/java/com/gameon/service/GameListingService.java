@@ -7,6 +7,8 @@ import com.gameon.model.entity.*;
 import com.gameon.model.enums.*;
 import com.gameon.repository.GameJoinerRepository;
 import com.gameon.repository.GameListingRepository;
+import com.gameon.repository.InvitationRepository;
+import com.gameon.repository.JoinRequestRepository;
 import com.gameon.repository.UserRepository;
 import com.gameon.repository.UserSportProfileRepository;
 import org.slf4j.Logger;
@@ -18,9 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -45,6 +49,8 @@ public class GameListingService {
 
     private final GameListingRepository gameListingRepository;
     private final GameJoinerRepository gameJoinerRepository;
+    private final JoinRequestRepository joinRequestRepository;
+    private final InvitationRepository invitationRepository;
     private final UserRepository userRepository;
     private final UserSportProfileRepository userSportProfileRepository;
     private final SportService sportService;
@@ -54,6 +60,8 @@ public class GameListingService {
 
     public GameListingService(GameListingRepository gameListingRepository,
                               GameJoinerRepository gameJoinerRepository,
+                              JoinRequestRepository joinRequestRepository,
+                              InvitationRepository invitationRepository,
                               UserRepository userRepository,
                               UserSportProfileRepository userSportProfileRepository,
                               SportService sportService,
@@ -62,6 +70,8 @@ public class GameListingService {
                               InvitationService invitationService) {
         this.gameListingRepository = gameListingRepository;
         this.gameJoinerRepository = gameJoinerRepository;
+        this.joinRequestRepository = joinRequestRepository;
+        this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
         this.userSportProfileRepository = userSportProfileRepository;
         this.sportService = sportService;
@@ -82,16 +92,16 @@ public class GameListingService {
     @Transactional
     public GameListing createListing(Long creatorId, Long formatId, SkillLevel skillLevel,
                                      LocalDateTime scheduledDate, String location,
-                                     PrivacySetting privacySetting, Integer sessionDuration,
+                                     PrivacySetting privacySetting, Integer durationMinutes,
                                      List<Long> positionIds, List<Long> invitedFriendIds) {
         User creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", creatorId));
         SportFormat format = validateListingDetails(
-                creatorId, formatId, skillLevel, scheduledDate, location, privacySetting, sessionDuration);
+                creatorId, formatId, skillLevel, scheduledDate, location, privacySetting, durationMinutes);
         validatePositionSelection(format, positionIds);
 
         GameListing listing = new GameListing(creator, format, skillLevel, scheduledDate,
-                location, privacySetting, sessionDuration);
+                location, privacySetting, durationMinutes);
         GameListing saved = gameListingRepository.save(listing);
 
         // Rule 8: Creator automatically becomes a participant (Team A, ACCEPTED)
@@ -108,17 +118,16 @@ public class GameListingService {
 
         invitationService.createInvitations(saved, creatorId, invitedFriendIds);
 
-        logger.info("Game listing created: ID={} | Creator={} | Sport={} | Date={} | Duration={}h",
+        logger.info("Game listing created: ID={} | Creator={} | Sport={} | Date={} | Duration={}m",
                 saved.getGameListingId(), creator.getUsername(),
-                format.getSport().getSportName(), scheduledDate, sessionDuration);
+                format.getSport().getSportName(), scheduledDate, durationMinutes);
 
         // Notify invited friends (invitation is courtesy only - does NOT auto-accept)
         if (invitedFriendIds != null && !invitedFriendIds.isEmpty()) {
-            String notifText = creator.getUsername() + " invited you to a " +
-                    format.getSport().getSportName() + " " + format.getFormatName() + " game on " +
-                    scheduledDate.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM HH:mm")) +
-                    " (listing #" + saved.getGameListingId() + "). Submit a join request to participate.";
-            notificationService.createBulkNotifications(invitedFriendIds, notifText, NotificationType.LISTING_INVITE);
+            String notifText = creator.getUsername() + " invited you to game listing #" +
+                    saved.getGameListingId() + ". View the listing for its current details, then submit a join request to participate.";
+            notificationService.createBulkNotifications(invitedFriendIds, notifText,
+                    NotificationType.LISTING_INVITE, creator, saved, null, null);
         }
 
         return saved;
@@ -159,7 +168,7 @@ public class GameListingService {
     @Transactional(readOnly = true)
     public SportFormat validateListingDetails(Long creatorId, Long formatId, SkillLevel skillLevel,
                                               LocalDateTime scheduledDate, String location,
-                                              PrivacySetting privacySetting, Integer sessionDuration) {
+                                              PrivacySetting privacySetting, Integer durationMinutes) {
         SportFormat format = sportService.getFormatById(formatId);
         Long sportId = format.getSport().getSportId();
         if (!userSportProfileRepository.existsByIdUserIdAndIdSportId(creatorId, sportId)) {
@@ -176,23 +185,20 @@ public class GameListingService {
         if (scheduledDate == null) {
             throw new BusinessRuleException("Date and time are required.");
         }
-        LocalDateTime earliestAllowedStart = LocalDateTime.now().plusHours(MIN_CREATION_HOURS_BEFORE_START);
+        LocalDateTime earliestAllowedStart = earliestAllowedStart();
         if (scheduledDate.isBefore(earliestAllowedStart)) {
             throw new BusinessRuleException(
                     "This listing must be created at least 3 hours before the start time. The earliest allowed start time is " +
                     earliestAllowedStart.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm")) + ".");
         }
-        if (sessionDuration == null || sessionDuration < 1 || sessionDuration > 8) {
-            throw new BusinessRuleException("Session duration must be between 1 and 8 hours.");
+        if (durationMinutes == null || durationMinutes < 1 || durationMinutes > 480) {
+            throw new BusinessRuleException("Session duration must be between 1 and 480 minutes.");
         }
-        if (format.getDurationMinutes() != null) {
-            int formatHours = (format.getDurationMinutes() + 59) / 60;
-            if (sessionDuration != formatHours) {
-                throw new BusinessRuleException("Session duration must match the selected sport format.");
-            }
+        if (!durationMinutes.equals(format.getDurationMinutes())) {
+            throw new BusinessRuleException("Session duration must match the selected sport format.");
         }
-        String conflictMsg = schedulingConflictService.getConflictMessage(
-                creatorId, scheduledDate, sessionDuration, null);
+        String conflictMsg = schedulingConflictService.getConflictMessageMinutes(
+                creatorId, scheduledDate, durationMinutes, null);
         if (conflictMsg != null) {
             throw new BusinessRuleException(conflictMsg);
         }
@@ -300,20 +306,19 @@ public class GameListingService {
             throw new UnauthorizedAccessException("update", "game listing");
         }
 
-        if (listing.getIsCompleted()) {
-            throw new BusinessRuleException("Cannot update a completed listing.");
-        }
+        validateEditable(listing);
 
         // If date is changing, validate the new date
         if (scheduledDate != null && !scheduledDate.equals(listing.getScheduledDate())) {
-            if (scheduledDate.isBefore(LocalDateTime.now())) {
-                throw new BusinessRuleException("Scheduled date must be in the future.");
+            LocalDateTime earliestAllowedStart = earliestAllowedStart();
+            if (scheduledDate.isBefore(earliestAllowedStart)) {
+                throw new BusinessRuleException("The new start time must be at least 3 hours from now.");
             }
 
             // Re-check scheduling conflict (exclude current listing)
-            int duration = listing.getSessionDuration() != null ? listing.getSessionDuration() : 1;
-            String conflictMsg = schedulingConflictService.getConflictMessage(
-                    userId, scheduledDate, duration, listingId);
+            int durationMinutes = listing.getDurationMinutes() != null ? listing.getDurationMinutes() : 60;
+            String conflictMsg = schedulingConflictService.getConflictMessageMinutes(
+                    userId, scheduledDate, durationMinutes, listingId);
             if (conflictMsg != null) {
                 throw new BusinessRuleException(conflictMsg);
             }
@@ -330,28 +335,87 @@ public class GameListingService {
     }
 
     /**
-     * Deletes a game listing (C300). Only the creator can delete.
-     * Notifies all joiners that the listing was cancelled.
+     * Cancels a game listing (C300). The row and its history are preserved.
      */
     @Transactional
-    public void deleteListing(Long listingId, Long userId) {
+    public void cancelListing(Long listingId, Long userId) {
         GameListing listing = getListingById(listingId);
 
         if (!listing.getCreator().getUserId().equals(userId)) {
-            throw new UnauthorizedAccessException("delete", "game listing");
+            throw new UnauthorizedAccessException("cancel", "game listing");
         }
 
-        // Notify joiners before deletion
+        if (listing.getListingStatus() == ListingStatus.COMPLETED
+                || listing.getListingStatus() == ListingStatus.CANCELLED_BY_CREATOR
+                || listing.getListingStatus() == ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS) {
+            throw new BusinessRuleException("This listing can no longer be cancelled.");
+        }
+
+        Set<Long> recipientIds = new LinkedHashSet<>();
+        gameJoinerRepository.findParticipants(listingId).stream()
+                .map(joiner -> joiner.getUser().getUserId())
+                .filter(id -> !id.equals(userId))
+                .forEach(recipientIds::add);
+        joinRequestRepository.findPendingUserIds(listingId).stream()
+                .filter(id -> !id.equals(userId))
+                .forEach(recipientIds::add);
+        invitationRepository.findByGameListingGameListingIdAndStatus(listingId, InvitationStatus.PENDING).stream()
+                .map(invitation -> invitation.getInvitee().getUserId())
+                .filter(id -> !id.equals(userId))
+                .forEach(recipientIds::add);
+
+        listing.setListingStatus(ListingStatus.CANCELLED_BY_CREATOR);
+        joinRequestRepository.expirePendingForListing(listingId);
+        invitationRepository.expirePendingForListing(listingId);
+        gameListingRepository.save(listing);
+
         String notifText = listing.getCreator().getUsername() + " cancelled their " +
                 listing.getFormat().getSport().getSportName() + " game listing.";
-        List<Long> joinerIds = listing.getJoiners().stream()
-                .map(j -> j.getUser().getUserId())
-                .filter(id -> !id.equals(userId)) // Don't notify the creator
-                .toList();
-        notificationService.createBulkNotifications(joinerIds, notifText, NotificationType.LISTING_CANCELLED);
+        notificationService.createBulkNotifications(List.copyOf(recipientIds), notifText,
+                NotificationType.LISTING_CANCELLED, listing.getCreator(), listing, null, null);
+        logger.info("Game listing {} cancelled by creator {}", listingId, userId);
+    }
 
-        gameListingRepository.delete(listing);
-        logger.info("Game listing {} deleted by creator {}", listingId, userId);
+    /** Compatibility entry point used by the current controller. */
+    @Transactional
+    public void deleteListing(Long listingId, Long userId) {
+        cancelListing(listingId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isEditable(GameListing listing) {
+        return listing.getListingStatus() == ListingStatus.OPEN
+                && !hasActiveJoinInterest(listing);
+    }
+
+    @Transactional(readOnly = true)
+    public void validateEditable(GameListing listing) {
+        if (listing.getListingStatus() != ListingStatus.OPEN) {
+            throw new BusinessRuleException("Only open listings can be edited.");
+        }
+        if (hasActiveJoinInterest(listing)) {
+            throw new BusinessRuleException(
+                    "This listing cannot be edited while another user has a pending request or accepted participation.");
+        }
+    }
+
+    private boolean hasActiveJoinInterest(GameListing listing) {
+        Long listingId = listing.getGameListingId();
+        boolean activeRequest = joinRequestRepository.existsByGameListingGameListingIdAndStatusIn(
+                listingId, List.of(JoinRequestStatus.PENDING, JoinRequestStatus.ACCEPTED));
+        return activeRequest || gameJoinerRepository.existsNonCreatorParticipant(
+                listingId, listing.getCreator().getUserId());
+    }
+
+    private LocalDateTime earliestAllowedStart() {
+        // datetime-local submits minute precision, so validate against the same precision.
+        return currentTime()
+                .truncatedTo(ChronoUnit.MINUTES)
+                .plusHours(MIN_CREATION_HOURS_BEFORE_START);
+    }
+
+    LocalDateTime currentTime() {
+        return LocalDateTime.now();
     }
 
     /**
@@ -360,7 +424,7 @@ public class GameListingService {
     @Transactional
     public void markCompleted(Long listingId) {
         GameListing listing = getListingById(listingId);
-        listing.setIsCompleted(true);
+        listing.setListingStatus(ListingStatus.COMPLETED);
         gameListingRepository.save(listing);
         logger.info("Game listing {} marked as completed", listingId);
     }

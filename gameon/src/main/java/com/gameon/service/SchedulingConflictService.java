@@ -48,7 +48,7 @@ public class SchedulingConflictService {
      */
     @Transactional(readOnly = true)
     public Optional<GameListing> findSchedulingConflict(Long userId, LocalDateTime newStart, int newDurationHrs) {
-        return findSchedulingConflict(userId, newStart, newDurationHrs, null);
+        return findSchedulingConflictMinutes(userId, newStart, newDurationHrs * 60, null);
     }
 
     /**
@@ -64,7 +64,14 @@ public class SchedulingConflictService {
     @Transactional(readOnly = true)
     public Optional<GameListing> findSchedulingConflict(Long userId, LocalDateTime newStart,
                                                          int newDurationHrs, Long excludeListingId) {
-        LocalDateTime newEnd = newStart.plusHours(newDurationHrs);
+        return findSchedulingConflictMinutes(userId, newStart, newDurationHrs * 60, excludeListingId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<GameListing> findSchedulingConflictMinutes(Long userId, LocalDateTime newStart,
+                                                                int newDurationMinutes,
+                                                                Long excludeListingId) {
+        LocalDateTime newEnd = newStart.plusMinutes(newDurationMinutes);
         LocalDateTime newBlockedUntil = newEnd.plusMinutes(TRAVEL_BUFFER_MINUTES);
 
         // Get all upcoming listings where user is creator or accepted participant
@@ -77,8 +84,8 @@ public class SchedulingConflictService {
             }
 
             LocalDateTime existingStart = existing.getScheduledDate();
-            int existingDuration = existing.getSessionDuration() != null ? existing.getSessionDuration() : 1;
-            LocalDateTime existingEnd = existingStart.plusHours(existingDuration);
+            int existingDuration = existing.getDurationMinutes() != null ? existing.getDurationMinutes() : 60;
+            LocalDateTime existingEnd = existingStart.plusMinutes(existingDuration);
             LocalDateTime existingBlockedUntil = existingEnd.plusMinutes(TRAVEL_BUFFER_MINUTES);
 
             // Check conflict in both directions:
@@ -104,12 +111,19 @@ public class SchedulingConflictService {
      */
     @Transactional(readOnly = true)
     public String getConflictMessage(Long userId, LocalDateTime newStart, int newDurationHrs, Long excludeListingId) {
-        Optional<GameListing> conflict = findSchedulingConflict(userId, newStart, newDurationHrs, excludeListingId);
+        return getConflictMessageMinutes(userId, newStart, newDurationHrs * 60, excludeListingId);
+    }
+
+    @Transactional(readOnly = true)
+    public String getConflictMessageMinutes(Long userId, LocalDateTime newStart,
+                                            int newDurationMinutes, Long excludeListingId) {
+        Optional<GameListing> conflict = findSchedulingConflictMinutes(
+                userId, newStart, newDurationMinutes, excludeListingId);
         if (conflict.isPresent()) {
             GameListing conflicting = conflict.get();
             String existingTime = conflicting.getScheduledDate().format(DISPLAY_FORMAT);
-            int duration = conflicting.getSessionDuration() != null ? conflicting.getSessionDuration() : 1;
-            String endTime = conflicting.getScheduledDate().plusHours(duration).format(DISPLAY_FORMAT);
+            int duration = conflicting.getDurationMinutes() != null ? conflicting.getDurationMinutes() : 60;
+            String endTime = conflicting.getScheduledDate().plusMinutes(duration).format(DISPLAY_FORMAT);
             return "Your new listing conflicts with another upcoming session (" +
                     conflicting.getFormat().getSport().getSportName() + " on " +
                     existingTime + " - " + endTime + "). " +

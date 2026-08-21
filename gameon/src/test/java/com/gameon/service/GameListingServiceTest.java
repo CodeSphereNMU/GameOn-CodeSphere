@@ -5,6 +5,8 @@ import com.gameon.model.entity.*;
 import com.gameon.model.enums.*;
 import com.gameon.repository.GameJoinerRepository;
 import com.gameon.repository.GameListingRepository;
+import com.gameon.repository.InvitationRepository;
+import com.gameon.repository.JoinRequestRepository;
 import com.gameon.repository.UserRepository;
 import com.gameon.repository.UserSportProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,12 @@ class GameListingServiceTest {
     private GameJoinerRepository gameJoinerRepository;
 
     @Mock
+    private JoinRequestRepository joinRequestRepository;
+
+    @Mock
+    private InvitationRepository invitationRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -71,45 +79,35 @@ class GameListingServiceTest {
         testUser = new User("TestUser", "password", UserRole.USER);
         testUser.setUserId(1L);
 
-        testSport = new Sport("Tennis", 4);
+        testSport = new Sport("Tennis");
         testSport.setSportId(1L);
 
         testFormat = new SportFormat("Doubles", 4, false, testSport);
         testFormat.setFormatId(1L);
+        testFormat.setDurationMinutes(120);
 
         testFormatWithPositions = new SportFormat("5v5", 10, true, testSport);
         testFormatWithPositions.setFormatId(2L);
+        testFormatWithPositions.setDurationMinutes(120);
     }
 
     @Nested
     @DisplayName("Creation Time Validation")
     class CreationTimeValidation {
 
-        @Test
-        @DisplayName("Less than 3 hours before start - rejected")
-        void createListing_lessThan3Hours_rejected() {
-            LocalDateTime tooSoon = LocalDateTime.now().plusHours(2);
+        private final LocalDateTime fixedNow = LocalDateTime.of(2026, 8, 21, 12, 34, 45);
 
-            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-            when(sportService.getFormatById(1L)).thenReturn(testFormat);
-            when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-
-            assertThatThrownBy(() -> gameListingService.createListing(
-                    1L, 1L, SkillLevel.INTERMEDIATE, tooSoon,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
-                    .isInstanceOf(BusinessRuleException.class)
-                    .hasMessageContaining("at least 3 hours before the start time");
+        private GameListingService serviceAtFixedTime() {
+            GameListingService fixedTimeService = spy(gameListingService);
+            doReturn(fixedNow).when(fixedTimeService).currentTime();
+            return fixedTimeService;
         }
 
-        @Test
-        @DisplayName("Exactly 3 hours before start - allowed")
-        void createListing_exactly3Hours_allowed() {
-            LocalDateTime justRight = LocalDateTime.now().plusHours(3).plusMinutes(1);
-
+        private void stubSuccessfulCreation() {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(1L)).thenReturn(testFormat);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
                 GameListing gl = i.getArgument(0);
@@ -117,10 +115,54 @@ class GameListingServiceTest {
                 return gl;
             });
             when(gameJoinerRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        }
 
-            GameListing result = gameListingService.createListing(
+        @Test
+        @DisplayName("Less than 3 hours before start - rejected")
+        void createListing_lessThan3Hours_rejected() {
+            LocalDateTime tooSoon = fixedNow.truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
+                    .plusHours(3).minusMinutes(1);
+            GameListingService fixedTimeService = serviceAtFixedTime();
+
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(sportService.getFormatById(1L)).thenReturn(testFormat);
+            when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> fixedTimeService.createListing(
+                    1L, 1L, SkillLevel.INTERMEDIATE, tooSoon,
+                    "Location", PrivacySetting.PUBLIC, 120, null, null))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("at least 3 hours before the start time");
+        }
+
+        @Test
+        @DisplayName("Exactly 3 hours before start - allowed")
+        void createListing_exactly3Hours_allowed() {
+            LocalDateTime justRight = fixedNow.truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
+                    .plusHours(3);
+            GameListingService fixedTimeService = serviceAtFixedTime();
+
+            stubSuccessfulCreation();
+
+            GameListing result = fixedTimeService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, justRight,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null);
+                    "Location", PrivacySetting.PUBLIC, 120, null, null);
+
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("More than 3 hours before start - allowed")
+        void createListing_moreThan3Hours_allowed() {
+            LocalDateTime later = fixedNow.truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
+                    .plusHours(3).plusMinutes(1);
+            GameListingService fixedTimeService = serviceAtFixedTime();
+
+            stubSuccessfulCreation();
+
+            GameListing result = fixedTimeService.createListing(
+                    1L, 1L, SkillLevel.INTERMEDIATE, later,
+                    "Location", PrivacySetting.PUBLIC, 120, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -141,7 +183,7 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
+                    "Location", PrivacySetting.PUBLIC, 120, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("Choose Any Position");
         }
@@ -155,7 +197,7 @@ class GameListingServiceTest {
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
             when(sportService.getPositionIdsForFormat(2L)).thenReturn(java.util.Set.of(5L, 6L));
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
                 GameListing gl = i.getArgument(0);
@@ -166,7 +208,7 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L), null);
+                    "Location", PrivacySetting.PUBLIC, 120, List.of(5L), null);
 
             assertThat(result).isNotNull();
         }
@@ -180,7 +222,7 @@ class GameListingServiceTest {
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
             when(sportService.getPositionIdsForFormat(2L)).thenReturn(java.util.Set.of(5L, 6L));
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
                 GameListing gl = i.getArgument(0);
@@ -191,7 +233,7 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L, 6L), null);
+                    "Location", PrivacySetting.PUBLIC, 120, List.of(5L, 6L), null);
 
             assertThat(result).isNotNull();
         }
@@ -204,7 +246,7 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(2L)).thenReturn(testFormatWithPositions);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
                 GameListing gl = i.getArgument(0);
@@ -216,7 +258,7 @@ class GameListingServiceTest {
             // Empty list intentionally represents Any Position.
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, Collections.emptyList(), null);
+                    "Location", PrivacySetting.PUBLIC, 120, Collections.emptyList(), null);
 
             assertThat(result).isNotNull();
         }
@@ -231,7 +273,7 @@ class GameListingServiceTest {
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L, 6L, 7L), null))
+                    "Location", PrivacySetting.PUBLIC, 120, List.of(5L, 6L, 7L), null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("no more than 2");
         }
@@ -249,7 +291,7 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(1L)).thenReturn(testFormat);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
                 GameListing gl = i.getArgument(0);
@@ -260,7 +302,7 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null);
+                    "Location", PrivacySetting.PUBLIC, 120, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -276,7 +318,7 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
+                    "Location", PrivacySetting.PUBLIC, 120, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("not included in your sports profile");
         }
@@ -294,7 +336,7 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(1L)).thenReturn(testFormat);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn(null);
             when(gameListingRepository.save(any())).thenAnswer(i -> {
                 GameListing gl = i.getArgument(0);
@@ -305,7 +347,7 @@ class GameListingServiceTest {
 
             gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null);
+                    "Location", PrivacySetting.PUBLIC, 120, null, null);
 
             // Verify GameJoiner was created for the creator with ACCEPTED status
             ArgumentCaptor<GameJoiner> joinerCaptor = ArgumentCaptor.forClass(GameJoiner.class);
@@ -330,12 +372,12 @@ class GameListingServiceTest {
             when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
             when(sportService.getFormatById(1L)).thenReturn(testFormat);
             when(userSportProfileRepository.existsByIdUserIdAndIdSportId(1L, 1L)).thenReturn(true);
-            when(schedulingConflictService.getConflictMessage(eq(1L), any(), eq(2), isNull()))
+            when(schedulingConflictService.getConflictMessageMinutes(eq(1L), any(), eq(120), isNull()))
                     .thenReturn("Conflict message");
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
+                    "Location", PrivacySetting.PUBLIC, 120, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("Conflict message");
         }
@@ -381,6 +423,77 @@ class GameListingServiceTest {
                     anyList(), any(), eq(1L), isNull(), isNull(),
                     eq(selectedDate.atStartOfDay()), eq(selectedDate.plusDays(1).atStartOfDay()),
                     eq(true), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Listing edit freeze")
+    class ListingEditFreeze {
+
+        private GameListing editableListing() {
+            GameListing listing = new GameListing(testUser, testFormat, SkillLevel.INTERMEDIATE,
+                    LocalDateTime.now().plusDays(2), "Old court", PrivacySetting.PUBLIC, 120);
+            listing.setGameListingId(10L);
+            listing.setListingStatus(ListingStatus.OPEN);
+            return listing;
+        }
+
+        @Test
+        void openListingWithoutRequestHistoryCanBeEdited() {
+            GameListing listing = editableListing();
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+            when(gameListingRepository.save(listing)).thenReturn(listing);
+
+            GameListing updated = gameListingService.updateListing(
+                    10L, 1L, listing.getScheduledDate(), "New court",
+                    SkillLevel.ADVANCED, PrivacySetting.PRIVATE);
+
+            assertThat(updated.getLocation()).isEqualTo("New court");
+            assertThat(updated.getSkillLevel()).isEqualTo(SkillLevel.ADVANCED);
+        }
+
+        @Test
+        void invitationHistoryAloneDoesNotPreventEditing() {
+            GameListing listing = editableListing();
+
+            assertThat(gameListingService.isEditable(listing)).isTrue();
+            verifyNoInteractions(invitationRepository);
+        }
+
+        @Test
+        void pendingJoinRequestPreventsEditing() {
+            GameListing listing = editableListing();
+            when(joinRequestRepository.existsByGameListingGameListingIdAndStatusIn(
+                    eq(10L), anyList())).thenReturn(true);
+
+            assertThatThrownBy(() -> gameListingService.validateEditable(listing))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("pending request or accepted participation");
+        }
+
+        @Test
+        void rejectedWithdrawnAndExpiredHistoryDoesNotPreventEditing() {
+            GameListing listing = editableListing();
+
+            assertThat(gameListingService.isEditable(listing)).isTrue();
+            verify(joinRequestRepository).existsByGameListingGameListingIdAndStatusIn(
+                    10L, List.of(JoinRequestStatus.PENDING, JoinRequestStatus.ACCEPTED));
+        }
+
+        @Test
+        void nonCreatorAcceptedParticipantPreventsEditing() {
+            GameListing listing = editableListing();
+            when(gameJoinerRepository.existsNonCreatorParticipant(10L, 1L)).thenReturn(true);
+
+            assertThat(gameListingService.isEditable(listing)).isFalse();
+        }
+
+        @Test
+        void creatorAutomaticParticipantDoesNotPreventEditing() {
+            GameListing listing = editableListing();
+
+            assertThat(gameListingService.isEditable(listing)).isTrue();
+            verify(gameJoinerRepository).existsNonCreatorParticipant(10L, 1L);
         }
     }
 }

@@ -34,11 +34,11 @@ public class DataInitializer {
             logger.info("Initializing seed data for local profile...");
 
             // === SPORTS ===
-            Sport padel = sportRepository.save(new Sport("Padel", 4));
-            Sport tennis = sportRepository.save(new Sport("Tennis", 4));
-            Sport basketball = sportRepository.save(new Sport("Basketball", 10));
-            Sport football = sportRepository.save(new Sport("Football", 22));
-            Sport rugby = sportRepository.save(new Sport("Rugby", 30));
+            Sport padel = sportRepository.save(new Sport("Padel"));
+            Sport tennis = sportRepository.save(new Sport("Tennis"));
+            Sport basketball = sportRepository.save(new Sport("Basketball"));
+            Sport football = sportRepository.save(new Sport("Football"));
+            Sport rugby = sportRepository.save(new Sport("Rugby"));
 
             // === POSITIONS ===
             Position goalkeeper = positionRepository.save(new Position("Goalkeeper"));
@@ -54,16 +54,16 @@ public class DataInitializer {
             Position fullback = positionRepository.save(new Position("Fullback"));
 
             // === SPORT FORMATS ===
-            SportFormat padelDoubles = sportFormatRepository.save(new SportFormat("Doubles", 4, false, padel));
-            SportFormat tennisSingles = sportFormatRepository.save(new SportFormat("Singles", 2, false, tennis));
-            SportFormat tennisDoubles = sportFormatRepository.save(new SportFormat("Doubles", 4, false, tennis));
-            SportFormat basketball3v3 = sportFormatRepository.save(new SportFormat("3v3", 6, true, basketball));
-            SportFormat basketball5v5 = sportFormatRepository.save(new SportFormat("5v5", 10, true, basketball));
-            SportFormat football5v5 = sportFormatRepository.save(new SportFormat("5v5", 10, true, football));
-            SportFormat football7v7 = sportFormatRepository.save(new SportFormat("7v7", 14, true, football));
-            SportFormat football11v11 = sportFormatRepository.save(new SportFormat("11v11", 22, true, football));
-            SportFormat rugby7s = sportFormatRepository.save(new SportFormat("7s", 14, true, rugby));
-            SportFormat rugby15s = sportFormatRepository.save(new SportFormat("15s", 30, true, rugby));
+            SportFormat padelDoubles = sportFormatRepository.save(new SportFormat("Doubles", 4, false, 60, padel));
+            SportFormat tennisSingles = sportFormatRepository.save(new SportFormat("Singles", 2, false, 60, tennis));
+            SportFormat tennisDoubles = sportFormatRepository.save(new SportFormat("Doubles", 4, false, 60, tennis));
+            SportFormat basketball3v3 = sportFormatRepository.save(new SportFormat("3v3", 6, true, 60, basketball));
+            SportFormat basketball5v5 = sportFormatRepository.save(new SportFormat("5v5", 10, true, 60, basketball));
+            SportFormat football5v5 = sportFormatRepository.save(new SportFormat("5v5", 10, true, 60, football));
+            SportFormat football7v7 = sportFormatRepository.save(new SportFormat("7v7", 14, true, 60, football));
+            SportFormat football11v11 = sportFormatRepository.save(new SportFormat("11v11", 22, true, 120, football));
+            SportFormat rugby7s = sportFormatRepository.save(new SportFormat("7s", 14, true, 60, rugby));
+            SportFormat rugby15s = sportFormatRepository.save(new SportFormat("15s", 30, true, 120, rugby));
 
             // === FORMAT POSITIONS ===
             formatPositionRepository.save(new FormatPosition(basketball3v3, guard));

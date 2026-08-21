@@ -1,7 +1,6 @@
 package com.gameon.controller;
 
 import com.gameon.model.entity.GameListing;
-import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
@@ -71,16 +70,13 @@ public class GameJoinerController {
             return "redirect:/listings/" + listingId;
         }
 
-        // Check for existing active join request (PENDING, ACCEPTED, LOCKED)
-        JoinerStatus existingStatus = gameJoinerService.getUserJoinRequestStatus(
-                currentUser.getUserId(), listingId);
-        if (existingStatus != null) {
-            String message = switch (existingStatus) {
-                case PENDING -> "You already have a join request for this listing and cannot select another team.";
-                case ACCEPTED, LOCKED -> "You are already a participant in this listing.";
-                default -> "You already have a join request for this listing.";
-            };
-            redirectAttributes.addFlashAttribute("error", message);
+        if (gameJoinerService.hasPendingRequest(currentUser.getUserId(), listingId)) {
+            redirectAttributes.addFlashAttribute("error",
+                    "You already have a join request for this listing and cannot select another team.");
+            return "redirect:/listings/" + listingId;
+        }
+        if (gameJoinerService.isParticipant(currentUser.getUserId(), listingId)) {
+            redirectAttributes.addFlashAttribute("error", "You are already a participant in this listing.");
             return "redirect:/listings/" + listingId;
         }
 
@@ -140,11 +136,9 @@ public class GameJoinerController {
                                @AuthenticationPrincipal CustomUserDetails currentUser,
                                RedirectAttributes redirectAttributes) {
         try {
-            JoinerStatus currentStatus = gameJoinerService.getUserJoinRequestStatus(
-                    currentUser.getUserId(), listingId);
-            gameJoinerService.leaveListing(currentUser.getUserId(), listingId);
+            boolean withdrewRequest = gameJoinerService.leaveListing(currentUser.getUserId(), listingId);
             redirectAttributes.addFlashAttribute("success",
-                    currentStatus == JoinerStatus.PENDING
+                    withdrewRequest
                             ? "Your join request has been withdrawn."
                             : "You have left the game listing.");
         } catch (Exception e) {

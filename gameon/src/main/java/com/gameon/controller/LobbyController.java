@@ -3,6 +3,7 @@ package com.gameon.controller;
 import com.gameon.model.entity.GameJoiner;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.MatchResult;
+import com.gameon.model.entity.JoinRequest;
 import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
@@ -55,6 +56,10 @@ public class LobbyController {
     public String created(@AuthenticationPrincipal CustomUserDetails currentUser, Model model) {
         List<GameListing> listings = gameListingService.getCreatedListings(currentUser.getUserId());
         model.addAttribute("listings", listings);
+        model.addAttribute("editableListingIds", listings.stream()
+                .filter(gameListingService::isEditable)
+                .map(GameListing::getGameListingId)
+                .collect(java.util.stream.Collectors.toSet()));
         model.addAttribute("activeTab", "created");
         return "lobby/index";
     }
@@ -65,6 +70,8 @@ public class LobbyController {
     public String joined(@AuthenticationPrincipal CustomUserDetails currentUser, Model model) {
         List<GameJoiner> joinedGames = gameJoinerService.getJoinedListings(currentUser.getUserId());
         model.addAttribute("joinedGames", joinedGames);
+        model.addAttribute("pendingRequests",
+                gameJoinerService.getPendingRequestsForUser(currentUser.getUserId()));
         model.addAttribute("leaveOpenListingIds", joinedGames.stream()
                 .filter(joiner -> gameJoinerService.isRequestWindowOpen(joiner.getGameListing()))
                 .map(joiner -> joiner.getGameListing().getGameListingId())
@@ -95,8 +102,8 @@ public class LobbyController {
             return "redirect:/lobby";
         }
 
-        List<GameJoiner> pendingRequests = gameJoinerService.getPendingRequests(listingId);
-        List<GameJoiner> acceptedJoiners = gameJoinerService.getJoinersByStatus(listingId, JoinerStatus.ACCEPTED);
+        List<JoinRequest> pendingRequests = gameJoinerService.getPendingRequests(listingId);
+        List<GameJoiner> acceptedJoiners = gameJoinerService.getParticipants(listingId);
 
         // Capacity information for UI
         int maxPlayers = listing.getFormat().getNoPlayers();

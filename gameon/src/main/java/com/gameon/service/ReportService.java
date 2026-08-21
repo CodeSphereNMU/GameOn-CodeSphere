@@ -1,11 +1,14 @@
 package com.gameon.service;
 
 import com.gameon.exception.ResourceNotFoundException;
+import com.gameon.exception.BusinessRuleException;
+import com.gameon.model.entity.Post;
 import com.gameon.model.entity.Report;
 import com.gameon.model.entity.User;
 import com.gameon.model.enums.ReportStatus;
 import com.gameon.model.enums.ReportType;
 import com.gameon.repository.ReportRepository;
+import com.gameon.repository.PostRepository;
 import com.gameon.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 /**
  * Service handling report creation and moderator actions.
@@ -29,11 +33,17 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
+    private final PostService postService;
 
     public ReportService(ReportRepository reportRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         PostRepository postRepository,
+                         PostService postService) {
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
+        this.postRepository = postRepository;
+        this.postService = postService;
     }
 
     /**
@@ -45,7 +55,22 @@ public class ReportService {
         User reporter = userRepository.findById(reporterId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", reporterId));
 
-        Report report = new Report(reporter, referenceId, reportType, reportReason);
+        if (reportType == null) {
+            throw new BusinessRuleException("Report type is required.");
+        }
+        Report report = new Report(reporter, reportReason);
+        if (reportType == ReportType.USER) {
+            if (reporterId.equals(referenceId)) {
+                throw new BusinessRuleException("You cannot report your own account.");
+            }
+            User reportedUser = userRepository.findById(referenceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", referenceId));
+            report.setReportedUser(reportedUser);
+        } else {
+            Post reportedPost = postRepository.findByPostIdAndRemovedAtIsNull(referenceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Post", referenceId));
+            report.setReportedPost(reportedPost);
+        }
         Report saved = reportRepository.save(report);
 
         logger.info("Report created: ID={} | Reporter={} | Type={} | Reference={} | Reason={}",
@@ -94,9 +119,13 @@ public class ReportService {
      * BR13: Only moderator should call this (enforced at controller level).
      */
     @Transactional
-    public Report dismissReport(Long reportId) {
+    public Report dismissReport(Long reportId, Long reviewerId) {
         Report report = getReportById(reportId);
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", reviewerId));
         report.setStatus(ReportStatus.DISMISSED);
+        report.setReviewedBy(reviewer);
+        report.setReviewedAt(LocalDateTime.now());
         Report saved = reportRepository.save(report);
         logger.info("Report {} dismissed", reportId);
         return saved;
@@ -107,12 +136,27 @@ public class ReportService {
      * BR13: Only moderator should call this (enforced at controller level).
      */
     @Transactional
-    public Report actionReport(Long reportId) {
+    public Report resolveReport(Long reportId, Long reviewerId) {
         Report report = getReportById(reportId);
-        report.setStatus(ReportStatus.ACTIONED);
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", reviewerId));
+        report.setStatus(ReportStatus.RESOLVED);
+        report.setReviewedBy(reviewer);
+        report.setReviewedAt(LocalDateTime.now());
         Report saved = reportRepository.save(report);
-        logger.info("Report {} actioned (content removed)", reportId);
+        logger.info("Report {} resolved by user {}", reportId, reviewerId);
         return saved;
+    }
+
+    /** Soft-removes the reported post and resolves the report in one transaction. */
+    @Transactional
+    public Report resolvePostReport(Long reportId, Long reviewerId) {
+        Report report = getReportById(reportId);
+        if (report.getReportedPost() == null) {
+            throw new BusinessRuleException("This report does not reference a post.");
+        }
+        postService.deletePostAsModerator(report.getReportedPost().getPostId(), reviewerId);
+        return resolveReport(reportId, reviewerId);
     }
 
     /**
@@ -136,6 +180,8 @@ public class ReportService {
      */
     @Transactional(readOnly = true)
     public List<Report> getReportsForItem(Long referenceId, ReportType type) {
-        return reportRepository.findByReferenceIdAndReportType(referenceId, type);
+        return type == ReportType.USER
+                ? reportRepository.findByReportedUserUserId(referenceId)
+                : reportRepository.findByReportedPostPostId(referenceId);
     }
 }

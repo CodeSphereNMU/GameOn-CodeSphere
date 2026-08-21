@@ -3,6 +3,9 @@ package com.gameon.service;
 import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.Notification;
 import com.gameon.model.entity.User;
+import com.gameon.model.entity.GameListing;
+import com.gameon.model.entity.JoinRequest;
+import com.gameon.model.entity.MatchResult;
 import com.gameon.model.enums.NotificationType;
 import com.gameon.repository.NotificationRepository;
 import com.gameon.repository.UserRepository;
@@ -19,7 +22,7 @@ import java.util.List;
  * Service handling notification creation and management.
  * Used by other services to send notifications on key events:
  * - Follow, Join request received/accepted/rejected
- * - Game reminder, Match result posted, Listing cancelled/invite
+ * - Listing confirmation/cancellation, match results, and invitations
  */
 @Service
 public class NotificationService {
@@ -40,10 +43,21 @@ public class NotificationService {
      */
     @Transactional
     public Notification createNotification(Long recipientId, String text, NotificationType type) {
+        return createNotification(recipientId, text, type, null, null, null, null);
+    }
+
+    @Transactional
+    public Notification createNotification(Long recipientId, String text, NotificationType type,
+                                           User actor, GameListing listing,
+                                           JoinRequest joinRequest, MatchResult matchResult) {
         User recipient = userRepository.findById(recipientId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", recipientId));
 
         Notification notification = new Notification(recipient, text, type);
+        notification.setActor(actor);
+        notification.setGameListing(listing);
+        notification.setJoinRequest(joinRequest);
+        notification.setMatchResult(matchResult);
         Notification saved = notificationRepository.save(notification);
         logger.debug("Notification sent to user {}: [{}] {}", recipientId, type, text);
         return saved;
@@ -54,9 +68,16 @@ public class NotificationService {
      */
     @Transactional
     public void createBulkNotifications(List<Long> recipientIds, String text, NotificationType type) {
+        createBulkNotifications(recipientIds, text, type, null, null, null, null);
+    }
+
+    @Transactional
+    public void createBulkNotifications(List<Long> recipientIds, String text, NotificationType type,
+                                        User actor, GameListing listing,
+                                        JoinRequest joinRequest, MatchResult matchResult) {
         for (Long recipientId : recipientIds) {
             try {
-                createNotification(recipientId, text, type);
+                createNotification(recipientId, text, type, actor, listing, joinRequest, matchResult);
             } catch (ResourceNotFoundException e) {
                 logger.warn("Skipping notification for non-existent user: {}", recipientId);
             }

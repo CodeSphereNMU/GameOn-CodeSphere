@@ -14,12 +14,8 @@ import org.springframework.context.annotation.Configuration;
  * Migrations are stored in classpath:db/migration and follow naming convention:
  * V{version}__{description}.sql
  *
- * Existing migrations:
- * - V1__Create_Tables.sql       - All 16 tables with PKs, FKs, and constraints
- * - V2__Seed_Data.sql           - Reference data: Sports, Formats, Positions
- * - V3__Security_Data.sql       - Test user accounts and sport profiles
- * - V4__Indexes.sql             - Performance indexes for all tables
- * - V5__Constraints.sql         - Additional constraints, stored procs, views, triggers
+ * Versioned migrations build the original schema, align the approved reference
+ * data, and then apply the post-meeting workflow redesign and readable views.
  */
 @Configuration
 public class FlywayConfig {

@@ -47,7 +47,7 @@ class SchedulingConflictServiceTest {
         testUser = new User("TestUser", "password", UserRole.USER);
         testUser.setUserId(1L);
 
-        testSport = new Sport("Football", 22);
+        testSport = new Sport("Football");
         testSport.setSportId(1L);
 
         testFormat = new SportFormat("5v5", 10, true, testSport);
@@ -56,7 +56,7 @@ class SchedulingConflictServiceTest {
 
     private GameListing createListing(Long id, LocalDateTime start, int duration) {
         GameListing listing = new GameListing(testUser, testFormat, SkillLevel.INTERMEDIATE,
-                start, "Test Location", PrivacySetting.PUBLIC, duration);
+                start, "Test Location", PrivacySetting.PUBLIC, duration * 60);
         listing.setGameListingId(id);
         return listing;
     }

@@ -40,6 +40,8 @@ public class LikeService {
      */
     @Transactional
     public boolean toggleLike(Long userId, Long postId) {
+        Post post = postRepository.findByPostIdAndRemovedAtIsNull(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
         if (likeRepository.existsByIdUserIdAndIdPostId(userId, postId)) {
             likeRepository.deleteByUserIdAndPostId(userId, postId);
             logger.debug("User {} unliked post {}", userId, postId);
@@ -47,9 +49,6 @@ public class LikeService {
         } else {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-            Post post = postRepository.findById(postId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Post", postId));
-
             Like like = new Like(user, post);
             likeRepository.save(like);
             logger.debug("User {} liked post {}", userId, postId);
