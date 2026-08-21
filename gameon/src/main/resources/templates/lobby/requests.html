@@ -55,8 +55,15 @@
                         <strong th:text="${joiner.user.username}">User</strong>
                         <span class="badge ms-2" th:classappend="${joiner.team.name() == 'A'} ? 'bg-danger' : 'bg-primary'"
                               th:text="${'Team ' + joiner.team}">Team</span>
+                        <div th:if="${listing.format.hasPositions}" class="small text-muted mt-1">
+                            Preferred:
+                            <span th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Any Position</span>
+                            <span th:if="${joiner.altFormatPositionId != null}"
+                                  th:text="${' · Alternative: ' + positionNames[joiner.altFormatPositionId]}"></span>
+                        </div>
                     </div>
-                    <span class="badge bg-success">Accepted</span>
+                    <span class="badge bg-success"
+                          th:text="${joiner.status.name() == 'LOCKED' ? 'Confirmed' : 'Accepted'}">Accepted</span>
                 </div>
             </div>
         </div>

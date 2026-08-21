@@ -290,7 +290,7 @@ public class GameListingService {
      */
     @Transactional(readOnly = true)
     public List<GameListing> getCreatedListings(Long userId) {
-        return gameListingRepository.findCreatedByUser(userId);
+        return gameListingRepository.findCreatedByUser(userId, currentTime());
     }
 
     /**
@@ -349,6 +349,11 @@ public class GameListingService {
                 || listing.getListingStatus() == ListingStatus.CANCELLED_BY_CREATOR
                 || listing.getListingStatus() == ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS) {
             throw new BusinessRuleException("This listing can no longer be cancelled.");
+        }
+
+        if (!listing.getScheduledDate().isAfter(currentTime())) {
+            throw new BusinessRuleException(
+                    "This listing can no longer be cancelled because its scheduled start time has been reached.");
         }
 
         Set<Long> recipientIds = new LinkedHashSet<>();

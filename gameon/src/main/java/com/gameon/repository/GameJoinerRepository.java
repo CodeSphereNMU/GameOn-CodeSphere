@@ -49,10 +49,11 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
            "WHERE gj.id.userId = :userId " +
            "AND gj.status IN ('ACCEPTED', 'LOCKED') " +
            "AND gl.listingStatus IN ('OPEN', 'CONFIRMED') " +
-           "AND gl.scheduledDate > CURRENT_TIMESTAMP " +
+           "AND gl.scheduledDate > :now " +
            "AND gl.creator.userId <> :userId " +
            "ORDER BY gl.scheduledDate ASC")
-    List<GameJoiner> findJoinedListingsForUser(@Param("userId") Long userId);
+    List<GameJoiner> findJoinedListingsForUser(@Param("userId") Long userId,
+                                               @Param("now") LocalDateTime now);
 
     // Lock all accepted joiners for a listing (A700)
     @Modifying

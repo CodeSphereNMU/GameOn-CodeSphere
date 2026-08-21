@@ -11,8 +11,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.List;
-
 /**
  * Controller for C100 (Record Match Result), C200 (Update Match Result), C400 (View Match Results).
  * Only the listing creator can record/update results.
@@ -41,7 +39,7 @@ public class MatchResultController {
 
         if (!listing.getCreator().getUserId().equals(currentUser.getUserId())) {
             redirectAttributes.addFlashAttribute("error", "Only the listing creator can submit a match result.");
-            return "redirect:/lobby/created";
+            return "redirect:/lobby/history";
         }
 
         // Check if result already exists (redirect to update)
@@ -57,7 +55,7 @@ public class MatchResultController {
             matchResultService.validateResultWindow(listing);
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/lobby/created";
+            return "redirect:/lobby/history";
         }
 
         model.addAttribute("listing", listing);
@@ -105,10 +103,8 @@ public class MatchResultController {
     // ===== C400: View Match Results (History) =====
 
     @GetMapping("/history")
-    public String matchHistory(@AuthenticationPrincipal CustomUserDetails currentUser, Model model) {
-        List<MatchResult> results = matchResultService.getMatchHistory(currentUser.getUserId());
-        model.addAttribute("results", results);
-        return "match-result/history";
+    public String matchHistory() {
+        return "redirect:/lobby/history";
     }
 
     // ===== View Single Match Result =====

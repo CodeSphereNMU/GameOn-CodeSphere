@@ -57,9 +57,31 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "ORDER BY gl.scheduledDate ASC")
     List<GameListing> findListingsNeedingLockIn(@Param("threshold") LocalDateTime threshold);
 
-    // Lobby: Created listings for user
-    @Query("SELECT gl FROM GameListing gl WHERE gl.creator.userId = :userId ORDER BY gl.scheduledDate DESC")
-    List<GameListing> findCreatedByUser(@Param("userId") Long userId);
+    // Lobby: active listings created by the user that have not started yet.
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.creator.userId = :userId " +
+           "AND gl.listingStatus IN ('OPEN', 'CONFIRMED') " +
+           "AND gl.scheduledDate > :now " +
+           "ORDER BY gl.scheduledDate DESC")
+    List<GameListing> findCreatedByUser(@Param("userId") Long userId,
+                                        @Param("now") LocalDateTime now);
+
+    // Lobby: confirmed games move to history at their start time. A result is optional.
+    @Query("SELECT DISTINCT gl FROM GameListing gl " +
+           "JOIN FETCH gl.format sf " +
+           "JOIN FETCH sf.sport " +
+           "JOIN FETCH gl.creator " +
+           "LEFT JOIN FETCH gl.matchResult " +
+           "WHERE gl.scheduledDate <= :now " +
+           "AND gl.listingStatus IN ('CONFIRMED', 'COMPLETED') " +
+           "AND (gl.creator.userId = :userId " +
+           "     OR EXISTS (SELECT gj FROM GameJoiner gj " +
+           "                WHERE gj.id.gameListingId = gl.gameListingId " +
+           "                AND gj.id.userId = :userId " +
+           "                AND gj.status = 'LOCKED')) " +
+           "ORDER BY gl.scheduledDate DESC")
+    List<GameListing> findMatchHistoryForUser(@Param("userId") Long userId,
+                                              @Param("now") LocalDateTime now);
 
     // With details (eager load format and sport)
     @Query("SELECT gl FROM GameListing gl " +

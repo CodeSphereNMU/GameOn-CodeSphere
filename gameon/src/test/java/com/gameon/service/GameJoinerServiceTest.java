@@ -100,6 +100,8 @@ class GameJoinerServiceTest {
         when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
         JoinRequest request = new JoinRequest(requester, listing, Team.A);
         request.setJoinRequestId(50L);
+        request.setPrimaryPositionId(5L);
+        request.setAlternatePositionId(6L);
         when(joinRequestRepository
                 .findFirstByGameListingGameListingIdAndUserUserIdAndStatusOrderByCreatedAtDesc(
                         10L, 2L, JoinRequestStatus.PENDING)).thenReturn(Optional.of(request));
@@ -112,7 +114,21 @@ class GameJoinerServiceTest {
 
         assertThat(participant.getStatus()).isEqualTo(JoinerStatus.ACCEPTED);
         assertThat(participant.getJoinRequest()).isSameAs(request);
+        assertThat(participant.getPrimaryPositionId()).isEqualTo(5L);
+        assertThat(participant.getAlternatePositionId()).isEqualTo(6L);
         assertThat(request.getStatus()).isEqualTo(JoinRequestStatus.ACCEPTED);
+    }
+
+    @Test
+    void joinRequestPreservesPrimaryAndAlternatePositions() {
+        listing.getFormat().setHasPositions(true);
+        arrangeSuccessfulRequest();
+        when(sportService.getPositionIdsForFormat(1L)).thenReturn(java.util.Set.of(5L, 6L));
+
+        JoinRequest result = service.sendJoinRequest(2L, 10L, Team.A, 5L, 6L);
+
+        assertThat(result.getPrimaryPositionId()).isEqualTo(5L);
+        assertThat(result.getAlternatePositionId()).isEqualTo(6L);
     }
 
     @Test

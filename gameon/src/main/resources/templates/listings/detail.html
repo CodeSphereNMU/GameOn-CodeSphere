@@ -54,15 +54,21 @@
                                     <li class="list-group-item small">
                                         <span th:text="${listing.creator.username}">Creator</span>
                                         <small class="d-block text-muted"
-                                               th:if="${creatorJoiner != null && listing.format.hasPositions}"
-                                               th:text="${creatorJoiner.formatPositionId == null ? 'Any Position' : positionNames[creatorJoiner.formatPositionId]}">Position</small>
+                                               th:if="${creatorJoiner != null && listing.format.hasPositions}">
+                                            <span th:text="${creatorJoiner.formatPositionId == null ? 'Any Position' : positionNames[creatorJoiner.formatPositionId]}">Position</span>
+                                            <span th:if="${creatorJoiner.altFormatPositionId != null}"
+                                                  th:text="${' · Alternative: ' + positionNames[creatorJoiner.altFormatPositionId]}"></span>
+                                        </small>
                                     </li>
                                     <li th:each="joiner : ${listing.joiners}"
                                         th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED') && !joiner.user.userId.equals(listing.creator.userId)}"
                                         class="list-group-item small">
                                         <span th:text="${joiner.user.username}">Player</span>
-                                        <small th:if="${listing.format.hasPositions}" class="d-block text-muted"
-                                               th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</small>
+                                        <small th:if="${listing.format.hasPositions}" class="d-block text-muted">
+                                            <span th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</span>
+                                            <span th:if="${joiner.altFormatPositionId != null}"
+                                                  th:text="${' · Alternative: ' + positionNames[joiner.altFormatPositionId]}"></span>
+                                        </small>
                                     </li>
                                 </ul>
                                 <form th:if="${!isCreator && requestWindowOpen && joinState == null}"
@@ -79,8 +85,11 @@
                                         th:if="${joiner.team.name() == 'B' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED')}"
                                         class="list-group-item small">
                                         <span th:text="${joiner.user.username}">Player</span>
-                                        <small th:if="${listing.format.hasPositions}" class="d-block text-muted"
-                                               th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</small>
+                                        <small th:if="${listing.format.hasPositions}" class="d-block text-muted">
+                                            <span th:text="${joiner.formatPositionId == null ? 'Any Position' : positionNames[joiner.formatPositionId]}">Position</span>
+                                            <span th:if="${joiner.altFormatPositionId != null}"
+                                                  th:text="${' · Alternative: ' + positionNames[joiner.altFormatPositionId]}"></span>
+                                        </small>
                                     </li>
                                     <li th:if="${teamBCount == 0}" class="list-group-item small text-muted">No players yet</li>
                                 </ul>
@@ -114,7 +123,7 @@
                         </div>
 
                         <!-- Manage Listing (creator) -->
-                        <div th:if="${isCreator}" class="mt-4 text-center">
+                        <div th:if="${isCreator && requestWindowOpen}" class="mt-4 text-center">
                             <a th:href="@{'/lobby/requests/' + ${listing.gameListingId}}" class="btn btn-outline-gameon btn-sm">
                                 <i class="bi bi-people me-1"></i>View Join Requests
                             </a>

@@ -21,11 +21,12 @@ public interface MatchResultRepository extends JpaRepository<MatchResult, Long> 
            "JOIN FETCH mr.gameListing gl " +
            "JOIN FETCH gl.format sf " +
            "JOIN FETCH sf.sport " +
-           "WHERE gl.creator.userId = :userId " +
-           "OR EXISTS (SELECT gj FROM GameJoiner gj " +
-           "           WHERE gj.id.gameListingId = gl.gameListingId " +
-           "           AND gj.id.userId = :userId " +
-           "           AND gj.status = 'LOCKED') " +
+           "WHERE gl.listingStatus = 'COMPLETED' " +
+           "AND (gl.creator.userId = :userId " +
+           "     OR EXISTS (SELECT gj FROM GameJoiner gj " +
+           "                WHERE gj.id.gameListingId = gl.gameListingId " +
+           "                AND gj.id.userId = :userId " +
+           "                AND gj.status = 'LOCKED')) " +
            "ORDER BY gl.scheduledDate DESC")
     List<MatchResult> findMatchHistoryForUser(@Param("userId") Long userId);
 

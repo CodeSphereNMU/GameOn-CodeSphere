@@ -236,6 +236,10 @@ class GameListingServiceTest {
                     "Location", PrivacySetting.PUBLIC, 120, List.of(5L, 6L), null);
 
             assertThat(result).isNotNull();
+            ArgumentCaptor<GameJoiner> participantCaptor = ArgumentCaptor.forClass(GameJoiner.class);
+            verify(gameJoinerRepository).save(participantCaptor.capture());
+            assertThat(participantCaptor.getValue().getPrimaryPositionId()).isEqualTo(5L);
+            assertThat(participantCaptor.getValue().getAlternatePositionId()).isEqualTo(6L);
         }
 
         @Test
@@ -423,6 +427,55 @@ class GameListingServiceTest {
                     anyList(), any(), eq(1L), isNull(), isNull(),
                     eq(selectedDate.atStartOfDay()), eq(selectedDate.plusDays(1).atStartOfDay()),
                     eq(true), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Listing cancellation")
+    class ListingCancellation {
+
+        private final LocalDateTime fixedNow = LocalDateTime.of(2026, 8, 21, 12, 0);
+
+        private GameListing cancellableListing(LocalDateTime scheduledDate) {
+            GameListing listing = new GameListing(testUser, testFormat, SkillLevel.INTERMEDIATE,
+                    scheduledDate, "Court", PrivacySetting.PUBLIC, 120);
+            listing.setGameListingId(10L);
+            listing.setListingStatus(ListingStatus.OPEN);
+            return listing;
+        }
+
+        private GameListingService serviceAtFixedTime() {
+            GameListingService fixedTimeService = spy(gameListingService);
+            doReturn(fixedNow).when(fixedTimeService).currentTime();
+            return fixedTimeService;
+        }
+
+        @Test
+        void cancellationBeforeScheduledStartIsAllowed() {
+            GameListing listing = cancellableListing(fixedNow.plusMinutes(1));
+            GameListingService fixedTimeService = serviceAtFixedTime();
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+
+            fixedTimeService.cancelListing(10L, 1L);
+
+            assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.CANCELLED_BY_CREATOR);
+            verify(gameListingRepository).save(listing);
+        }
+
+        @Test
+        void cancellationAtOrAfterScheduledStartIsRejected() {
+            GameListingService fixedTimeService = serviceAtFixedTime();
+
+            for (LocalDateTime scheduledDate : List.of(fixedNow, fixedNow.minusSeconds(1))) {
+                GameListing listing = cancellableListing(scheduledDate);
+                when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+
+                assertThatThrownBy(() -> fixedTimeService.cancelListing(10L, 1L))
+                        .isInstanceOf(BusinessRuleException.class)
+                        .hasMessageContaining("scheduled start time has been reached");
+            }
+
+            verify(gameListingRepository, never()).save(any());
         }
     }
 

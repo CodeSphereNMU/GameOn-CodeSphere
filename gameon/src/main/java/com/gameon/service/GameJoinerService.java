@@ -264,12 +264,12 @@ public class GameJoinerService {
 
     @Transactional(readOnly = true)
     public List<JoinRequest> getPendingRequests(Long listingId) {
-        return joinRequestRepository.findPendingForCreator(listingId);
+        return joinRequestRepository.findPendingForCreator(listingId, requestCutoff());
     }
 
     @Transactional(readOnly = true)
     public List<JoinRequest> getPendingRequestsForUser(Long userId) {
-        return joinRequestRepository.findActiveForUser(userId);
+        return joinRequestRepository.findActiveForUser(userId, requestCutoff());
     }
 
     @Transactional(readOnly = true)
@@ -295,7 +295,7 @@ public class GameJoinerService {
 
     @Transactional(readOnly = true)
     public List<GameJoiner> getJoinedListings(Long userId) {
-        return gameJoinerRepository.findJoinedListingsForUser(userId);
+        return gameJoinerRepository.findJoinedListingsForUser(userId, currentTime());
     }
 
     @Transactional(readOnly = true)
@@ -334,5 +334,13 @@ public class GameJoinerService {
     @Transactional(readOnly = true)
     public boolean isTeamFull(Long listingId, Team team, int maxPlayers) {
         return countTeamParticipants(listingId, team) >= maxPlayers / 2;
+    }
+
+    private LocalDateTime requestCutoff() {
+        return currentTime().plusHours(GameListingService.LOCK_IN_HOURS_BEFORE_START);
+    }
+
+    LocalDateTime currentTime() {
+        return LocalDateTime.now();
     }
 }

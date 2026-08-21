@@ -2,9 +2,7 @@ package com.gameon.controller;
 
 import com.gameon.model.entity.GameJoiner;
 import com.gameon.model.entity.GameListing;
-import com.gameon.model.entity.MatchResult;
 import com.gameon.model.entity.JoinRequest;
-import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.GameJoinerService;
@@ -60,6 +58,10 @@ public class LobbyController {
                 .filter(gameListingService::isEditable)
                 .map(GameListing::getGameListingId)
                 .collect(java.util.stream.Collectors.toSet()));
+        model.addAttribute("requestOpenListingIds", listings.stream()
+                .filter(gameJoinerService::isRequestWindowOpen)
+                .map(GameListing::getGameListingId)
+                .collect(java.util.stream.Collectors.toSet()));
         model.addAttribute("activeTab", "created");
         return "lobby/index";
     }
@@ -84,8 +86,9 @@ public class LobbyController {
 
     @GetMapping("/history")
     public String history(@AuthenticationPrincipal CustomUserDetails currentUser, Model model) {
-        List<MatchResult> results = matchResultService.getMatchHistory(currentUser.getUserId());
-        model.addAttribute("results", results);
+        List<GameListing> historyListings = matchResultService.getMatchHistoryListings(currentUser.getUserId());
+        model.addAttribute("historyListings", historyListings);
+        model.addAttribute("currentUserId", currentUser.getUserId());
         model.addAttribute("activeTab", "history");
         return "lobby/index";
     }

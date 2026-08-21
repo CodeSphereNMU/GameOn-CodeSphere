@@ -169,6 +169,15 @@ public class MatchResultService {
     }
 
     /**
+     * Gets listing-based match history. Confirmed games enter at their start time,
+     * before a result exists, and completed games retain the same history row.
+     */
+    @Transactional(readOnly = true)
+    public List<GameListing> getMatchHistoryListings(Long userId) {
+        return gameListingRepository.findMatchHistoryForUser(userId, LocalDateTime.now());
+    }
+
+    /**
      * Updates win/loss stats for all participants based on team and result.
      */
     private void updateParticipantStats(GameListing listing, String winners) {
