@@ -6,13 +6,18 @@ import com.gameon.exception.UnauthorizedAccessException;
 import com.gameon.model.entity.GameJoiner;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.MatchResult;
+import com.gameon.model.entity.Sport;
+import com.gameon.model.entity.User;
 import com.gameon.model.entity.UserSportProfile;
 import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.NotificationType;
+import com.gameon.model.enums.SkillLevel;
 import com.gameon.model.enums.Team;
 import com.gameon.repository.GameJoinerRepository;
 import com.gameon.repository.GameListingRepository;
 import com.gameon.repository.MatchResultRepository;
+import com.gameon.repository.SportRepository;
+import com.gameon.repository.UserRepository;
 import com.gameon.repository.UserSportProfileRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,17 +43,23 @@ public class MatchResultService {
     private final GameListingRepository gameListingRepository;
     private final GameJoinerRepository gameJoinerRepository;
     private final UserSportProfileRepository userSportProfileRepository;
+    private final UserRepository userRepository;
+    private final SportRepository sportRepository;
     private final NotificationService notificationService;
 
     public MatchResultService(MatchResultRepository matchResultRepository,
                               GameListingRepository gameListingRepository,
                               GameJoinerRepository gameJoinerRepository,
                               UserSportProfileRepository userSportProfileRepository,
+                              UserRepository userRepository,
+                              SportRepository sportRepository,
                               NotificationService notificationService) {
         this.matchResultRepository = matchResultRepository;
         this.gameListingRepository = gameListingRepository;
         this.gameJoinerRepository = gameJoinerRepository;
         this.userSportProfileRepository = userSportProfileRepository;
+        this.userRepository = userRepository;
+        this.sportRepository = sportRepository;
         this.notificationService = notificationService;
     }
 
@@ -151,36 +162,69 @@ public class MatchResultService {
 
     /**
      * Updates win/loss stats for all participants based on team and result.
+     * Auto-creates UserSportProfile if missing (using listing skill level as default).
      */
     private void updateParticipantStats(GameListing listing, String winners) {
         Long sportId = listing.getFormat().getSport().getSportId();
+        SkillLevel listingSkillLevel = listing.getSkillLevel();
         List<GameJoiner> participants = gameJoinerRepository.findByIdGameListingIdAndStatus(
                 listing.getGameListingId(), JoinerStatus.LOCKED);
 
         // Also include creator (implicit Team A)
-        updateStatForUser(listing.getCreator().getUserId(), sportId, winners, Team.A);
+        updateStatForUser(listing.getCreator().getUserId(), sportId, winners, Team.A, listingSkillLevel);
 
         for (GameJoiner joiner : participants) {
-            updateStatForUser(joiner.getUser().getUserId(), sportId, winners, joiner.getTeam());
+            updateStatForUser(joiner.getUser().getUserId(), sportId, winners, joiner.getTeam(), listingSkillLevel);
         }
     }
 
-    private void updateStatForUser(Long userId, Long sportId, String winners, Team userTeam) {
-        userSportProfileRepository.findByIdUserIdAndIdSportId(userId, sportId).ifPresent(profile -> {
-            boolean userWon = (userTeam == Team.A && "TEAM_A".equals(winners)) ||
-                              (userTeam == Team.B && "TEAM_B".equals(winners));
-            boolean isDraw = "DRAW".equals(winners);
+    private void updateStatForUser(Long userId, Long sportId, String winners, Team userTeam, SkillLevel defaultSkillLevel) {
+        UserSportProfile profile = ensureSportProfileExists(userId, sportId, defaultSkillLevel);
+        if (profile == null) {
+            logger.warn("Could not ensure sport profile for user {} sport {} - skipping stat update", userId, sportId);
+            return;
+        }
 
-            if (!isDraw) {
-                if (userWon) {
-                    profile.setWins(profile.getWins() + 1);
-                } else {
-                    profile.setLosses(profile.getLosses() + 1);
-                }
-                profile.calculateWinPercentage();
-                userSportProfileRepository.save(profile);
+        boolean userWon = (userTeam == Team.A && "TEAM_A".equals(winners)) ||
+                          (userTeam == Team.B && "TEAM_B".equals(winners));
+        boolean isDraw = "DRAW".equals(winners);
+
+        if (!isDraw) {
+            if (userWon) {
+                profile.setWins(profile.getWins() + 1);
+            } else {
+                profile.setLosses(profile.getLosses() + 1);
             }
-        });
+            profile.calculateWinPercentage();
+            userSportProfileRepository.save(profile);
+        }
+    }
+
+    /**
+     * Ensures a UserSportProfile exists for the given user and sport.
+     * If no profile exists, auto-creates one with:
+     *   - wins = 0, losses = 0, winPercentage = 0
+     *   - skillLevel = listing skill level (if provided) or BEGINNER default
+     *
+     * This resolves the issue where an invited player can become LOCKED and
+     * participate in a match without having a UserSportProfile for that sport.
+     */
+    private UserSportProfile ensureSportProfileExists(Long userId, Long sportId, SkillLevel defaultSkillLevel) {
+        return userSportProfileRepository.findByIdUserIdAndIdSportId(userId, sportId)
+                .orElseGet(() -> {
+                    logger.info("Auto-creating UserSportProfile for user {} and sport {}", userId, sportId);
+                    User user = userRepository.findById(userId).orElse(null);
+                    Sport sport = sportRepository.findById(sportId).orElse(null);
+
+                    if (user == null || sport == null) {
+                        logger.warn("Cannot auto-create sport profile: user or sport not found. userId={}, sportId={}", userId, sportId);
+                        return null;
+                    }
+
+                    SkillLevel skillLevel = (defaultSkillLevel != null) ? defaultSkillLevel : SkillLevel.BEGINNER;
+                    UserSportProfile newProfile = new UserSportProfile(user, sport, skillLevel);
+                    return userSportProfileRepository.save(newProfile);
+                });
     }
 
     /**

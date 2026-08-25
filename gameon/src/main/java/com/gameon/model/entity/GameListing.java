@@ -51,6 +51,22 @@ public class GameListing extends Auditable {
     @Column(name = "privacy_setting", nullable = false, length = 10)
     private PrivacySetting privacySetting = PrivacySetting.PUBLIC;
 
+    // ===== Map Location Fields =====
+
+    @Size(max = 300, message = "Venue name must be at most 300 characters")
+    @Column(name = "venue_name", length = 300)
+    private String venueName;
+
+    @Size(max = 500, message = "Address must be at most 500 characters")
+    @Column(name = "address", length = 500)
+    private String address;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     // ===== Relationships =====
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -197,5 +213,39 @@ public class GameListing extends Auditable {
 
     public void setMatchResult(MatchResult matchResult) {
         this.matchResult = matchResult;
+    }
+
+    // ===== Map Location Getters/Setters =====
+
+    public String getVenueName() {
+        return venueName;
+    }
+
+    public void setVenueName(String venueName) {
+        this.venueName = venueName;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 }

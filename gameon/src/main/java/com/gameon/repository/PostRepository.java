@@ -18,16 +18,23 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     List<Post> findByUserUserId(Long userId);
 
+    Page<Post> findByUserUserIdAndIsRemovedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    /**
+     * @deprecated Use findByUserUserIdAndIsRemovedFalseOrderByCreatedAtDesc instead
+     */
     Page<Post> findByUserUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     @Query("SELECT p FROM Post p JOIN FETCH p.user WHERE p.postId = :postId")
     Optional<Post> findByIdWithUser(@Param("postId") Long postId);
 
     // ===== Feed DTO projections (counts computed at DB level) =====
+    // All feed queries filter out removed posts (is_removed = false)
 
     /**
      * Social feed with DTO projection: public posts + followers-only from followed users.
      * Computes like/comment counts via subqueries — no lazy collections touched.
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -35,8 +42,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE (p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
-           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "WHERE p.isRemoved = false " +
+           "AND ((p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds)) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findFeedPostDtos(
             @Param("visibleUserIds") List<Long> visibleUserIds,
@@ -45,6 +53,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     /**
      * Public-only feed with DTO projection (used when user follows nobody).
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -52,30 +61,36 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
+           "WHERE p.isRemoved = false AND p.privacySetting = 'PUBLIC' " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findPublicFeedPostDtos(Pageable pageable);
 
     // ===== Legacy entity queries (used by edit/delete/detail flows) =====
 
     @Query("SELECT p FROM Post p " +
-           "WHERE (p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
-           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "WHERE p.isRemoved = false " +
+           "AND ((p.privacySetting = 'PUBLIC' AND p.user.userId IN :visibleUserIds) " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds)) " +
            "ORDER BY p.createdAt DESC")
     Page<Post> findFeedPosts(
             @Param("visibleUserIds") List<Long> visibleUserIds,
             @Param("followedUserIds") List<Long> followedUserIds,
             Pageable pageable);
 
+    Page<Post> findByPrivacySettingAndIsRemovedFalseOrderByCreatedAtDesc(PrivacySetting privacySetting, Pageable pageable);
+
     Page<Post> findByPrivacySettingOrderByCreatedAtDesc(PrivacySetting privacySetting, Pageable pageable);
 
-    // Count posts by user
+    // Count posts by user (only active)
+    long countByUserUserIdAndIsRemovedFalse(Long userId);
+
     long countByUserUserId(Long userId);
 
     // ===== Filtered Feed DTO projections =====
 
     /**
      * Public-only posts from all users (filter: PUBLIC).
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -83,13 +98,14 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
+           "WHERE p.isRemoved = false AND p.privacySetting = 'PUBLIC' " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findPublicPostDtos(Pageable pageable);
 
     /**
      * Followers-only posts from users the current user follows (filter: FOLLOWERS).
      * Security: only returns FOLLOWERS posts where the author is in the followedUserIds list.
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -97,7 +113,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
+           "WHERE p.isRemoved = false AND p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findFollowersOnlyPostDtos(
             @Param("followedUserIds") List<Long> followedUserIds,
@@ -105,6 +121,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     /**
      * All posts by a specific user regardless of privacy (filter: MY_POSTS).
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -112,13 +129,14 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.user.userId = :userId " +
+           "WHERE p.isRemoved = false AND p.user.userId = :userId " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findMyPostDtos(@Param("userId") Long userId, Pageable pageable);
 
     /**
      * Full visible feed including user's own posts (filter: ALL).
      * Shows: public posts + followers-only from followed users + all own posts.
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -126,9 +144,10 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
+           "WHERE p.isRemoved = false " +
+           "AND (p.privacySetting = 'PUBLIC' " +
            "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
-           "OR p.user.userId = :userId " +
+           "OR p.user.userId = :userId) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findAllVisiblePostDtos(
             @Param("userId") Long userId,
@@ -138,6 +157,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     /**
      * Full visible feed when user follows nobody (filter: ALL, no follows).
      * Shows: public posts + own posts.
+     * Excludes soft-deleted posts.
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.imagePath, p.privacySetting, p.createdAt, " +
@@ -145,8 +165,18 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.privacySetting = 'PUBLIC' " +
-           "OR p.user.userId = :userId " +
+           "WHERE p.isRemoved = false " +
+           "AND (p.privacySetting = 'PUBLIC' " +
+           "OR p.user.userId = :userId) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findAllVisiblePostDtosNoFollows(@Param("userId") Long userId, Pageable pageable);
+
+    // ===== Moderator queries (can view removed posts) =====
+
+    /**
+     * Find all removed posts (for moderation review).
+     * Moderators can see the images of removed posts for evidence.
+     */
+    @Query("SELECT p FROM Post p JOIN FETCH p.user WHERE p.isRemoved = true ORDER BY p.removedAt DESC")
+    List<Post> findRemovedPosts();
 }

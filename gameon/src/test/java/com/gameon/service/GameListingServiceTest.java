@@ -90,7 +90,8 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, tooSoon,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
+                    "Location", PrivacySetting.PUBLIC, 2, null, null,
+                    null, null, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("at least 3 hours before the start time");
         }
@@ -114,7 +115,8 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, justRight,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null);
+                    "Location", PrivacySetting.PUBLIC, 2, null, null,
+                    null, null, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -135,7 +137,8 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, Collections.emptyList(), null))
+                    "Location", PrivacySetting.PUBLIC, 2, Collections.emptyList(), null,
+                    null, null, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("select at least one position");
         }
@@ -160,7 +163,8 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L), null);
+                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L), null,
+                    null, null, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -185,7 +189,8 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L, 6L), null);
+                    "Location", PrivacySetting.PUBLIC, 2, List.of(5L, 6L), null,
+                    null, null, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -211,7 +216,8 @@ class GameListingServiceTest {
             // Select "Any Position" (id=1) alone
             GameListing result = gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(1L), null);
+                    "Location", PrivacySetting.PUBLIC, 2, List.of(1L), null,
+                    null, null, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -229,7 +235,8 @@ class GameListingServiceTest {
             // Select "Any Position" (1L) + a specific position (5L)
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 2L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, List.of(1L, 5L), null))
+                    "Location", PrivacySetting.PUBLIC, 2, List.of(1L, 5L), null,
+                    null, null, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("'Any Position' cannot be combined with specific positions");
         }
@@ -258,7 +265,8 @@ class GameListingServiceTest {
 
             GameListing result = gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null);
+                    "Location", PrivacySetting.PUBLIC, 2, null, null,
+                    null, null, null, null);
 
             assertThat(result).isNotNull();
         }
@@ -274,7 +282,8 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
+                    "Location", PrivacySetting.PUBLIC, 2, null, null,
+                    null, null, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("not included in your sports profile");
         }
@@ -303,7 +312,8 @@ class GameListingServiceTest {
 
             gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null);
+                    "Location", PrivacySetting.PUBLIC, 2, null, null,
+                    null, null, null, null);
 
             // Verify GameJoiner was created for the creator with ACCEPTED status
             ArgumentCaptor<GameJoiner> joinerCaptor = ArgumentCaptor.forClass(GameJoiner.class);
@@ -333,7 +343,8 @@ class GameListingServiceTest {
 
             assertThatThrownBy(() -> gameListingService.createListing(
                     1L, 1L, SkillLevel.INTERMEDIATE, future,
-                    "Location", PrivacySetting.PUBLIC, 2, null, null))
+                    "Location", PrivacySetting.PUBLIC, 2, null, null,
+                    null, null, null, null))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("Conflict message");
         }

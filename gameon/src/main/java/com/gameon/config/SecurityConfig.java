@@ -102,9 +102,11 @@ public class SecurityConfig {
                 .xssProtection(xss -> xss.disable())
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'; " +
-                                      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-                                      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-                                      "font-src 'self' https://cdn.jsdelivr.net;")
+                                      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; " +
+                                      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; " +
+                                      "img-src 'self' https://*.tile.openstreetmap.org data: blob:; " +
+                                      "connect-src 'self' https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org; " +
+                                      "font-src 'self' https://cdn.jsdelivr.net data:;")
                 )
             );
 

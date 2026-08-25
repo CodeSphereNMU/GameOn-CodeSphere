@@ -22,7 +22,8 @@
                                 <p class="mb-1 small"><i class="bi bi-bar-chart me-1"></i>Skill: <span th:text="${skillLevel}">Level</span></p>
                                 <p class="mb-1 small"><i class="bi bi-calendar me-1"></i><span th:text="${scheduledDate}">Date</span></p>
                                 <p class="mb-1 small"><i class="bi bi-clock me-1"></i>Duration: <span th:text="${sessionDuration}">2</span> hour(s)</p>
-                                <p class="mb-1 small"><i class="bi bi-geo-alt me-1"></i><span th:text="${location}">Location</span></p>
+                                <p class="mb-1 small"><i class="bi bi-geo-alt me-1"></i><span th:text="${venueName != null && !venueName.isEmpty()} ? ${venueName} : ${location}">Location</span></p>
+                                <p th:if="${address != null && !address.isEmpty()}" class="mb-1 small text-muted"><i class="bi bi-signpost me-1"></i><span th:text="${address}">Address</span></p>
                                 <p class="mb-0 small"><i class="bi bi-eye me-1"></i><span th:text="${privacySetting}">Privacy</span></p>
                             </div>
                         </div>
@@ -35,6 +36,10 @@
                             <input type="hidden" name="location" th:value="${location}">
                             <input type="hidden" name="privacySetting" th:value="${privacySetting}">
                             <input type="hidden" name="sessionDuration" th:value="${sessionDuration}">
+                            <input type="hidden" name="venueName" th:value="${venueName}">
+                            <input type="hidden" name="address" th:value="${address}">
+                            <input type="hidden" name="latitude" th:value="${latitude}">
+                            <input type="hidden" name="longitude" th:value="${longitude}">
 
                             <div th:if="${positions != null && !positions.isEmpty()}" class="mb-4">
                                 <label class="form-label fw-bold">Select Position(s):</label>

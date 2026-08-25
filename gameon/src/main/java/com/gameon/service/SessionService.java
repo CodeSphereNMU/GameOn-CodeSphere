@@ -3,12 +3,20 @@ package com.gameon.service;
 import com.gameon.exception.BusinessRuleException;
 import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.GameListing;
+import com.gameon.model.entity.GameJoiner;
 import com.gameon.model.entity.Session;
+import com.gameon.model.entity.Sport;
+import com.gameon.model.entity.User;
+import com.gameon.model.entity.UserSportProfile;
 import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.NotificationType;
+import com.gameon.model.enums.SkillLevel;
 import com.gameon.repository.GameJoinerRepository;
 import com.gameon.repository.GameListingRepository;
 import com.gameon.repository.SessionRepository;
+import com.gameon.repository.SportRepository;
+import com.gameon.repository.UserRepository;
+import com.gameon.repository.UserSportProfileRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,15 +40,24 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final GameListingRepository gameListingRepository;
     private final GameJoinerRepository gameJoinerRepository;
+    private final UserSportProfileRepository userSportProfileRepository;
+    private final UserRepository userRepository;
+    private final SportRepository sportRepository;
     private final NotificationService notificationService;
 
     public SessionService(SessionRepository sessionRepository,
                           GameListingRepository gameListingRepository,
                           GameJoinerRepository gameJoinerRepository,
+                          UserSportProfileRepository userSportProfileRepository,
+                          UserRepository userRepository,
+                          SportRepository sportRepository,
                           NotificationService notificationService) {
         this.sessionRepository = sessionRepository;
         this.gameListingRepository = gameListingRepository;
         this.gameJoinerRepository = gameJoinerRepository;
+        this.userSportProfileRepository = userSportProfileRepository;
+        this.userRepository = userRepository;
+        this.sportRepository = sportRepository;
         this.notificationService = notificationService;
     }
 
@@ -69,6 +86,16 @@ public class SessionService {
 
         // BR6: Lock all accepted joiners
         int lockedCount = gameJoinerRepository.lockAllAcceptedJoiners(listingId);
+
+        // Auto-create UserSportProfile for all locked participants who don't have one
+        Long sportId = listing.getFormat().getSport().getSportId();
+        SkillLevel listingSkillLevel = listing.getSkillLevel();
+        List<GameJoiner> lockedParticipants = gameJoinerRepository.findByIdGameListingIdAndStatus(listingId, JoinerStatus.LOCKED);
+        for (GameJoiner participant : lockedParticipants) {
+            ensureSportProfileExists(participant.getUser().getUserId(), sportId, listingSkillLevel);
+        }
+        // Also ensure creator has a sport profile
+        ensureSportProfileExists(listing.getCreator().getUserId(), sportId, listingSkillLevel);
 
         // Send game reminders (A600)
         List<Long> participantIds = gameJoinerRepository.findParticipants(listingId).stream()
@@ -121,5 +148,32 @@ public class SessionService {
     @Transactional(readOnly = true)
     public List<Session> getUpcomingSessions(LocalDateTime start, LocalDateTime end) {
         return sessionRepository.findUpcomingSessions(start, end);
+    }
+
+    /**
+     * Ensures a UserSportProfile exists for the given user and sport.
+     * If no profile exists, auto-creates one with:
+     *   - wins = 0, losses = 0, winPercentage = 0
+     *   - skillLevel = listing skill level (if provided) or BEGINNER default
+     *
+     * Called when participants are LOCKED to ensure stats can be tracked.
+     */
+    private void ensureSportProfileExists(Long userId, Long sportId, SkillLevel defaultSkillLevel) {
+        if (userSportProfileRepository.existsByIdUserIdAndIdSportId(userId, sportId)) {
+            return; // Profile already exists
+        }
+
+        logger.info("Auto-creating UserSportProfile for user {} and sport {} during session confirmation", userId, sportId);
+        User user = userRepository.findById(userId).orElse(null);
+        Sport sport = sportRepository.findById(sportId).orElse(null);
+
+        if (user == null || sport == null) {
+            logger.warn("Cannot auto-create sport profile: user or sport not found. userId={}, sportId={}", userId, sportId);
+            return;
+        }
+
+        SkillLevel skillLevel = (defaultSkillLevel != null) ? defaultSkillLevel : SkillLevel.BEGINNER;
+        UserSportProfile newProfile = new UserSportProfile(user, sport, skillLevel);
+        userSportProfileRepository.save(newProfile);
     }
 }
