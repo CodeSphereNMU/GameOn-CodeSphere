@@ -5,6 +5,7 @@ import com.gameon.model.entity.SportFormat;
 import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.model.enums.SkillLevel;
+import com.gameon.model.dto.WeatherDTO;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.FollowService;
 import com.gameon.service.GameJoinerService;
@@ -12,6 +13,7 @@ import com.gameon.service.GameListingService;
 import com.gameon.service.InvitationService;
 import com.gameon.service.SportService;
 import com.gameon.service.UserService;
+import com.gameon.service.WeatherService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -39,19 +41,22 @@ public class ListingsController {
     private final UserService userService;
     private final GameJoinerService gameJoinerService;
     private final InvitationService invitationService;
+    private final WeatherService weatherService;
 
     public ListingsController(GameListingService gameListingService,
                               SportService sportService,
                               FollowService followService,
                               UserService userService,
                               GameJoinerService gameJoinerService,
-                              InvitationService invitationService) {
+                              InvitationService invitationService,
+                              WeatherService weatherService) {
         this.gameListingService = gameListingService;
         this.sportService = sportService;
         this.followService = followService;
         this.userService = userService;
         this.gameJoinerService = gameJoinerService;
         this.invitationService = invitationService;
+        this.weatherService = weatherService;
     }
 
     @GetMapping("/")
@@ -135,6 +140,16 @@ public class ListingsController {
                 model.addAttribute("friends", friendIds.stream()
                         .map(id -> userService.getUserById(id)).toList());
             }
+            // Fetch weather forecast for confirmation preview
+            if (latitude != null && longitude != null && scheduledDate != null && !scheduledDate.isBlank()) {
+                try {
+                    LocalDateTime dateTime = LocalDateTime.parse(scheduledDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                    WeatherDTO weather = weatherService.getForecast(latitude, longitude, dateTime);
+                    model.addAttribute("weather", weather);
+                } catch (Exception e) {
+                    logger.debug("Weather fetch failed for confirm page: {}", e.getMessage());
+                }
+            }
             return "listings/create-confirm";
         }
 
@@ -154,6 +169,16 @@ public class ListingsController {
         if (!friendIds.isEmpty()) {
             model.addAttribute("friends", friendIds.stream()
                     .map(id -> userService.getUserById(id)).toList());
+        }
+        // Fetch weather forecast for confirmation preview
+        if (latitude != null && longitude != null && scheduledDate != null && !scheduledDate.isBlank()) {
+            try {
+                LocalDateTime dateTime = LocalDateTime.parse(scheduledDate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                WeatherDTO weather = weatherService.getForecast(latitude, longitude, dateTime);
+                model.addAttribute("weather", weather);
+            } catch (Exception e) {
+                logger.debug("Weather fetch failed for confirm page: {}", e.getMessage());
+            }
         }
         return "listings/create-confirm";
     }
@@ -194,10 +219,17 @@ public class ListingsController {
                 }
             }
 
-            gameListingService.createListing(
+            GameListing createdListing = gameListingService.createListing(
                     currentUser.getUserId(), formatId, skill, dateTime, location, privacy,
                     sessionDuration, positionIds, invitedFriendIds,
                     venueName, address, latitude, longitude);
+
+            // Fetch and store weather forecast for the new listing
+            try {
+                weatherService.fetchAndStoreWeather(createdListing);
+            } catch (Exception we) {
+                logger.debug("Weather fetch failed for new listing {}: {}", createdListing.getGameListingId(), we.getMessage());
+            }
 
             redirectAttributes.addFlashAttribute("success", "Game listing created successfully!");
         } catch (Exception e) {
@@ -260,6 +292,10 @@ public class ListingsController {
                     currentUser.getUserId(), id);
             model.addAttribute("joinStatus", joinStatus);
         }
+
+        // Weather forecast from stored data
+        WeatherDTO weather = weatherService.getStoredWeather(listing);
+        model.addAttribute("weather", weather);
 
         return "listings/detail";
     }

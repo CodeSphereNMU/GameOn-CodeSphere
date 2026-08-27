@@ -67,6 +67,27 @@ public class GameListing extends Auditable {
     @Column(name = "longitude")
     private Double longitude;
 
+    // ===== Weather Forecast Fields =====
+
+    @Size(max = 50, message = "Weather condition must be at most 50 characters")
+    @Column(name = "weather_condition", length = 50)
+    private String weatherCondition;
+
+    @Column(name = "weather_temperature")
+    private Double weatherTemperature;
+
+    @Column(name = "weather_rain_chance")
+    private Integer weatherRainChance;
+
+    @Column(name = "weather_wind_speed")
+    private Double weatherWindSpeed;
+
+    @Column(name = "weather_humidity")
+    private Integer weatherHumidity;
+
+    @Column(name = "weather_forecast_time")
+    private LocalDateTime weatherForecastTime;
+
     // ===== Relationships =====
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -247,5 +268,55 @@ public class GameListing extends Auditable {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+
+    // ===== Weather Forecast Getters/Setters =====
+
+    public String getWeatherCondition() {
+        return weatherCondition;
+    }
+
+    public void setWeatherCondition(String weatherCondition) {
+        this.weatherCondition = weatherCondition;
+    }
+
+    public Double getWeatherTemperature() {
+        return weatherTemperature;
+    }
+
+    public void setWeatherTemperature(Double weatherTemperature) {
+        this.weatherTemperature = weatherTemperature;
+    }
+
+    public Integer getWeatherRainChance() {
+        return weatherRainChance;
+    }
+
+    public void setWeatherRainChance(Integer weatherRainChance) {
+        this.weatherRainChance = weatherRainChance;
+    }
+
+    public Double getWeatherWindSpeed() {
+        return weatherWindSpeed;
+    }
+
+    public void setWeatherWindSpeed(Double weatherWindSpeed) {
+        this.weatherWindSpeed = weatherWindSpeed;
+    }
+
+    public Integer getWeatherHumidity() {
+        return weatherHumidity;
+    }
+
+    public void setWeatherHumidity(Integer weatherHumidity) {
+        this.weatherHumidity = weatherHumidity;
+    }
+
+    public LocalDateTime getWeatherForecastTime() {
+        return weatherForecastTime;
+    }
+
+    public void setWeatherForecastTime(LocalDateTime weatherForecastTime) {
+        this.weatherForecastTime = weatherForecastTime;
     }
 }

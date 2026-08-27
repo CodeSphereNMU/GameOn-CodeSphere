@@ -62,6 +62,60 @@
                         </a>
                     </div>
                 </div>
+
+                <!-- Weather Forecast Card -->
+                <div th:if="${weather != null && weather.available}" class="card shadow-sm mt-3">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-cloud-sun me-2"></i>Weather Forecast</h6>
+                        <span class="badge"
+                              th:classappend="'bg-' + ${weather.badgeColor()}"
+                              th:text="${weather.badgeColor() == 'success'} ? 'Good' : (${weather.badgeColor() == 'warning'} ? 'Moderate' : 'Poor')">Badge</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="bi fs-2 me-3"
+                               th:classappend="${weather.icon()} + ' text-' + ${weather.badgeColor()}"></i>
+                            <div>
+                                <span class="fw-bold fs-5" th:text="${weather.condition()}">Sunny</span>
+                                <span class="ms-2 text-muted fs-5" th:text="${#numbers.formatDecimal(weather.temperature(), 0, 0)} + '°C'">24°C</span>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-4 text-center">
+                                <div class="border rounded p-2">
+                                    <i class="bi bi-droplet text-primary d-block fs-5"></i>
+                                    <small class="text-muted d-block">Rain</small>
+                                    <strong th:text="${weather.rainChance()} + '%'">10%</strong>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="border rounded p-2">
+                                    <i class="bi bi-wind text-info d-block fs-5"></i>
+                                    <small class="text-muted d-block">Wind</small>
+                                    <strong th:text="${#numbers.formatDecimal(weather.windSpeed(), 0, 0)} + ' km/h'">15 km/h</strong>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="border rounded p-2">
+                                    <i class="bi bi-moisture text-secondary d-block fs-5"></i>
+                                    <small class="text-muted d-block">Humidity</small>
+                                    <strong th:text="${weather.humidity()} + '%'">62%</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div th:if="${weather.warning() != null}" class="alert mt-3 mb-0 py-2 small"
+                             th:classappend="${weather.badgeColor() == 'danger'} ? 'alert-danger' : 'alert-warning'">
+                            <i class="bi bi-exclamation-triangle me-1"></i><span th:text="${weather.warning()}">Warning</span>
+                        </div>
+                    </div>
+                </div>
+                <div th:if="${weather == null || !weather.available}" class="card shadow-sm mt-3">
+                    <div class="card-body py-3">
+                        <p class="mb-0 small text-muted">
+                            <i class="bi bi-cloud-slash me-1"></i>Weather forecast currently unavailable.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <!-- Teams / Join Section -->

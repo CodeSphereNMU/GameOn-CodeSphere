@@ -28,6 +28,48 @@
                             </div>
                         </div>
 
+                        <!-- Weather Forecast Card -->
+                        <div th:if="${weather != null && weather.available}" class="card mb-4">
+                            <div class="card-body py-3">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <h6 class="mb-0"><i class="bi bi-cloud-sun me-2"></i>Weather Forecast</h6>
+                                    <span class="badge"
+                                          th:classappend="'bg-' + ${weather.badgeColor()}"
+                                          th:text="${weather.badgeColor() == 'success'} ? 'Good' : (${weather.badgeColor() == 'warning'} ? 'Moderate' : 'Poor')">Badge</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="bi fs-3 me-3"
+                                       th:classappend="${weather.icon()} + ' text-' + ${weather.badgeColor()}"></i>
+                                    <div>
+                                        <span class="fw-bold" th:text="${weather.condition()}">Sunny</span>
+                                        <span class="ms-2 text-muted" th:text="${#numbers.formatDecimal(weather.temperature(), 0, 0)} + '°C'">24°C</span>
+                                    </div>
+                                </div>
+                                <div class="row g-2 small">
+                                    <div class="col-4">
+                                        <i class="bi bi-droplet me-1 text-primary"></i>Rain: <span th:text="${weather.rainChance()}">10</span>%
+                                    </div>
+                                    <div class="col-4">
+                                        <i class="bi bi-wind me-1 text-info"></i>Wind: <span th:text="${#numbers.formatDecimal(weather.windSpeed(), 0, 0)}">15</span> km/h
+                                    </div>
+                                    <div class="col-4">
+                                        <i class="bi bi-moisture me-1 text-secondary"></i>Humidity: <span th:text="${weather.humidity()}">62</span>%
+                                    </div>
+                                </div>
+                                <div th:if="${weather.warning() != null}" class="mt-2 small"
+                                     th:classappend="'text-' + ${weather.badgeColor()}">
+                                    <i class="bi bi-exclamation-triangle me-1"></i><span th:text="${weather.warning()}">Warning</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div th:if="${weather == null || !weather.available}" class="card bg-light mb-4">
+                            <div class="card-body py-2">
+                                <p class="mb-0 small text-muted">
+                                    <i class="bi bi-cloud-slash me-1"></i>Weather forecast currently unavailable.
+                                </p>
+                            </div>
+                        </div>
+
                         <!-- Position Selection (if format has positions) -->
                         <form th:action="@{/listings/confirm}" method="post">
                             <input type="hidden" name="formatId" th:value="${formatId}">
