@@ -7,6 +7,7 @@ import com.gameon.model.entity.*;
 import com.gameon.model.enums.*;
 import com.gameon.repository.GameJoinerRepository;
 import com.gameon.repository.GameListingRepository;
+import com.gameon.repository.ListingInvitationRepository;
 import com.gameon.repository.UserRepository;
 import com.gameon.repository.UserSportProfileRepository;
 import org.slf4j.Logger;
@@ -43,6 +44,7 @@ public class GameListingService {
     private final GameJoinerRepository gameJoinerRepository;
     private final UserRepository userRepository;
     private final UserSportProfileRepository userSportProfileRepository;
+    private final ListingInvitationRepository listingInvitationRepository;
     private final SportService sportService;
     private final NotificationService notificationService;
     private final SchedulingConflictService schedulingConflictService;
@@ -51,6 +53,7 @@ public class GameListingService {
                               GameJoinerRepository gameJoinerRepository,
                               UserRepository userRepository,
                               UserSportProfileRepository userSportProfileRepository,
+                              ListingInvitationRepository listingInvitationRepository,
                               SportService sportService,
                               NotificationService notificationService,
                               SchedulingConflictService schedulingConflictService) {
@@ -58,6 +61,7 @@ public class GameListingService {
         this.gameJoinerRepository = gameJoinerRepository;
         this.userRepository = userRepository;
         this.userSportProfileRepository = userSportProfileRepository;
+        this.listingInvitationRepository = listingInvitationRepository;
         this.sportService = sportService;
         this.notificationService = notificationService;
         this.schedulingConflictService = schedulingConflictService;
@@ -76,7 +80,8 @@ public class GameListingService {
     public GameListing createListing(Long creatorId, Long formatId, SkillLevel skillLevel,
                                      LocalDateTime scheduledDate, String location,
                                      PrivacySetting privacySetting, Integer sessionDuration,
-                                     List<Long> positionIds, List<Long> invitedFriendIds) {
+                                     List<Long> positionIds, List<Long> invitedFriendIds,
+                                     String venueName, String address, Double latitude, Double longitude) {
         User creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", creatorId));
 
@@ -123,6 +128,28 @@ public class GameListingService {
 
         GameListing listing = new GameListing(creator, format, skillLevel, scheduledDate,
                 location, privacySetting, sessionDuration);
+        // Set map location fields
+        listing.setVenueName(venueName);
+        listing.setAddress(address);
+        listing.setLatitude(latitude);
+        listing.setLongitude(longitude);
+        // Ensure location is populated from address/venueName if it's somehow blank
+        if (listing.getLocation() == null || listing.getLocation().isBlank()) {
+            if (address != null && !address.isBlank()) {
+                listing.setLocation(address.length() > 200 ? address.substring(0, 200) : address);
+            } else if (venueName != null && !venueName.isBlank()) {
+                listing.setLocation(venueName);
+            }
+        }
+        // Truncate location to max 200 chars if needed
+        if (listing.getLocation() != null && listing.getLocation().length() > 200) {
+            listing.setLocation(listing.getLocation().substring(0, 200));
+        }
+
+        // Debug: Log final values before persist
+        logger.info("[Create Listing Save] Final entity values - location={}, venueName={}, lat={}, lng={}",
+                listing.getLocation(), listing.getVenueName(), listing.getLatitude(), listing.getLongitude());
+
         GameListing saved = gameListingRepository.save(listing);
 
         // Rule 8: Creator automatically becomes a participant (Team A, ACCEPTED)
@@ -148,6 +175,15 @@ public class GameListingService {
                     scheduledDate.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM HH:mm")) +
                     ". Submit a join request to participate.";
             notificationService.createBulkNotifications(invitedFriendIds, notifText, NotificationType.LISTING_INVITE);
+
+            // Record invitation history
+            for (Long friendId : invitedFriendIds) {
+                User invitedUser = userRepository.findById(friendId).orElse(null);
+                if (invitedUser != null) {
+                    ListingInvitation invitation = new ListingInvitation(saved, invitedUser, creator);
+                    listingInvitationRepository.save(invitation);
+                }
+            }
         }
 
         return saved;
@@ -255,7 +291,8 @@ public class GameListingService {
      */
     @Transactional
     public GameListing updateListing(Long listingId, Long userId, LocalDateTime scheduledDate,
-                                     String location, SkillLevel skillLevel, PrivacySetting privacySetting) {
+                                     String location, SkillLevel skillLevel, PrivacySetting privacySetting,
+                                     String venueName, String address, Double latitude, Double longitude) {
         GameListing listing = getListingById(listingId);
 
         if (!listing.getCreator().getUserId().equals(userId)) {
@@ -286,6 +323,19 @@ public class GameListingService {
         if (location != null) listing.setLocation(location);
         if (skillLevel != null) listing.setSkillLevel(skillLevel);
         if (privacySetting != null) listing.setPrivacySetting(privacySetting);
+
+        // Update map location fields
+        if (venueName != null) listing.setVenueName(venueName);
+        if (address != null) listing.setAddress(address);
+        if (latitude != null) listing.setLatitude(latitude);
+        if (longitude != null) listing.setLongitude(longitude);
+
+        // Keep location in sync with map address
+        if (address != null && !address.isBlank()) {
+            listing.setLocation(address.length() > 200 ? address.substring(0, 200) : address);
+        } else if (venueName != null && !venueName.isBlank() && (listing.getLocation() == null || listing.getLocation().isBlank())) {
+            listing.setLocation(venueName);
+        }
 
         logger.info("Game listing {} updated by user {}", listingId, userId);
         return gameListingRepository.save(listing);
@@ -339,5 +389,69 @@ public class GameListingService {
                     "This sport is not included in your sports profile. " +
                     "Add " + listing.getFormat().getSport().getSportName() + " to your profile first.");
         }
+    }
+
+    /**
+     * Gets all active public listings that have location coordinates.
+     * Used for Map View feature.
+     */
+    @Transactional(readOnly = true)
+    public List<GameListing> getActiveListingsWithCoordinates() {
+        return gameListingRepository.findActivePublicListingsWithCoordinates(LocalDateTime.now());
+    }
+
+    /**
+     * Gets active public listings within a given radius (in km) of a point.
+     * Uses Haversine formula for distance calculation.
+     *
+     * @param userLat  user's latitude
+     * @param userLng  user's longitude
+     * @param radiusKm radius in kilometres
+     * @return list of listings with their calculated distances, sorted by distance
+     */
+    @Transactional(readOnly = true)
+    public List<NearbyListingResult> getNearbyListings(double userLat, double userLng, double radiusKm) {
+        List<GameListing> allWithCoords = gameListingRepository
+                .findActivePublicListingsWithCoordinates(LocalDateTime.now());
+
+        return allWithCoords.stream()
+                .map(listing -> {
+                    double dist = haversineDistance(userLat, userLng,
+                            listing.getLatitude(), listing.getLongitude());
+                    return new NearbyListingResult(listing, dist);
+                })
+                .filter(result -> result.getDistanceKm() <= radiusKm)
+                .sorted((a, b) -> Double.compare(a.getDistanceKm(), b.getDistanceKm()))
+                .toList();
+    }
+
+    /**
+     * Haversine formula to calculate distance between two lat/lng points in km.
+     */
+    private double haversineDistance(double lat1, double lng1, double lat2, double lng2) {
+        double R = 6371.0; // Earth radius in km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    /**
+     * DTO holding a listing and its distance from the user.
+     */
+    public static class NearbyListingResult {
+        private final GameListing listing;
+        private final double distanceKm;
+
+        public NearbyListingResult(GameListing listing, double distanceKm) {
+            this.listing = listing;
+            this.distanceKm = distanceKm;
+        }
+
+        public GameListing getListing() { return listing; }
+        public double getDistanceKm() { return distanceKm; }
     }
 }

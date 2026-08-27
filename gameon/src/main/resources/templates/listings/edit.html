@@ -5,27 +5,77 @@
     <nav th:replace="~{fragments/layout :: navbar('lobby')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('lobby')}"></div>
 
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
     <div class="container mt-4">
         <div class="row justify-content-center">
-            <div class="col-md-6">
+            <div class="col-md-7">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white">
                         <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Listing</h5>
                         <small class="text-muted" th:text="${listing.format.sport.sportName + ' - ' + listing.format.formatName}">Sport</small>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{'/listings/' + ${listing.gameListingId} + '/edit'}" method="post">
+                        <form th:action="@{'/listings/' + ${listing.gameListingId} + '/edit'}" method="post" id="editListingForm">
                             <div class="mb-3">
                                 <label for="scheduledDate" class="form-label">Date &amp; Time</label>
                                 <input type="datetime-local" class="form-control" id="scheduledDate"
                                        name="scheduledDate"
                                        th:value="${#temporals.format(listing.scheduledDate, 'yyyy-MM-dd''T''HH:mm')}">
                             </div>
+
+                            <!-- Map Location Picker -->
                             <div class="mb-3">
-                                <label for="location" class="form-label">Location</label>
-                                <input type="text" class="form-control" id="location" name="location"
-                                       th:value="${listing.location}" maxlength="200">
+                                <label class="form-label"><i class="bi bi-geo-alt me-1"></i>Location (Select on Map)</label>
+
+                                <!-- Popular Venues -->
+                                <div class="mb-2">
+                                    <small class="text-muted d-block mb-1">Popular Venues:</small>
+                                    <div class="d-flex flex-wrap gap-1" id="popularVenues"></div>
+                                </div>
+
+                                <!-- Use My Location + Search -->
+                                <div class="d-flex gap-2 mb-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="useMyLocationBtn">
+                                        <i class="bi bi-crosshair me-1"></i>Use My Location
+                                    </button>
+                                    <span id="geoStatus" class="align-self-center small text-muted" style="display:none;"></span>
+                                </div>
+
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="mapSearchInput"
+                                           placeholder="Search for a venue..."
+                                           autocomplete="off"
+                                           th:value="${listing.venueName != null ? listing.venueName : listing.location}">
+                                </div>
+                                <div id="searchResults" class="list-group mb-2" style="max-height: 200px; overflow-y: auto; display: none;"></div>
+                                <div id="editMap" style="height: 300px; border-radius: 8px; border: 1px solid #dee2e6;"></div>
+                                <small class="text-muted mt-1 d-block">Click on the map or search for a venue to change the location.</small>
+
+                                <!-- Selected Location Display -->
+                                <div id="selectedLocationCard" class="card bg-light mt-2"
+                                     th:style="${listing.venueName != null ? '' : 'display: none;'}">
+                                    <div class="card-body py-2">
+                                        <p class="mb-1 small fw-bold"><i class="bi bi-geo-alt-fill text-danger me-1"></i><span id="displayVenueName" th:text="${listing.venueName != null ? listing.venueName : listing.location}">-</span></p>
+                                        <p class="mb-1 small text-muted"><i class="bi bi-signpost me-1"></i><span id="displayAddress" th:text="${listing.address != null ? listing.address : ''}">-</span></p>
+                                        <!-- Distance display -->
+                                        <div id="distanceDisplay" style="display: none;">
+                                            <p class="mb-0 small text-primary"><i class="bi bi-signpost-2 me-1"></i><span id="distanceText">-</span></p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Hidden fields for location data -->
+                            <input type="hidden" id="location" name="location" th:value="${listing.location}" autocomplete="off">
+                            <input type="hidden" id="venueName" name="venueName" th:value="${listing.venueName}" autocomplete="off">
+                            <input type="hidden" id="address" name="address" th:value="${listing.address}" autocomplete="off">
+                            <input type="hidden" id="latitude" name="latitude" th:value="${listing.latitude}" autocomplete="off">
+                            <input type="hidden" id="longitude" name="longitude" th:value="${listing.longitude}" autocomplete="off">
+
                             <div class="mb-3">
                                 <label for="skillLevel" class="form-label">Skill Level</label>
                                 <select class="form-select" id="skillLevel" name="skillLevel">
@@ -62,5 +112,292 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script th:inline="javascript">
+    (function() {
+        // ===== Popular Venues Configuration =====
+        var POPULAR_VENUES = [
+            { name: 'Boardwalk Padel', address: 'Marine Drive, Summerstrand, Gqeberha, Nelson Mandela Bay, Eastern Cape, 6001, South Africa', lat: -33.9816881, lng: 25.6593215 },
+            { name: 'Virgin Active', address: 'Virgin Active, Ring Road, Perridgevale, Gqeberha, Nelson Mandela Bay, Eastern Cape, 6001, South Africa', lat: -33.9485989, lng: 25.5800394 },
+            { name: "St George's Park", address: "Saint George's Park, Gqeberha, Nelson Mandela Bay, Eastern Cape, South Africa", lat: -33.9657696, lng: 25.6073323 },
+            { name: 'Crusaders Sports Club', address: 'Crusaders Squash Club, Park Drive, Walmer, Gqeberha, Nelson Mandela Bay, Eastern Cape, 6033, South Africa', lat: -33.9667751, lng: 25.6091681 }
+        ];
+
+        // ===== User Location State =====
+        var userLat = null;
+        var userLng = null;
+
+        // ===== Existing listing coordinates =====
+        var existingLat = [[${listing.latitude}]];
+        var existingLng = [[${listing.longitude}]];
+
+        var initialLat = existingLat || -30.5595;
+        var initialLng = existingLng || 22.9375;
+        var initialZoom = existingLat ? 15 : 5;
+
+        // ===== Initialize Map =====
+        var map = L.map('editMap').setView([initialLat, initialLng], initialZoom);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        var marker = null;
+
+        // Place existing marker if coordinates exist
+        if (existingLat && existingLng) {
+            marker = L.marker([existingLat, existingLng]).addTo(map);
+        }
+
+        var searchInput = document.getElementById('mapSearchInput');
+        var searchResults = document.getElementById('searchResults');
+        var debounceTimer = null;
+
+        // Form hidden fields
+        var locationField = document.getElementById('location');
+        var venueNameField = document.getElementById('venueName');
+        var addressField = document.getElementById('address');
+        var latitudeField = document.getElementById('latitude');
+        var longitudeField = document.getElementById('longitude');
+
+        // Display elements
+        var selectedCard = document.getElementById('selectedLocationCard');
+        var displayVenue = document.getElementById('displayVenueName');
+        var displayAddr = document.getElementById('displayAddress');
+        var distanceDisplay = document.getElementById('distanceDisplay');
+        var distanceText = document.getElementById('distanceText');
+
+        // ===== Render Popular Venues Buttons =====
+        var venuesContainer = document.getElementById('popularVenues');
+        POPULAR_VENUES.forEach(function(venue) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-danger btn-sm';
+            btn.innerHTML = '<i class="bi bi-pin-map me-1"></i>' + escapeHtml(venue.name);
+            btn.addEventListener('click', function() {
+                setLocation(venue.lat, venue.lng, venue.name, venue.address);
+                searchInput.value = venue.name;
+            });
+            venuesContainer.appendChild(btn);
+        });
+
+        // ===== Use My Location Button =====
+        var useMyLocationBtn = document.getElementById('useMyLocationBtn');
+        var geoStatus = document.getElementById('geoStatus');
+
+        useMyLocationBtn.addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                showGeoStatus('Geolocation is not supported by your browser.', 'text-danger');
+                return;
+            }
+
+            // Show loading state
+            useMyLocationBtn.disabled = true;
+            useMyLocationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Locating...';
+            showGeoStatus('Requesting location access...', 'text-muted');
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    userLat = lat;
+                    userLng = lng;
+                    reverseGeocode(lat, lng);
+
+                    useMyLocationBtn.disabled = false;
+                    useMyLocationBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Use My Location';
+                    showGeoStatus('Location found!', 'text-success');
+                    setTimeout(function() { geoStatus.style.display = 'none'; }, 3000);
+                },
+                function(error) {
+                    useMyLocationBtn.disabled = false;
+                    useMyLocationBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Use My Location';
+
+                    var msg = 'Unable to retrieve location.';
+                    if (error.code === 1) msg = 'Location access denied. Please allow location access in your browser settings.';
+                    else if (error.code === 2) msg = 'Location unavailable. Please try again.';
+                    else if (error.code === 3) msg = 'Location request timed out. Please try again.';
+                    showGeoStatus(msg, 'text-danger');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+        });
+
+        function showGeoStatus(msg, cssClass) {
+            geoStatus.textContent = msg;
+            geoStatus.className = 'align-self-center small ' + cssClass;
+            geoStatus.style.display = 'inline';
+        }
+
+        // ===== Click on map to select location =====
+        map.on('click', function(e) {
+            reverseGeocode(e.latlng.lat, e.latlng.lng);
+        });
+
+        // ===== Search input with debounce =====
+        searchInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            clearTimeout(debounceTimer);
+
+            if (query.length < 3) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(function() {
+                searchVenue(query);
+            }, 400);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#mapSearchInput') && !e.target.closest('#searchResults')) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // ===== Nominatim Search =====
+        function searchVenue(query) {
+            var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' +
+                      encodeURIComponent(query) + '&limit=6&addressdetails=1';
+
+            fetch(url, { headers: { 'Accept-Language': 'en' } })
+            .then(function(res) { return res.json(); })
+            .then(function(data) { renderSearchResults(data); })
+            .catch(function(err) { console.error('Search error:', err); });
+        }
+
+        function renderSearchResults(results) {
+            if (results.length === 0) {
+                searchResults.innerHTML = '<div class="list-group-item text-muted small">No results found</div>';
+                searchResults.style.display = 'block';
+                return;
+            }
+
+            var html = '';
+            results.forEach(function(r) {
+                html += '<button type="button" class="list-group-item list-group-item-action small" ' +
+                        'data-lat="' + r.lat + '" data-lng="' + r.lon + '" ' +
+                        'data-name="' + escapeAttr(r.display_name.split(',')[0]) + '" ' +
+                        'data-address="' + escapeAttr(r.display_name) + '">' +
+                        '<i class="bi bi-geo-alt text-danger me-1"></i>' +
+                        escapeHtml(r.display_name) + '</button>';
+            });
+
+            searchResults.innerHTML = html;
+            searchResults.style.display = 'block';
+
+            searchResults.querySelectorAll('button').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var lat = parseFloat(this.dataset.lat);
+                    var lng = parseFloat(this.dataset.lng);
+                    var name = this.dataset.name;
+                    var addr = this.dataset.address;
+                    setLocation(lat, lng, name, addr);
+                    searchResults.style.display = 'none';
+                    searchInput.value = name;
+                });
+            });
+        }
+
+        // ===== Reverse Geocode =====
+        function reverseGeocode(lat, lng) {
+            var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&addressdetails=1';
+
+            fetch(url, { headers: { 'Accept-Language': 'en' } })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var name = data.name || data.display_name.split(',')[0] || 'Selected Location';
+                var addr = data.display_name || '';
+                setLocation(lat, lng, name, addr);
+                searchInput.value = name;
+            })
+            .catch(function(err) {
+                setLocation(lat, lng, 'Selected Location', 'Lat: ' + lat.toFixed(5) + ', Lng: ' + lng.toFixed(5));
+            });
+        }
+
+        // ===== Set Location (core function) =====
+        function setLocation(lat, lng, name, addr) {
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+            marker.bindPopup('<strong>' + escapeHtml(name) + '</strong><br>' + escapeHtml(addr)).openPopup();
+            map.setView([lat, lng], 15);
+
+            // location = formatted address (satisfies @NotBlank on entity)
+            locationField.value = addr || name;
+            venueNameField.value = name;
+            addressField.value = addr;
+            latitudeField.value = lat;
+            longitudeField.value = lng;
+
+            displayVenue.textContent = name;
+            displayAddr.textContent = addr;
+            selectedCard.style.display = 'block';
+
+            // Update distance display
+            updateDistanceDisplay(lat, lng);
+        }
+
+        // ===== Distance Calculation (Haversine) =====
+        function haversineDistance(lat1, lng1, lat2, lng2) {
+            var R = 6371;
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLng = (lng2 - lng1) * Math.PI / 180;
+            var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function updateDistanceDisplay(venueLat, venueLng) {
+            if (userLat === null || userLng === null) {
+                distanceDisplay.style.display = 'none';
+                return;
+            }
+            var dist = haversineDistance(userLat, userLng, venueLat, venueLng);
+            var driveMinutes = Math.round((dist / 40) * 60);
+            var distStr = dist < 1 ? (dist * 1000).toFixed(0) + ' m away' : dist.toFixed(1) + ' km away';
+            var timeStr = driveMinutes < 1 ? '< 1 min drive' : 'Approx. ' + driveMinutes + ' min drive';
+            distanceText.innerHTML = distStr + ' &middot; ' + timeStr;
+            distanceDisplay.style.display = 'block';
+        }
+
+        // ===== Utility Functions =====
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ===== Auto-detect user location for distance calculations =====
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    userLat = pos.coords.latitude;
+                    userLng = pos.coords.longitude;
+                    // Update distance if a venue is already selected
+                    if (existingLat && existingLng) {
+                        updateDistanceDisplay(existingLat, existingLng);
+                    }
+                },
+                function() { /* silently ignore */ },
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+            );
+        }
+    })();
+    </script>
 </body>
 </html>

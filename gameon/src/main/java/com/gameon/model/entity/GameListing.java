@@ -51,6 +51,43 @@ public class GameListing extends Auditable {
     @Column(name = "privacy_setting", nullable = false, length = 10)
     private PrivacySetting privacySetting = PrivacySetting.PUBLIC;
 
+    // ===== Map Location Fields =====
+
+    @Size(max = 300, message = "Venue name must be at most 300 characters")
+    @Column(name = "venue_name", length = 300)
+    private String venueName;
+
+    @Size(max = 500, message = "Address must be at most 500 characters")
+    @Column(name = "address", length = 500)
+    private String address;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    // ===== Weather Forecast Fields =====
+
+    @Size(max = 50, message = "Weather condition must be at most 50 characters")
+    @Column(name = "weather_condition", length = 50)
+    private String weatherCondition;
+
+    @Column(name = "weather_temperature")
+    private Double weatherTemperature;
+
+    @Column(name = "weather_rain_chance")
+    private Integer weatherRainChance;
+
+    @Column(name = "weather_wind_speed")
+    private Double weatherWindSpeed;
+
+    @Column(name = "weather_humidity")
+    private Integer weatherHumidity;
+
+    @Column(name = "weather_forecast_time")
+    private LocalDateTime weatherForecastTime;
+
     // ===== Relationships =====
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -197,5 +234,89 @@ public class GameListing extends Auditable {
 
     public void setMatchResult(MatchResult matchResult) {
         this.matchResult = matchResult;
+    }
+
+    // ===== Map Location Getters/Setters =====
+
+    public String getVenueName() {
+        return venueName;
+    }
+
+    public void setVenueName(String venueName) {
+        this.venueName = venueName;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    // ===== Weather Forecast Getters/Setters =====
+
+    public String getWeatherCondition() {
+        return weatherCondition;
+    }
+
+    public void setWeatherCondition(String weatherCondition) {
+        this.weatherCondition = weatherCondition;
+    }
+
+    public Double getWeatherTemperature() {
+        return weatherTemperature;
+    }
+
+    public void setWeatherTemperature(Double weatherTemperature) {
+        this.weatherTemperature = weatherTemperature;
+    }
+
+    public Integer getWeatherRainChance() {
+        return weatherRainChance;
+    }
+
+    public void setWeatherRainChance(Integer weatherRainChance) {
+        this.weatherRainChance = weatherRainChance;
+    }
+
+    public Double getWeatherWindSpeed() {
+        return weatherWindSpeed;
+    }
+
+    public void setWeatherWindSpeed(Double weatherWindSpeed) {
+        this.weatherWindSpeed = weatherWindSpeed;
+    }
+
+    public Integer getWeatherHumidity() {
+        return weatherHumidity;
+    }
+
+    public void setWeatherHumidity(Integer weatherHumidity) {
+        this.weatherHumidity = weatherHumidity;
+    }
+
+    public LocalDateTime getWeatherForecastTime() {
+        return weatherForecastTime;
+    }
+
+    public void setWeatherForecastTime(LocalDateTime weatherForecastTime) {
+        this.weatherForecastTime = weatherForecastTime;
     }
 }

@@ -5,6 +5,10 @@
     <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
     <div class="container mt-4">
         <!-- Flash Messages -->
         <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
@@ -30,11 +34,86 @@
                         <p><i class="bi bi-controller me-2"></i><strong>Format:</strong> <span th:text="${listing.format.formatName}">Format</span> (<span th:text="${listing.format.noPlayers}">0</span> players)</p>
                         <p><i class="bi bi-calendar me-2"></i><strong>Date:</strong> <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span></p>
                         <p><i class="bi bi-clock me-2"></i><strong>Duration:</strong> <span th:text="${listing.sessionDuration}">2</span> hour(s)</p>
-                        <p><i class="bi bi-geo-alt me-2"></i><strong>Location:</strong> <span th:text="${listing.location}">Location</span></p>
+                        <p><i class="bi bi-geo-alt me-2"></i><strong>Location:</strong> <span th:text="${listing.venueName != null ? listing.venueName : listing.location}">Location</span></p>
+                        <p th:if="${listing.address != null}" class="small text-muted ms-4" th:text="${listing.address}">Address</p>
                         <p><i class="bi bi-person me-2"></i><strong>Created by:</strong>
                             <a th:href="@{'/profile/' + ${listing.creator.userId}}" th:text="${listing.creator.username}">User</a>
                         </p>
                         <p><i class="bi bi-eye me-2"></i><strong>Privacy:</strong> <span th:text="${listing.privacySetting}">Public</span></p>
+                    </div>
+                </div>
+
+                <!-- Map Card -->
+                <div th:if="${listing.latitude != null && listing.longitude != null}" class="card shadow-sm mt-3">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0"><i class="bi bi-map me-2"></i>Venue Location</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="detailMap" style="height: 250px; border-radius: 0 0 12px 12px;"></div>
+                    </div>
+                    <div class="card-footer bg-white d-flex gap-2">
+                        <a th:href="'https://www.google.com/maps/dir/?api=1&destination=' + ${listing.latitude} + ',' + ${listing.longitude}"
+                           target="_blank" class="btn btn-outline-gameon btn-sm">
+                            <i class="bi bi-signpost-2 me-1"></i>Get Directions
+                        </a>
+                        <a th:href="'https://www.google.com/maps?q=' + ${listing.latitude} + ',' + ${listing.longitude}"
+                           target="_blank" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>View on Map
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Weather Forecast Card -->
+                <div th:if="${weather != null && weather.available}" class="card shadow-sm mt-3">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-cloud-sun me-2"></i>Weather Forecast</h6>
+                        <span class="badge"
+                              th:classappend="'bg-' + ${weather.badgeColor()}"
+                              th:text="${weather.badgeColor() == 'success'} ? 'Good' : (${weather.badgeColor() == 'warning'} ? 'Moderate' : 'Poor')">Badge</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="bi fs-2 me-3"
+                               th:classappend="${weather.icon()} + ' text-' + ${weather.badgeColor()}"></i>
+                            <div>
+                                <span class="fw-bold fs-5" th:text="${weather.condition()}">Sunny</span>
+                                <span class="ms-2 text-muted fs-5" th:text="${#numbers.formatDecimal(weather.temperature(), 0, 0)} + '°C'">24°C</span>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-4 text-center">
+                                <div class="border rounded p-2">
+                                    <i class="bi bi-droplet text-primary d-block fs-5"></i>
+                                    <small class="text-muted d-block">Rain</small>
+                                    <strong th:text="${weather.rainChance()} + '%'">10%</strong>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="border rounded p-2">
+                                    <i class="bi bi-wind text-info d-block fs-5"></i>
+                                    <small class="text-muted d-block">Wind</small>
+                                    <strong th:text="${#numbers.formatDecimal(weather.windSpeed(), 0, 0)} + ' km/h'">15 km/h</strong>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="border rounded p-2">
+                                    <i class="bi bi-moisture text-secondary d-block fs-5"></i>
+                                    <small class="text-muted d-block">Humidity</small>
+                                    <strong th:text="${weather.humidity()} + '%'">62%</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div th:if="${weather.warning() != null}" class="alert mt-3 mb-0 py-2 small"
+                             th:classappend="${weather.badgeColor() == 'danger'} ? 'alert-danger' : 'alert-warning'">
+                            <i class="bi bi-exclamation-triangle me-1"></i><span th:text="${weather.warning()}">Warning</span>
+                        </div>
+                    </div>
+                </div>
+                <div th:if="${weather == null || !weather.available}" class="card shadow-sm mt-3">
+                    <div class="card-body py-3">
+                        <p class="mb-0 small text-muted">
+                            <i class="bi bi-cloud-slash me-1"></i>Weather forecast currently unavailable.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -112,6 +191,9 @@
                             <a th:href="@{'/lobby/requests/' + ${listing.gameListingId}}" class="btn btn-outline-gameon btn-sm">
                                 <i class="bi bi-people me-1"></i>View Join Requests
                             </a>
+                            <a th:if="${isOpen}" th:href="@{'/listings/' + ${listing.gameListingId} + '/invite'}" class="btn btn-outline-primary btn-sm ms-2">
+                                <i class="bi bi-person-plus me-1"></i>Invite More Players
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -126,5 +208,28 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script th:if="${listing.latitude != null && listing.longitude != null}">
+    (function() {
+        var lat = [[${listing.latitude}]];
+        var lng = [[${listing.longitude}]];
+        var venueName = '[[${listing.venueName != null ? listing.venueName : listing.location}]]';
+
+        var map = L.map('detailMap').setView([lat, lng], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        L.marker([lat, lng]).addTo(map)
+            .bindPopup('<strong>' + venueName + '</strong>')
+            .openPopup();
+    })();
+    </script>
 </body>
 </html>

@@ -147,8 +147,9 @@ public class PostService {
     }
 
     /**
-     * Deletes a post (B200). Only the post owner can delete.
-     * Comments and likes are cascade-deleted. Image file is removed from disk.
+     * Soft-deletes a post (B200). Only the post owner can delete.
+     * Image is RETAINED for evidence. Post is marked as removed.
+     * Comments and likes remain for audit trail.
      */
     @Transactional
     public void deletePost(Long postId, Long userId) {
@@ -158,20 +159,37 @@ public class PostService {
             throw new UnauthorizedAccessException("delete", "post");
         }
 
-        // Delete image file from disk if present
-        if (post.getImagePath() != null) {
-            imageStorageService.deleteImage(post.getImagePath());
-        }
-
-        postRepository.delete(post);
-        logger.info("Post {} deleted by user {}", postId, userId);
+        // Soft-delete: mark as removed, retain image
+        post.setIsRemoved(true);
+        post.setRemovedBy(post.getUser().getUsername());
+        post.setRemovedAt(java.time.LocalDateTime.now());
+        postRepository.save(post);
+        logger.info("Post {} soft-deleted by author {}", postId, userId);
     }
 
     /**
-     * Deletes a post by moderator (B400).
+     * Soft-deletes a post by moderator (B400).
+     * Image is RETAINED for moderation evidence.
      */
     @Transactional
     public void deletePostAsModerator(Long postId) {
+        Post post = getPostById(postId);
+
+        // Soft-delete: mark as removed, retain image for evidence
+        post.setIsRemoved(true);
+        post.setRemovedBy("MODERATOR");
+        post.setRemovedAt(java.time.LocalDateTime.now());
+        postRepository.save(post);
+        logger.info("Post {} soft-deleted by moderator", postId);
+    }
+
+    /**
+     * Hard-deletes a post permanently, removing the image file from disk.
+     * This is the only path that removes image evidence.
+     * Should only be used for GDPR-type requests or data cleanup.
+     */
+    @Transactional
+    public void hardDeletePost(Long postId) {
         Post post = getPostById(postId);
 
         // Delete image file from disk if present
@@ -180,7 +198,7 @@ public class PostService {
         }
 
         postRepository.delete(post);
-        logger.info("Post {} removed by moderator", postId);
+        logger.info("Post {} hard-deleted (image removed from disk)", postId);
     }
 
     @Transactional(readOnly = true)
@@ -247,28 +265,30 @@ public class PostService {
 
     /**
      * Gets posts by a specific user (for profile view).
+     * Excludes soft-deleted posts from normal view.
      */
     @Transactional(readOnly = true)
     public Page<Post> getPostsByUser(Long userId, Pageable pageable) {
-        return postRepository.findByUserUserIdOrderByCreatedAtDesc(userId, pageable);
+        return postRepository.findByUserUserIdAndIsRemovedFalseOrderByCreatedAtDesc(userId, pageable);
     }
 
     /**
      * Gets posts visible to a viewer from a specific user's profile.
      * If viewer follows the user, shows PUBLIC + FOLLOWERS posts.
      * Otherwise, shows only PUBLIC posts.
+     * Excludes soft-deleted posts.
      */
     @Transactional(readOnly = true)
     public Page<Post> getVisiblePostsByUser(Long profileUserId, Long viewerId, Pageable pageable) {
         if (profileUserId.equals(viewerId)) {
-            return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
+            return postRepository.findByUserUserIdAndIsRemovedFalseOrderByCreatedAtDesc(profileUserId, pageable);
         }
 
         boolean isFollowing = followRepository.existsByIdFollowerUserIdAndIdFollowedUserId(viewerId, profileUserId);
         if (isFollowing) {
-            return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
+            return postRepository.findByUserUserIdAndIsRemovedFalseOrderByCreatedAtDesc(profileUserId, pageable);
         }
 
-        return postRepository.findByUserUserIdOrderByCreatedAtDesc(profileUserId, pageable);
+        return postRepository.findByUserUserIdAndIsRemovedFalseOrderByCreatedAtDesc(profileUserId, pageable);
     }
 }

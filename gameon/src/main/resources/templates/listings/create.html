@@ -5,9 +5,13 @@
     <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
     <div class="container mt-4">
         <div class="row justify-content-center">
-            <div class="col-md-7">
+            <div class="col-md-8">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white">
                         <h5 class="mb-0"><i class="bi bi-plus-circle me-2 text-danger"></i>Create Game Listing</h5>
@@ -20,7 +24,7 @@
                             <a th:href="@{/profile/add-sport}" class="alert-link">Add Sport</a>
                         </div>
 
-                        <form th:unless="${formats.isEmpty()}" th:action="@{/listings/create}" method="post">
+                        <form th:unless="${formats.isEmpty()}" th:action="@{/listings/create}" method="post" id="createListingForm" autocomplete="off">
                             <div class="mb-3">
                                 <label for="formatId" class="form-label">Sport &amp; Format</label>
                                 <select class="form-select" id="formatId" name="formatId" required>
@@ -54,11 +58,99 @@
                                     <option value="8">8 hours</option>
                                 </select>
                             </div>
+
+                            <!-- Map Location Picker -->
                             <div class="mb-3">
-                                <label for="location" class="form-label">Location</label>
-                                <input type="text" class="form-control" id="location" name="location"
-                                       placeholder="e.g. City Sports Centre, Court 3" required maxlength="200">
+                                <label class="form-label"><i class="bi bi-geo-alt me-1"></i>Location (Select on Map)</label>
+
+                                <!-- Popular Venues -->
+                                <div class="mb-2">
+                                    <small class="text-muted d-block mb-1">Popular Venues:</small>
+                                    <div class="d-flex flex-wrap gap-1" id="popularVenues">
+                                        <!-- Venue buttons rendered by JS -->
+                                    </div>
+                                </div>
+
+                                <!-- Use My Location + Search -->
+                                <div class="d-flex gap-2 mb-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="useMyLocationBtn">
+                                        <i class="bi bi-crosshair me-1"></i>Use My Location
+                                    </button>
+                                    <span id="geoStatus" class="align-self-center small text-muted" style="display:none;"></span>
+                                </div>
+
+                                <div class="input-group mb-2">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="mapSearchInput"
+                                           placeholder="Search for a venue (e.g. Boardwalk Padel, Virgin Active...)"
+                                           autocomplete="off">
+                                </div>
+                                <div id="searchResults" class="list-group mb-2" style="max-height: 200px; overflow-y: auto; display: none;"></div>
+                                <div id="createMap" style="height: 350px; border-radius: 8px; border: 1px solid #dee2e6;"></div>
+                                <small class="text-muted mt-1 d-block">Click on the map or search for a venue to select a location.</small>
+
+                                <!-- Selected Location Display -->
+                                <div id="selectedLocationCard" class="card bg-light mt-2" style="display: none;">
+                                    <div class="card-body py-2">
+                                        <p class="mb-1 small fw-bold"><i class="bi bi-geo-alt-fill text-danger me-1"></i><span id="displayVenueName">-</span></p>
+                                        <p class="mb-1 small text-muted"><i class="bi bi-signpost me-1"></i><span id="displayAddress">-</span></p>
+                                        <!-- Distance display (shown when user location is available) -->
+                                        <div id="distanceDisplay" style="display: none;">
+                                            <p class="mb-0 small text-primary"><i class="bi bi-signpost-2 me-1"></i><span id="distanceText">-</span></p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Weather Forecast Preview Card -->
+                            <div id="weatherPreviewCard" class="card mt-2 mb-3" style="display: none;">
+                                <div class="card-body py-3">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <h6 class="mb-0"><i class="bi bi-cloud-sun me-2"></i>Weather Forecast</h6>
+                                        <span id="weatherBadge" class="badge"></span>
+                                    </div>
+                                    <div id="weatherLoading" style="display: none;">
+                                        <div class="d-flex align-items-center text-muted small">
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            Loading forecast...
+                                        </div>
+                                    </div>
+                                    <div id="weatherContent" style="display: none;">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i id="weatherIcon" class="bi fs-3 me-3 text-warning"></i>
+                                            <div>
+                                                <span id="weatherCondition" class="fw-bold"></span>
+                                                <span id="weatherTemp" class="ms-2 text-muted"></span>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 small">
+                                            <div class="col-4">
+                                                <i class="bi bi-droplet me-1 text-primary"></i>Rain: <span id="weatherRain">-</span>%
+                                            </div>
+                                            <div class="col-4">
+                                                <i class="bi bi-wind me-1 text-info"></i>Wind: <span id="weatherWind">-</span> km/h
+                                            </div>
+                                            <div class="col-4">
+                                                <i class="bi bi-moisture me-1 text-secondary"></i>Humidity: <span id="weatherHumidity">-</span>%
+                                            </div>
+                                        </div>
+                                        <div id="weatherWarning" class="mt-2 small" style="display: none;">
+                                            <i class="bi bi-exclamation-triangle me-1"></i><span id="weatherWarningText"></span>
+                                        </div>
+                                    </div>
+                                    <div id="weatherUnavailable" class="small text-muted" style="display: none;">
+                                        <i class="bi bi-cloud-slash me-1"></i>Weather forecast currently unavailable.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hidden fields for location data -->
+                            <input type="hidden" id="location" name="location" required autocomplete="off">
+                            <input type="hidden" id="venueName" name="venueName" autocomplete="off">
+                            <input type="hidden" id="address" name="address" autocomplete="off">
+                            <input type="hidden" id="latitude" name="latitude" autocomplete="off">
+                            <input type="hidden" id="longitude" name="longitude" autocomplete="off">
+
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Privacy</label>
                                 <select class="form-select" id="privacySetting" name="privacySetting" required>
@@ -67,7 +159,7 @@
                                 </select>
                             </div>
                             <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-gameon">
+                                <button type="submit" class="btn btn-gameon" id="submitBtn">
                                     Next <i class="bi bi-arrow-right ms-1"></i>
                                 </button>
                                 <a th:href="@{/listings}" class="btn btn-outline-secondary">Cancel</a>
@@ -80,5 +172,489 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+    (function() {
+        // ===== Popular Venues Configuration =====
+        // Add more venues here as needed. Each entry: { name, address, lat, lng }
+        var POPULAR_VENUES = [
+            { name: 'Boardwalk Padel', address: 'Marine Drive, Summerstrand, Gqeberha, Nelson Mandela Bay, Eastern Cape, 6001, South Africa', lat: -33.9816881, lng: 25.6593215 },
+            { name: 'Virgin Active', address: 'Virgin Active, Ring Road, Perridgevale, Gqeberha, Nelson Mandela Bay, Eastern Cape, 6001, South Africa', lat: -33.9485989, lng: 25.5800394 },
+            { name: "St George's Park", address: "Saint George's Park, Gqeberha, Nelson Mandela Bay, Eastern Cape, South Africa", lat: -33.9657696, lng: 25.6073323 },
+            { name: 'Crusaders Sports Club', address: 'Crusaders Squash Club, Park Drive, Walmer, Gqeberha, Nelson Mandela Bay, Eastern Cape, 6033, South Africa', lat: -33.9667751, lng: 25.6091681 }
+        ];
+
+        // ===== User Location State =====
+        var userLat = null;
+        var userLng = null;
+
+        // ===== Initialize Map (centered on South Africa) =====
+        var map = L.map('createMap').setView([-30.5595, 22.9375], 5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        var marker = null;
+        var searchInput = document.getElementById('mapSearchInput');
+        var searchResults = document.getElementById('searchResults');
+        var debounceTimer = null;
+
+        // Form hidden fields
+        var locationField = document.getElementById('location');
+        var venueNameField = document.getElementById('venueName');
+        var addressField = document.getElementById('address');
+        var latitudeField = document.getElementById('latitude');
+        var longitudeField = document.getElementById('longitude');
+
+        // Display elements
+        var selectedCard = document.getElementById('selectedLocationCard');
+        var displayVenue = document.getElementById('displayVenueName');
+        var displayAddr = document.getElementById('displayAddress');
+        var distanceDisplay = document.getElementById('distanceDisplay');
+        var distanceText = document.getElementById('distanceText');
+
+        // ===== Render Popular Venues Buttons =====
+        var venuesContainer = document.getElementById('popularVenues');
+        POPULAR_VENUES.forEach(function(venue) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-danger btn-sm';
+            btn.innerHTML = '<i class="bi bi-pin-map me-1"></i>' + escapeHtml(venue.name);
+            btn.addEventListener('click', function() {
+                setLocation(venue.lat, venue.lng, venue.name, venue.address);
+                searchInput.value = venue.name;
+            });
+            venuesContainer.appendChild(btn);
+        });
+
+        // ===== Use My Location Button =====
+        var useMyLocationBtn = document.getElementById('useMyLocationBtn');
+        var geoStatus = document.getElementById('geoStatus');
+
+        useMyLocationBtn.addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                showGeoStatus('Geolocation is not supported by your browser.', 'text-danger');
+                return;
+            }
+
+            // Show loading state
+            useMyLocationBtn.disabled = true;
+            useMyLocationBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Locating...';
+            showGeoStatus('Requesting location access...', 'text-muted');
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    // Success: got user coordinates
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    userLat = lat;
+                    userLng = lng;
+
+                    // Reverse geocode to get address
+                    reverseGeocode(lat, lng);
+
+                    // Reset button
+                    useMyLocationBtn.disabled = false;
+                    useMyLocationBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Use My Location';
+                    showGeoStatus('Location found!', 'text-success');
+                    setTimeout(function() { geoStatus.style.display = 'none'; }, 3000);
+                },
+                function(error) {
+                    // Error handling
+                    useMyLocationBtn.disabled = false;
+                    useMyLocationBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Use My Location';
+
+                    var msg = 'Unable to retrieve location.';
+                    if (error.code === 1) msg = 'Location access denied. Please allow location access in your browser settings.';
+                    else if (error.code === 2) msg = 'Location unavailable. Please try again.';
+                    else if (error.code === 3) msg = 'Location request timed out. Please try again.';
+                    showGeoStatus(msg, 'text-danger');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+        });
+
+        function showGeoStatus(msg, cssClass) {
+            geoStatus.textContent = msg;
+            geoStatus.className = 'align-self-center small ' + cssClass;
+            geoStatus.style.display = 'inline';
+        }
+
+        // ===== Click on map to select location =====
+        map.on('click', function(e) {
+            reverseGeocode(e.latlng.lat, e.latlng.lng);
+        });
+
+        // ===== Search input with debounce =====
+        searchInput.addEventListener('input', function() {
+            var query = this.value.trim();
+            clearTimeout(debounceTimer);
+
+            if (query.length < 3) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(function() {
+                searchVenue(query);
+            }, 400);
+        });
+
+        // Hide search results on outside click
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#mapSearchInput') && !e.target.closest('#searchResults')) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // ===== Nominatim Search =====
+        function searchVenue(query) {
+            var url = 'https://nominatim.openstreetmap.org/search?format=json&q=' +
+                      encodeURIComponent(query) + '&limit=6&addressdetails=1';
+
+            fetch(url, { headers: { 'Accept-Language': 'en' } })
+            .then(function(res) { return res.json(); })
+            .then(function(data) { renderSearchResults(data); })
+            .catch(function(err) { console.error('Search error:', err); });
+        }
+
+        function renderSearchResults(results) {
+            if (results.length === 0) {
+                searchResults.innerHTML = '<div class="list-group-item text-muted small">No results found</div>';
+                searchResults.style.display = 'block';
+                return;
+            }
+
+            var html = '';
+            results.forEach(function(r) {
+                html += '<button type="button" class="list-group-item list-group-item-action small" ' +
+                        'data-lat="' + r.lat + '" data-lng="' + r.lon + '" ' +
+                        'data-name="' + escapeAttr(r.display_name.split(',')[0]) + '" ' +
+                        'data-address="' + escapeAttr(r.display_name) + '">' +
+                        '<i class="bi bi-geo-alt text-danger me-1"></i>' +
+                        escapeHtml(r.display_name) + '</button>';
+            });
+
+            searchResults.innerHTML = html;
+            searchResults.style.display = 'block';
+
+            // Attach click handlers to search results
+            searchResults.querySelectorAll('button').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var lat = parseFloat(this.dataset.lat);
+                    var lng = parseFloat(this.dataset.lng);
+                    var name = this.dataset.name;
+                    var addr = this.dataset.address;
+                    setLocation(lat, lng, name, addr);
+                    searchResults.style.display = 'none';
+                    searchInput.value = name;
+                });
+            });
+        }
+
+        // ===== Reverse Geocode (for map click and Use My Location) =====
+        function reverseGeocode(lat, lng) {
+            var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&addressdetails=1';
+
+            fetch(url, { headers: { 'Accept-Language': 'en' } })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var name = data.name || data.display_name.split(',')[0] || 'Selected Location';
+                var addr = data.display_name || '';
+                setLocation(lat, lng, name, addr);
+                searchInput.value = name;
+            })
+            .catch(function(err) {
+                // Fallback if reverse geocode fails
+                setLocation(lat, lng, 'Selected Location', 'Lat: ' + lat.toFixed(5) + ', Lng: ' + lng.toFixed(5));
+            });
+        }
+
+        // ===== Set Location (core function that populates all fields) =====
+        function setLocation(lat, lng, name, addr) {
+            // Place or move marker
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+            marker.bindPopup('<strong>' + escapeHtml(name) + '</strong><br>' + escapeHtml(addr)).openPopup();
+            map.setView([lat, lng], 15);
+
+            // Set hidden form fields
+            // location = formatted address (satisfies @NotBlank on entity)
+            locationField.value = addr || name;
+            venueNameField.value = name;
+            addressField.value = addr;
+            latitudeField.value = lat;
+            longitudeField.value = lng;
+
+            // Debug logging
+            console.log('[GameOn Location] setLocation called:', {
+                venueName: name,
+                address: addr,
+                latitude: lat,
+                longitude: lng,
+                locationField: locationField.value
+            });
+
+            // Show selected location card
+            displayVenue.textContent = name;
+            displayAddr.textContent = addr;
+            selectedCard.style.display = 'block';
+
+            // Update distance display if user location is available
+            updateDistanceDisplay(lat, lng);
+
+            // Clear any previous validation error
+            var locationError = document.getElementById('locationError');
+            if (locationError) locationError.style.display = 'none';
+        }
+
+        // ===== Distance Calculation (Haversine) =====
+        function haversineDistance(lat1, lng1, lat2, lng2) {
+            var R = 6371; // Earth radius in km
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLng = (lng2 - lng1) * Math.PI / 180;
+            var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // ===== Update Distance Display =====
+        function updateDistanceDisplay(venueLat, venueLng) {
+            if (userLat === null || userLng === null) {
+                distanceDisplay.style.display = 'none';
+                return;
+            }
+
+            var dist = haversineDistance(userLat, userLng, venueLat, venueLng);
+            // Estimate drive time: ~40 km/h average urban speed
+            var driveMinutes = Math.round((dist / 40) * 60);
+
+            var distStr = dist < 1
+                ? (dist * 1000).toFixed(0) + ' m away'
+                : dist.toFixed(1) + ' km away';
+            var timeStr = driveMinutes < 1 ? '< 1 min drive' : 'Approx. ' + driveMinutes + ' min drive';
+
+            distanceText.innerHTML = distStr + ' &middot; ' + timeStr;
+            distanceDisplay.style.display = 'block';
+        }
+
+        // ===== Form Validation =====
+        document.getElementById('createListingForm').addEventListener('submit', function(e) {
+            // Debug: log values at submission time
+            console.log('[GameOn Location] Form submit - current values:', {
+                location: locationField.value,
+                venueName: venueNameField.value,
+                address: addressField.value,
+                latitude: latitudeField.value,
+                longitude: longitudeField.value
+            });
+
+            if (!latitudeField.value || !longitudeField.value || !locationField.value) {
+                e.preventDefault();
+                var locationError = document.getElementById('locationError');
+                if (!locationError) {
+                    locationError = document.createElement('div');
+                    locationError.id = 'locationError';
+                    locationError.className = 'alert alert-danger mt-2 small';
+                    locationError.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Please select a valid location from the map or search results before submitting.';
+                    document.getElementById('selectedLocationCard').parentNode.appendChild(locationError);
+                }
+                locationError.style.display = 'block';
+                return false;
+            }
+        });
+
+        // ===== Utility Functions =====
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function escapeAttr(text) {
+            return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ===== Auto-detect user location on page load (silent, no prompt) =====
+        // This populates userLat/userLng for distance calculations without prompting
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    userLat = pos.coords.latitude;
+                    userLng = pos.coords.longitude;
+                },
+                function() { /* silently ignore */ },
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+            );
+        }
+
+        // ===== bfcache / Back Navigation Fix =====
+        // When user navigates back (browser back button), the page may be restored
+        // from bfcache with stale hidden field values. Reset location fields to ensure
+        // the user must re-select a location (the map marker won't persist in bfcache).
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                // Page was restored from bfcache — clear location fields
+                // since the map state (marker) is lost but hidden fields retain old values
+                locationField.value = '';
+                venueNameField.value = '';
+                addressField.value = '';
+                latitudeField.value = '';
+                longitudeField.value = '';
+                selectedCard.style.display = 'none';
+                if (marker) {
+                    map.removeLayer(marker);
+                    marker = null;
+                }
+                console.log('[GameOn Location] Page restored from bfcache - location fields cleared');
+            }
+        });
+
+        // ===== Clear on fresh page load =====
+        // Ensure hidden fields start empty on a fresh load (prevents autocomplete restoration)
+        locationField.value = '';
+        venueNameField.value = '';
+        addressField.value = '';
+        latitudeField.value = '';
+        longitudeField.value = '';
+
+        // ===== Weather Forecast Integration =====
+        var weatherCard = document.getElementById('weatherPreviewCard');
+        var weatherLoading = document.getElementById('weatherLoading');
+        var weatherContent = document.getElementById('weatherContent');
+        var weatherUnavailable = document.getElementById('weatherUnavailable');
+        var weatherBadge = document.getElementById('weatherBadge');
+        var weatherIcon = document.getElementById('weatherIcon');
+        var weatherCondition = document.getElementById('weatherCondition');
+        var weatherTemp = document.getElementById('weatherTemp');
+        var weatherRain = document.getElementById('weatherRain');
+        var weatherWind = document.getElementById('weatherWind');
+        var weatherHumidity = document.getElementById('weatherHumidity');
+        var weatherWarning = document.getElementById('weatherWarning');
+        var weatherWarningText = document.getElementById('weatherWarningText');
+        var scheduledDateField = document.getElementById('scheduledDate');
+        var weatherDebounceTimer = null;
+
+        // Fetch weather when conditions are met (lat, lng, and date all set)
+        function tryFetchWeather() {
+            clearTimeout(weatherDebounceTimer);
+            weatherDebounceTimer = setTimeout(function() {
+                var lat = latitudeField.value;
+                var lng = longitudeField.value;
+                var date = scheduledDateField.value;
+
+                if (!lat || !lng || !date) {
+                    weatherCard.style.display = 'none';
+                    return;
+                }
+
+                fetchWeatherForecast(parseFloat(lat), parseFloat(lng), date);
+            }, 500);
+        }
+
+        function fetchWeatherForecast(lat, lng, date) {
+            // Show loading state
+            weatherCard.style.display = 'block';
+            weatherLoading.style.display = 'block';
+            weatherContent.style.display = 'none';
+            weatherUnavailable.style.display = 'none';
+
+            var csrfToken = document.querySelector('meta[name="_csrf"]');
+            var csrfHeader = document.querySelector('meta[name="_csrf_header"]');
+
+            var headers = { 'Accept': 'application/json' };
+            if (csrfToken && csrfHeader) {
+                headers[csrfHeader.content] = csrfToken.content;
+            }
+
+            fetch('/api/weather/forecast?lat=' + lat + '&lng=' + lng + '&date=' + encodeURIComponent(date), {
+                method: 'GET',
+                headers: headers,
+                credentials: 'same-origin'
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                weatherLoading.style.display = 'none';
+
+                if (data.available) {
+                    // Show weather data
+                    weatherContent.style.display = 'block';
+                    weatherUnavailable.style.display = 'none';
+
+                    weatherCondition.textContent = data.condition;
+                    weatherTemp.textContent = Math.round(data.temperature) + '°C';
+                    weatherRain.textContent = data.rainChance;
+                    weatherWind.textContent = Math.round(data.windSpeed);
+                    weatherHumidity.textContent = data.humidity;
+
+                    // Set icon
+                    weatherIcon.className = 'bi ' + data.icon + ' fs-3 me-3';
+                    if (data.badgeColor === 'success') {
+                        weatherIcon.classList.add('text-success');
+                    } else if (data.badgeColor === 'warning') {
+                        weatherIcon.classList.add('text-warning');
+                    } else {
+                        weatherIcon.classList.add('text-danger');
+                    }
+
+                    // Set badge
+                    weatherBadge.className = 'badge bg-' + data.badgeColor;
+                    if (data.badgeColor === 'success') {
+                        weatherBadge.textContent = 'Good';
+                    } else if (data.badgeColor === 'warning') {
+                        weatherBadge.textContent = 'Moderate';
+                    } else {
+                        weatherBadge.textContent = 'Poor';
+                    }
+
+                    // Warning
+                    if (data.warning) {
+                        weatherWarning.style.display = 'block';
+                        weatherWarning.className = 'mt-2 small text-' + data.badgeColor;
+                        weatherWarningText.textContent = data.warning;
+                    } else {
+                        weatherWarning.style.display = 'none';
+                    }
+                } else {
+                    // Show unavailable
+                    weatherContent.style.display = 'none';
+                    weatherUnavailable.style.display = 'block';
+                    weatherBadge.className = 'badge';
+                    weatherBadge.textContent = '';
+                }
+            })
+            .catch(function(err) {
+                console.error('Weather fetch error:', err);
+                weatherLoading.style.display = 'none';
+                weatherContent.style.display = 'none';
+                weatherUnavailable.style.display = 'block';
+                weatherBadge.className = 'badge';
+                weatherBadge.textContent = '';
+            });
+        }
+
+        // Listen for date/time changes
+        scheduledDateField.addEventListener('change', tryFetchWeather);
+        scheduledDateField.addEventListener('input', tryFetchWeather);
+
+        // Override setLocation to also trigger weather fetch
+        var originalSetLocation = setLocation;
+        setLocation = function(lat, lng, name, addr) {
+            originalSetLocation(lat, lng, name, addr);
+            tryFetchWeather();
+        };
+    })();
+    </script>
 </body>
 </html>

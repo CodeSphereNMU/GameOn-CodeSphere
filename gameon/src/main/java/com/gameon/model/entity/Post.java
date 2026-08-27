@@ -31,6 +31,15 @@ public class Post extends Auditable {
     @Column(name = "privacy_setting", nullable = false, length = 10)
     private PrivacySetting privacySetting = PrivacySetting.PUBLIC;
 
+    @Column(name = "is_removed", nullable = false)
+    private Boolean isRemoved = false;
+
+    @Column(name = "removed_by", length = 50)
+    private String removedBy;
+
+    @Column(name = "removed_at")
+    private java.time.LocalDateTime removedAt;
+
     // ===== Relationships =====
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -110,5 +119,29 @@ public class Post extends Auditable {
 
     public void setImagePath(String imagePath) {
         this.imagePath = imagePath;
+    }
+
+    public Boolean getIsRemoved() {
+        return isRemoved;
+    }
+
+    public void setIsRemoved(Boolean isRemoved) {
+        this.isRemoved = isRemoved;
+    }
+
+    public String getRemovedBy() {
+        return removedBy;
+    }
+
+    public void setRemovedBy(String removedBy) {
+        this.removedBy = removedBy;
+    }
+
+    public java.time.LocalDateTime getRemovedAt() {
+        return removedAt;
+    }
+
+    public void setRemovedAt(java.time.LocalDateTime removedAt) {
+        this.removedAt = removedAt;
     }
 }

@@ -32,6 +32,11 @@
                             </small>
                             <br>
                             <small class="text-muted">
+                                <i class="bi bi-geo-alt me-1"></i>
+                                <span th:text="${result.gameListing.venueName != null ? result.gameListing.venueName : result.gameListing.location}">Location</span>
+                            </small>
+                            <br>
+                            <small class="text-muted">
                                 <i class="bi bi-people me-1"></i>
                                 <span th:text="'Created by: ' + ${result.gameListing.creator.username}">Opponent</span>
                             </small>

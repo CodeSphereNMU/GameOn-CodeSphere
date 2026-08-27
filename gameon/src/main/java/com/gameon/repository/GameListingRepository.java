@@ -127,4 +127,35 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
             @Param("userId") Long userId,
             @Param("skillLevel") SkillLevel skillLevel,
             Pageable pageable);
+
+    /**
+     * Find all active PUBLIC listings that have location coordinates.
+     * Used for the Map View and Nearby Listings features.
+     */
+    @Query("SELECT gl FROM GameListing gl " +
+           "JOIN FETCH gl.format f " +
+           "JOIN FETCH f.sport " +
+           "JOIN FETCH gl.creator " +
+           "WHERE gl.scheduledDate > :now " +
+           "AND gl.isCompleted = false " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "AND gl.latitude IS NOT NULL " +
+           "AND gl.longitude IS NOT NULL " +
+           "ORDER BY gl.scheduledDate ASC")
+    List<GameListing> findActivePublicListingsWithCoordinates(@Param("now") LocalDateTime now);
+
+    /**
+     * Find upcoming listings within a date range that have coordinates.
+     * Used by the weather refresh job to update forecasts for upcoming games.
+     * Excludes completed listings.
+     */
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.scheduledDate BETWEEN :now AND :until " +
+           "AND gl.isCompleted = false " +
+           "AND gl.latitude IS NOT NULL " +
+           "AND gl.longitude IS NOT NULL " +
+           "ORDER BY gl.scheduledDate ASC")
+    List<GameListing> findUpcomingListingsForWeatherRefresh(
+            @Param("now") LocalDateTime now,
+            @Param("until") LocalDateTime until);
 }

@@ -5,6 +5,13 @@
     <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
+    <!-- Leaflet CSS (for Map View) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
     <div class="container mt-4">
         <!-- Header + Create Button -->
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -24,80 +31,382 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
 
-        <!-- Skill Filter -->
-        <div class="mb-3">
-            <form th:action="@{/listings}" method="get" class="d-flex gap-2 align-items-center">
-                <label class="form-label mb-0 small text-muted">Filter:</label>
-                <select name="skill" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                    <option value="">All Levels</option>
-                    <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}"
-                            th:selected="${selectedSkill != null && selectedSkill.toUpperCase() == level.name()}">Level</option>
-                </select>
-            </form>
-        </div>
+        <!-- View Toggle + Filters Row -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <!-- View Toggle Buttons -->
+            <div class="btn-group" role="group" aria-label="View toggle">
+                <button type="button" class="btn btn-outline-secondary btn-sm active" id="listViewBtn">
+                    <i class="bi bi-list-ul me-1"></i>List View
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="mapViewBtn">
+                    <i class="bi bi-map me-1"></i>Map View
+                </button>
+            </div>
 
-        <!-- Listings Grid -->
-        <div th:if="${listings != null && !listings.isEmpty()}" class="row g-3">
-            <div th:each="listing : ${listings}" class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="card-title mb-0" th:text="${listing.format.sport.sportName}">Sport</h6>
-                            <span class="badge badge-skill"
-                                  th:classappend="${listing.skillLevel.name() == 'BEGINNER'} ? 'bg-success' : (${listing.skillLevel.name() == 'INTERMEDIATE'} ? 'bg-warning text-dark' : 'bg-danger')"
-                                  th:text="${listing.skillLevel}">Level</span>
-                        </div>
-                        <p class="text-muted small mb-1">
-                            <i class="bi bi-controller me-1"></i>
-                            <span th:text="${listing.format.formatName}">Format</span>
-                            (<span th:text="${listing.format.noPlayers}">0</span> players)
-                        </p>
-                        <p class="text-muted small mb-1">
-                            <i class="bi bi-calendar me-1"></i>
-                            <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
-                        </p>
-                        <p class="text-muted small mb-2">
-                            <i class="bi bi-geo-alt me-1"></i>
-                            <span th:text="${listing.location}">Location</span>
-                        </p>
-                        <p class="small mb-2">
-                            <i class="bi bi-person me-1"></i>
-                            Created by <strong th:text="${listing.creator.username}">User</strong>
-                        </p>
-                    </div>
-                    <div class="card-footer bg-white border-top-0">
-                        <a th:href="@{'/listings/' + ${listing.gameListingId}}" class="btn btn-outline-gameon btn-sm w-100">
-                            View Teams &amp; Join
-                        </a>
-                    </div>
+            <!-- Filters -->
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <!-- Skill Filter -->
+                <form th:action="@{/listings}" method="get" class="d-flex gap-2 align-items-center" id="skillFilterForm">
+                    <label class="form-label mb-0 small text-muted">Skill:</label>
+                    <select name="skill" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        <option value="">All Levels</option>
+                        <option th:each="level : ${skillLevels}" th:value="${level}" th:text="${level}"
+                                th:selected="${selectedSkill != null && selectedSkill.toUpperCase() == level.name()}">Level</option>
+                    </select>
+                </form>
+
+                <!-- Radius Filter (for nearby listings) -->
+                <div class="d-flex gap-2 align-items-center" id="radiusFilterGroup" style="display: none !important;">
+                    <label class="form-label mb-0 small text-muted">Radius:</label>
+                    <select class="form-select form-select-sm" style="width: auto;" id="radiusFilter">
+                        <option value="5">5 km</option>
+                        <option value="10" selected>10 km</option>
+                        <option value="20">20 km</option>
+                        <option value="50">50 km</option>
+                    </select>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="nearbyBtn" title="Find listings near me">
+                        <i class="bi bi-crosshair me-1"></i>Nearby
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Empty State -->
-        <div th:if="${listings == null || listings.isEmpty()}" class="text-center py-5">
-            <i class="bi bi-trophy text-muted" style="font-size: 4rem;"></i>
-            <h5 class="text-muted mt-3">No listings available</h5>
-            <p class="text-muted">Create a game listing or add more sports to your profile to see listings.</p>
+        <!-- ===== LIST VIEW ===== -->
+        <div id="listViewContainer">
+            <!-- Nearby Listings Results (shown when nearby filter active) -->
+            <div id="nearbyResults" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted"><i class="bi bi-geo-alt me-1"></i>Showing listings near you</small>
+                    <button type="button" class="btn btn-link btn-sm text-danger p-0" id="clearNearbyBtn">Clear filter</button>
+                </div>
+                <div class="row g-3" id="nearbyListingsGrid"></div>
+            </div>
+
+            <!-- Standard Listings Grid (hidden when nearby filter active) -->
+            <div id="standardListings">
+                <!-- Listings Grid -->
+                <div th:if="${listings != null && !listings.isEmpty()}" class="row g-3">
+                    <div th:each="listing : ${listings}" class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0" th:text="${listing.format.sport.sportName}">Sport</h6>
+                                    <span class="badge badge-skill"
+                                          th:classappend="${listing.skillLevel.name() == 'BEGINNER'} ? 'bg-success' : (${listing.skillLevel.name() == 'INTERMEDIATE'} ? 'bg-warning text-dark' : 'bg-danger')"
+                                          th:text="${listing.skillLevel}">Level</span>
+                                </div>
+                                <p class="text-muted small mb-1">
+                                    <i class="bi bi-controller me-1"></i>
+                                    <span th:text="${listing.format.formatName}">Format</span>
+                                    (<span th:text="${listing.format.noPlayers}">0</span> players)
+                                </p>
+                                <p class="text-muted small mb-1">
+                                    <i class="bi bi-calendar me-1"></i>
+                                    <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
+                                </p>
+                                <p class="text-muted small mb-2">
+                                    <i class="bi bi-geo-alt me-1"></i>
+                                    <span th:text="${listing.venueName != null ? listing.venueName : listing.location}">Location</span>
+                                </p>
+                                <p class="small mb-2">
+                                    <i class="bi bi-person me-1"></i>
+                                    Created by <strong th:text="${listing.creator.username}">User</strong>
+                                </p>
+                            </div>
+                            <div class="card-footer bg-white border-top-0">
+                                <a th:href="@{'/listings/' + ${listing.gameListingId}}" class="btn btn-outline-gameon btn-sm w-100">
+                                    View Teams &amp; Join
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div th:if="${listings == null || listings.isEmpty()}" class="text-center py-5">
+                    <i class="bi bi-trophy text-muted" style="font-size: 4rem;"></i>
+                    <h5 class="text-muted mt-3">No listings available</h5>
+                    <p class="text-muted">Create a game listing or add more sports to your profile to see listings.</p>
+                </div>
+
+                <!-- Pagination -->
+                <nav th:if="${listings != null && listings.totalPages > 1}" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" th:classappend="${listings.first} ? 'disabled'">
+                            <a class="page-link" th:href="@{/listings(page=${listings.number - 1}, skill=${selectedSkill})}">Previous</a>
+                        </li>
+                        <li th:each="i : ${#numbers.sequence(0, listings.totalPages - 1)}"
+                            class="page-item" th:classappend="${i == listings.number} ? 'active'">
+                            <a class="page-link" th:href="@{/listings(page=${i}, skill=${selectedSkill})}" th:text="${i + 1}">1</a>
+                        </li>
+                        <li class="page-item" th:classappend="${listings.last} ? 'disabled'">
+                            <a class="page-link" th:href="@{/listings(page=${listings.number + 1}, skill=${selectedSkill})}">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
         </div>
 
-        <!-- Pagination -->
-        <nav th:if="${listings != null && listings.totalPages > 1}" class="mt-4">
-            <ul class="pagination justify-content-center">
-                <li class="page-item" th:classappend="${listings.first} ? 'disabled'">
-                    <a class="page-link" th:href="@{/listings(page=${listings.number - 1}, skill=${selectedSkill})}">Previous</a>
-                </li>
-                <li th:each="i : ${#numbers.sequence(0, listings.totalPages - 1)}"
-                    class="page-item" th:classappend="${i == listings.number} ? 'active'">
-                    <a class="page-link" th:href="@{/listings(page=${i}, skill=${selectedSkill})}" th:text="${i + 1}">1</a>
-                </li>
-                <li class="page-item" th:classappend="${listings.last} ? 'disabled'">
-                    <a class="page-link" th:href="@{/listings(page=${listings.number + 1}, skill=${selectedSkill})}">Next</a>
-                </li>
-            </ul>
-        </nav>
+        <!-- ===== MAP VIEW ===== -->
+        <div id="mapViewContainer" style="display: none;">
+            <div id="listingsMap" style="height: 500px; border-radius: 12px; border: 1px solid #dee2e6;"></div>
+            <small class="text-muted mt-1 d-block">Click a marker to see listing details. Clustered markers expand on zoom.</small>
+        </div>
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <script>
+    (function() {
+        // ===== State =====
+        var currentView = 'list'; // 'list' or 'map'
+        var mapInstance = null;
+        var markerClusterGroup = null;
+        var mapInitialized = false;
+        var userLat = null;
+        var userLng = null;
+
+        // ===== DOM Elements =====
+        var listViewBtn = document.getElementById('listViewBtn');
+        var mapViewBtn = document.getElementById('mapViewBtn');
+        var listViewContainer = document.getElementById('listViewContainer');
+        var mapViewContainer = document.getElementById('mapViewContainer');
+        var radiusFilterGroup = document.getElementById('radiusFilterGroup');
+        var radiusFilter = document.getElementById('radiusFilter');
+        var nearbyBtn = document.getElementById('nearbyBtn');
+        var nearbyResults = document.getElementById('nearbyResults');
+        var nearbyListingsGrid = document.getElementById('nearbyListingsGrid');
+        var standardListings = document.getElementById('standardListings');
+        var clearNearbyBtn = document.getElementById('clearNearbyBtn');
+
+        // ===== View Toggle =====
+        listViewBtn.addEventListener('click', function() {
+            switchView('list');
+        });
+
+        mapViewBtn.addEventListener('click', function() {
+            switchView('map');
+        });
+
+        function switchView(view) {
+            currentView = view;
+
+            if (view === 'list') {
+                listViewBtn.classList.add('active');
+                mapViewBtn.classList.remove('active');
+                listViewContainer.style.display = 'block';
+                mapViewContainer.style.display = 'none';
+            } else {
+                listViewBtn.classList.remove('active');
+                mapViewBtn.classList.add('active');
+                listViewContainer.style.display = 'none';
+                mapViewContainer.style.display = 'block';
+
+                // Initialize map on first switch
+                if (!mapInitialized) {
+                    initMap();
+                } else {
+                    // Invalidate size to fix rendering after display:none
+                    mapInstance.invalidateSize();
+                }
+            }
+        }
+
+        // ===== Show Radius Filter after geolocation =====
+        function showRadiusFilter() {
+            radiusFilterGroup.style.display = 'flex';
+            radiusFilterGroup.style.cssText = 'display: flex !important;';
+        }
+
+        // ===== Initialize Map View =====
+        function initMap() {
+            mapInstance = L.map('listingsMap').setView([-30.5595, 22.9375], 5);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(mapInstance);
+
+            markerClusterGroup = L.markerClusterGroup();
+            mapInstance.addLayer(markerClusterGroup);
+
+            mapInitialized = true;
+
+            // Fetch listing data and populate markers
+            loadMapMarkers();
+        }
+
+        // ===== Load Map Markers from API =====
+        function loadMapMarkers() {
+            fetch('/listings/map-data')
+                .then(function(res) { return res.json(); })
+                .then(function(listings) {
+                    markerClusterGroup.clearLayers();
+
+                    if (listings.length === 0) return;
+
+                    var bounds = [];
+
+                    listings.forEach(function(item) {
+                        var latlng = [item.latitude, item.longitude];
+                        bounds.push(latlng);
+
+                        // Build popup content
+                        var popupHtml =
+                            '<div style="min-width:180px;">' +
+                            '<strong>' + escapeHtml(item.sport) + '</strong><br>' +
+                            '<small class="text-muted">' + escapeHtml(item.format) + '</small><br>' +
+                            '<span class="badge ' + skillBadgeClass(item.skillLevel) + ' mt-1 mb-1">' + item.skillLevel + '</span><br>' +
+                            '<i class="bi bi-calendar"></i> ' + item.scheduledDate + '<br>' +
+                            '<i class="bi bi-geo-alt"></i> ' + escapeHtml(item.venueName) + '<br>' +
+                            '<i class="bi bi-person"></i> ' + escapeHtml(item.creator) + '<br>' +
+                            '<a href="/listings/' + item.id + '" class="btn btn-outline-danger btn-sm mt-2 w-100">View Listing</a>' +
+                            '</div>';
+
+                        var marker = L.marker(latlng);
+                        marker.bindPopup(popupHtml);
+                        markerClusterGroup.addLayer(marker);
+                    });
+
+                    // Fit map to show all markers
+                    if (bounds.length > 0) {
+                        mapInstance.fitBounds(bounds, { padding: [30, 30] });
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Failed to load map data:', err);
+                });
+        }
+
+        // ===== Nearby Listings =====
+        nearbyBtn.addEventListener('click', function() {
+            if (userLat === null || userLng === null) {
+                // Try to get location first
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by your browser.');
+                    return;
+                }
+                nearbyBtn.disabled = true;
+                nearbyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        userLat = pos.coords.latitude;
+                        userLng = pos.coords.longitude;
+                        nearbyBtn.disabled = false;
+                        nearbyBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Nearby';
+                        fetchNearbyListings();
+                    },
+                    function(err) {
+                        nearbyBtn.disabled = false;
+                        nearbyBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Nearby';
+                        alert('Unable to get your location. Please allow location access.');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                fetchNearbyListings();
+            }
+        });
+
+        radiusFilter.addEventListener('change', function() {
+            if (userLat !== null && userLng !== null && nearbyResults.style.display !== 'none') {
+                fetchNearbyListings();
+            }
+        });
+
+        clearNearbyBtn.addEventListener('click', function() {
+            nearbyResults.style.display = 'none';
+            standardListings.style.display = 'block';
+        });
+
+        function fetchNearbyListings() {
+            var radius = radiusFilter.value;
+            var url = '/listings/nearby?lat=' + userLat + '&lng=' + userLng + '&radius=' + radius;
+
+            fetch(url)
+                .then(function(res) { return res.json(); })
+                .then(function(listings) {
+                    renderNearbyListings(listings);
+                })
+                .catch(function(err) {
+                    console.error('Nearby listings error:', err);
+                });
+        }
+
+        function renderNearbyListings(listings) {
+            nearbyListingsGrid.innerHTML = '';
+
+            if (listings.length === 0) {
+                nearbyListingsGrid.innerHTML =
+                    '<div class="col-12 text-center py-4">' +
+                    '<i class="bi bi-geo-alt text-muted" style="font-size:2rem;"></i>' +
+                    '<p class="text-muted mt-2">No listings found within ' + radiusFilter.value + ' km of your location.</p>' +
+                    '</div>';
+            } else {
+                listings.forEach(function(item) {
+                    var cardHtml =
+                        '<div class="col-md-6 col-lg-4">' +
+                        '<div class="card h-100 shadow-sm">' +
+                        '<div class="card-body">' +
+                        '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                        '<h6 class="card-title mb-0">' + escapeHtml(item.sport) + '</h6>' +
+                        '<span class="badge badge-skill ' + skillBadgeClass(item.skillLevel) + '">' + item.skillLevel + '</span>' +
+                        '</div>' +
+                        '<p class="text-muted small mb-1"><i class="bi bi-controller me-1"></i>' + escapeHtml(item.format) + '</p>' +
+                        '<p class="text-muted small mb-1"><i class="bi bi-calendar me-1"></i>' + item.scheduledDate + '</p>' +
+                        '<p class="text-muted small mb-1"><i class="bi bi-geo-alt me-1"></i>' + escapeHtml(item.venueName) + '</p>' +
+                        '<p class="small mb-2 text-primary"><i class="bi bi-signpost-2 me-1"></i><strong>' + item.distanceKm + ' km away</strong></p>' +
+                        '<p class="small mb-2"><i class="bi bi-person me-1"></i>Created by <strong>' + escapeHtml(item.creator) + '</strong></p>' +
+                        '</div>' +
+                        '<div class="card-footer bg-white border-top-0">' +
+                        '<a href="/listings/' + item.id + '" class="btn btn-outline-gameon btn-sm w-100">View Teams & Join</a>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                    nearbyListingsGrid.innerHTML += cardHtml;
+                });
+            }
+
+            // Show nearby results, hide standard listings
+            nearbyResults.style.display = 'block';
+            standardListings.style.display = 'none';
+        }
+
+        // ===== Utility Functions =====
+        function skillBadgeClass(level) {
+            if (level === 'BEGINNER') return 'bg-success';
+            if (level === 'INTERMEDIATE') return 'bg-warning text-dark';
+            return 'bg-danger';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        // ===== Auto-detect user location (silent) for nearby feature =====
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    userLat = pos.coords.latitude;
+                    userLng = pos.coords.longitude;
+                    // Show radius filter once we have location
+                    showRadiusFilter();
+                },
+                function() { /* silent - radius filter stays hidden until manually triggered */ },
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+            );
+        }
+    })();
+    </script>
 </body>
 </html>

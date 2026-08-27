@@ -42,6 +42,9 @@ public class User extends Auditable {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "profile_image_path", length = 500)
+    private String profileImagePath;
+
     // ===== Relationships =====
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
@@ -130,6 +133,14 @@ public class User extends Auditable {
 
     public void setIsActive(Boolean isActive) {
         this.isActive = isActive;
+    }
+
+    public String getProfileImagePath() {
+        return profileImagePath;
+    }
+
+    public void setProfileImagePath(String profileImagePath) {
+        this.profileImagePath = profileImagePath;
     }
 
     public List<UserSportProfile> getSportProfiles() {
