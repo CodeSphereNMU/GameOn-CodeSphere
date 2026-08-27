@@ -18,13 +18,44 @@
 
         <div class="row">
             <!-- Profile Card -->
-            <div class="col-md-4">
-                <div class="card shadow-sm">
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm profile-card">
                     <div class="card-body text-center">
-                        <i class="bi bi-person-circle text-muted" style="font-size: 5rem;"></i>
-                        <h4 class="mt-2" th:text="${user.username}">Username</h4>
-                        <span class="badge bg-secondary" th:text="${user.userRole}">ROLE</span>
+                        <!-- Profile Picture with floating edit button -->
+                        <div class="profile-picture-wrapper mx-auto">
+                            <img th:if="${user.profileImagePath != null}"
+                                 th:src="${user.profileImagePath}"
+                                 alt="Profile Picture"
+                                 class="profile-picture"
+                                 id="profileImage">
+                            <div th:if="${user.profileImagePath == null}" class="profile-picture-placeholder" id="profileImagePlaceholder">
+                                <i class="bi bi-person-circle"></i>
+                            </div>
+                            <!-- Floating edit button on profile picture (own profile only) -->
+                            <button th:if="${isOwnProfile}" type="button"
+                                    class="btn profile-picture-edit-btn"
+                                    id="profilePictureEditBtn"
+                                    title="Change profile picture"
+                                    aria-label="Change profile picture">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <input type="file" id="profilePictureInput" class="d-none"
+                                   accept=".jpg,.jpeg,.png,.webp">
+                        </div>
 
+                        <!-- Username with inline pencil edit icon -->
+                        <div class="d-flex align-items-center justify-content-center mt-3">
+                            <h4 class="mb-0" th:text="${user.username}">Username</h4>
+                            <a th:if="${isOwnProfile}" th:href="@{/profile/edit}"
+                               class="profile-edit-icon ms-2" title="Edit profile"
+                               aria-label="Edit profile">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                        </div>
+
+                        <span class="badge bg-secondary mt-2" th:text="${user.userRole}">ROLE</span>
+
+                        <!-- Followers / Following -->
                         <div class="d-flex justify-content-center gap-4 mt-3">
                             <div class="text-center">
                                 <strong th:text="${followerCount}">0</strong>
@@ -36,15 +67,7 @@
                             </div>
                         </div>
 
-                        <!-- Action Buttons -->
-                        <div class="mt-3" th:if="${isOwnProfile}">
-                            <a th:href="@{/profile/edit}" class="btn btn-outline-gameon btn-sm w-100 mb-2">
-                                <i class="bi bi-pencil me-1"></i>Edit Profile
-                            </a>
-                            <a th:href="@{/profile/add-sport}" class="btn btn-gameon btn-sm w-100">
-                                <i class="bi bi-plus-lg me-1"></i>Add Sport
-                            </a>
-                        </div>
+                        <!-- Follow / Report (other user profile) -->
                         <div class="mt-3" th:unless="${isOwnProfile}">
                             <form th:action="@{'/profile/' + ${user.userId} + '/follow'}" method="post">
                                 <button type="submit" class="btn btn-sm w-100"
@@ -59,11 +82,16 @@
                 </div>
             </div>
 
-            <!-- Sports Section -->
+            <!-- Right Column -->
             <div class="col-md-8">
+                <!-- Sports Section with Add Sport button in header -->
                 <div class="card shadow-sm">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Sports</h5>
+                        <a th:if="${isOwnProfile}" th:href="@{/profile/add-sport}"
+                           class="btn btn-gameon btn-sm">
+                            <i class="bi bi-plus-lg me-1"></i>Add Sport
+                        </a>
                     </div>
                     <div class="card-body">
                         <div th:if="${sports.isEmpty()}" class="text-center text-muted py-3">
@@ -157,16 +185,170 @@
                 <!-- View Posts & Match Results Buttons -->
                 <div class="mt-3">
                     <a th:href="@{'/profile/' + ${user.userId} + '/posts'}" class="btn btn-gameon w-100 mb-2">
-                        View Posts →
+                        View Posts &rarr;
                     </a>
                     <a th:href="@{'/profile/' + ${user.userId} + '/results'}" class="btn btn-gameon w-100">
-                        View Match Results →
+                        View Match Results &rarr;
                     </a>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Profile Page Styles -->
+    <style>
+        .profile-picture-wrapper {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin-bottom: 0.5rem;
+        }
+        .profile-picture {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .profile-picture-placeholder {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .profile-picture-placeholder i {
+            font-size: 5rem;
+            color: #adb5bd;
+        }
+        .profile-picture-edit-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: none;
+            color: #6c757d;
+            transition: color 0.2s, box-shadow 0.2s;
+        }
+        .profile-picture-edit-btn:hover {
+            color: #DC3545;
+            box-shadow: 0 3px 10px rgba(220, 53, 69, 0.3);
+        }
+        .profile-picture-edit-btn i {
+            font-size: 1rem;
+        }
+        .profile-edit-icon {
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 1rem;
+            transition: color 0.2s;
+        }
+        .profile-edit-icon:hover {
+            color: #DC3545;
+        }
+        .profile-card .card-body {
+            padding: 2rem 1.5rem;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 767.98px) {
+            .profile-picture-wrapper {
+                margin: 0 auto;
+            }
+            .profile-card .card-body {
+                padding: 1.5rem 1rem;
+            }
+        }
+    </style>
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- Profile Picture Upload Script -->
+    <script th:if="${isOwnProfile}">
+    (function() {
+        var editBtn = document.getElementById('profilePictureEditBtn');
+        var fileInput = document.getElementById('profilePictureInput');
+        if (!editBtn || !fileInput) return;
+
+        editBtn.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function() {
+            var file = this.files[0];
+            if (!file) return;
+
+            // Client-side validation
+            var maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                alert('File size exceeds 5MB limit. Please choose a smaller image.');
+                this.value = '';
+                return;
+            }
+
+            var allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (allowedTypes.indexOf(file.type) === -1) {
+                alert('Invalid file type. Allowed formats: JPG, JPEG, PNG, WEBP.');
+                this.value = '';
+                return;
+            }
+
+            // Upload via AJAX
+            var formData = new FormData();
+            formData.append('file', file);
+
+            var csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            var csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/profile/upload-picture', true);
+            xhr.setRequestHeader(csrfHeader, csrfToken);
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.success === 'true') {
+                        // Update the profile picture on the page
+                        var img = document.getElementById('profileImage');
+                        var placeholder = document.getElementById('profileImagePlaceholder');
+                        if (img) {
+                            img.src = data.imageUrl + '?t=' + Date.now();
+                        } else if (placeholder) {
+                            // Replace placeholder with actual image
+                            var newImg = document.createElement('img');
+                            newImg.id = 'profileImage';
+                            newImg.className = 'profile-picture';
+                            newImg.alt = 'Profile Picture';
+                            newImg.src = data.imageUrl + '?t=' + Date.now();
+                            placeholder.parentNode.replaceChild(newImg, placeholder);
+                        }
+                    } else {
+                        alert(data.error || 'Upload failed. Please try again.');
+                    }
+                } else {
+                    alert('Upload failed. Please try again.');
+                }
+            };
+
+            xhr.onerror = function() {
+                alert('Upload failed. Please check your connection and try again.');
+            };
+
+            xhr.send(formData);
+            this.value = '';
+        });
+    })();
+    </script>
 </body>
 </html>
