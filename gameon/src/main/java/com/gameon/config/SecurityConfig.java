@@ -44,6 +44,10 @@ public class SecurityConfig {
                 // Public resources
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**", "/favicon.ico").permitAll()
 
+                // Uploaded post images (served as static files; unguessable UUID filenames).
+                // Post visibility is enforced by the feed/detail queries that expose these URLs.
+                .requestMatchers("/uploads/posts/**").permitAll()
+
                 // Authentication pages - accessible to anonymous users only
                 .requestMatchers("/login", "/register", "/register-sports").permitAll()
 
@@ -101,6 +105,9 @@ public class SecurityConfig {
                     .policyDirectives("default-src 'self'; " +
                                       "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
                                       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+                                      // img-src allows same-origin stored post images plus blob:/data:
+                                      // used by client-side upload previews (URL.createObjectURL).
+                                      "img-src 'self' data: blob:; " +
                                       "font-src 'self' https://cdn.jsdelivr.net;")
                 )
             );

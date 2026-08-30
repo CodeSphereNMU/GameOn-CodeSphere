@@ -30,6 +30,8 @@ class PostSoftRemovalTest {
     @Mock PostRepository postRepository;
     @Mock UserRepository userRepository;
     @Mock FollowRepository followRepository;
+    @Mock com.gameon.repository.PostImageRepository postImageRepository;
+    @Mock ImageStorageService imageStorageService;
     @InjectMocks PostService service;
 
     private User author;

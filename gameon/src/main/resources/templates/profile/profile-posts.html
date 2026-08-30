@@ -2,6 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Posts')}"></head>
 <body class="bg-light">
+    <th:block th:replace="~{social/carousel-css :: style}"></th:block>
     <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('none')}"></div>
 
@@ -30,7 +31,54 @@
                         </div>
                         <span class="badge bg-secondary" th:text="${post.privacySetting}">PUBLIC</span>
                     </div>
-                    <p class="mt-2 mb-0" th:text="${post.content}">Post content</p>
+                    <p class="mt-2 mb-0" th:if="${post.content != null and !post.content.isEmpty()}"
+                       th:text="${post.content}">Post content</p>
+
+                    <!-- Post Images (carousel) - reuses the Social Feed carousel -->
+                    <th:block th:with="images=${postImages != null ? postImages.get(post.postId) : null}">
+    <div th:if="${images != null and !images.isEmpty()}"
+         class="post-carousel mt-2"
+         th:attr="data-count=${images.size()}">
+
+        <div class="post-carousel-viewport">
+            <img th:each="path,iter : ${images}"
+                 th:src="@{${path}}"
+                 class="post-carousel-img"
+                 th:classappend="${iter.index == 0} ? 'active'"
+                 th:attr="data-index=${iter.index}"
+                 alt="Post image"
+                 loading="lazy">
+        </div>
+
+        <button type="button"
+                class="post-carousel-btn prev"
+                th:if="${images.size() > 1}"
+                aria-label="Previous">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+
+        <button type="button"
+                class="post-carousel-btn next"
+                th:if="${images.size() > 1}"
+                aria-label="Next">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+
+        <div class="post-carousel-indicator"
+             th:if="${images.size() > 1}">
+            <span class="pos">1</span>/<span class="total"
+                                             th:text="${images.size()}">1</span>
+        </div>
+
+        <div class="post-carousel-dots"
+             th:if="${images.size() > 1}">
+            <span th:each="path,iter : ${images}"
+                  class="dot"
+                  th:classappend="${iter.index == 0} ? 'active'"
+                  th:attr="data-index=${iter.index}"></span>
+        </div>
+    </div>
+</th:block>
                 </div>
             </div>
 
@@ -52,6 +100,13 @@
         </div>
     </div>
 
+    <!-- Lightbox (shared) -->
+    <div id="imgLightbox" class="img-lightbox">
+        <button type="button" class="close-btn" aria-label="Close">&times;</button>
+        <img src="" alt="Enlarged post image">
+    </div>
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script th:replace="~{social/carousel-js :: script}"></script>
 </body>
 </html>

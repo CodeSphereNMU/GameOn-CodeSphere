@@ -13,12 +13,20 @@
                         <h5 class="mb-0"><i class="bi bi-pencil-square me-2 text-danger"></i>Create Post</h5>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{/social/create}" method="post">
+                        <form th:action="@{/social/create}" method="post" enctype="multipart/form-data" id="createPostForm">
                             <div class="mb-3">
                                 <label for="content" class="form-label">What's on your mind?</label>
                                 <textarea class="form-control" id="content" name="content" rows="4"
-                                          required maxlength="500" placeholder="Share something with the community..."></textarea>
-                                <div class="form-text">Max 500 characters</div>
+                                          maxlength="500" placeholder="Share something with the community..."></textarea>
+                                <div class="form-text">Max 500 characters. Text is optional if you add at least one image.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="images" class="form-label">Images <span class="text-muted">(optional, up to 4)</span></label>
+                                <input class="form-control" type="file" id="images" name="images"
+                                       accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple>
+                                <div class="form-text">JPG, PNG or WEBP. Max 5 MB each, up to 4 images.</div>
+                                <div id="imageError" class="text-danger small mt-1 d-none"></div>
+                                <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
                             </div>
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Who can see this?</label>
@@ -41,5 +49,123 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+        (function () {
+            const MAX_IMAGES = 4;
+            const MAX_BYTES = 5 * 1024 * 1024;
+            const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+            const input = document.getElementById('images');
+            const preview = document.getElementById('imagePreview');
+            const error = document.getElementById('imageError');
+            const content = document.getElementById('content');
+            const form = document.getElementById('createPostForm');
+            if (!input) return;
+
+            // Accumulated selection is the source of truth. The raw file input only ever holds
+            // the most recent pick, so we merge picks into this list and write it back to the
+            // input via a DataTransfer object before submit.
+            let selected = [];
+
+            function showError(msg) {
+                error.textContent = msg;
+                error.classList.toggle('d-none', !msg);
+            }
+
+            function syncInputFiles() {
+                const dt = new DataTransfer();
+                selected.forEach(function (f) { dt.items.add(f); });
+                input.files = dt.files;
+            }
+
+            function isDuplicate(file) {
+                return selected.some(function (f) {
+                    return f.name === file.name && f.size === file.size && f.lastModified === file.lastModified;
+                });
+            }
+
+            function render() {
+                preview.innerHTML = '';
+                selected.forEach(function (file, index) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'position-relative';
+                    wrap.style.width = '90px';
+                    wrap.style.height = '90px';
+
+                    const url = URL.createObjectURL(file);
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.style.width = '90px';
+                    img.style.height = '90px';
+                    img.style.objectFit = 'cover';
+                    img.className = 'rounded border';
+                    img.onload = function () { URL.revokeObjectURL(url); };
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 p-0 d-flex align-items-center justify-content-center';
+                    btn.style.width = '20px';
+                    btn.style.height = '20px';
+                    btn.style.borderRadius = '50%';
+                    btn.style.transform = 'translate(30%, -30%)';
+                    btn.setAttribute('aria-label', 'Remove image');
+                    btn.innerHTML = '<i class="bi bi-x"></i>';
+                    btn.addEventListener('click', function () {
+                        selected.splice(index, 1);
+                        syncInputFiles();
+                        showError('');
+                        render();
+                    });
+
+                    wrap.appendChild(img);
+                    wrap.appendChild(btn);
+                    preview.appendChild(wrap);
+                });
+            }
+
+            input.addEventListener('change', function () {
+                const picked = Array.from(input.files || []);
+                for (const f of picked) {
+                    if (!ALLOWED.includes(f.type)) {
+                        showError('Only JPG, PNG and WEBP images are allowed.');
+                        syncInputFiles();
+                        return;
+                    }
+                    if (f.size > MAX_BYTES) {
+                        showError('Each image must be 5 MB or smaller.');
+                        syncInputFiles();
+                        return;
+                    }
+                }
+                let added = 0, skippedDup = 0;
+                for (const f of picked) {
+                    if (isDuplicate(f)) { skippedDup++; continue; }
+                    if (selected.length >= MAX_IMAGES) {
+                        showError('You can attach at most ' + MAX_IMAGES + ' images.');
+                        break;
+                    }
+                    selected.push(f);
+                    added++;
+                }
+                if (added > 0 && skippedDup === 0 && selected.length <= MAX_IMAGES) {
+                    showError('');
+                }
+                syncInputFiles();
+                render();
+            });
+
+            form.addEventListener('submit', function (e) {
+                const hasText = content.value.trim().length > 0;
+                if (!hasText && selected.length === 0) {
+                    e.preventDefault();
+                    showError('Add some text or at least one image before posting.');
+                    return;
+                }
+                if (selected.length > MAX_IMAGES) {
+                    e.preventDefault();
+                    showError('You can attach at most ' + MAX_IMAGES + ' images.');
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

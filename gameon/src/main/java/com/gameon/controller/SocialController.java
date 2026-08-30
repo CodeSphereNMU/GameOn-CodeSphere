@@ -13,7 +13,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
 
 /**
  * Controller for B100 (Create Posts), B200 (Manage Posts), B300 (Browse Posts).
@@ -56,14 +59,15 @@ public class SocialController {
         return "social/create";
     }
 
-    @PostMapping("/social/create")
+    @PostMapping(value = "/social/create", consumes = {"multipart/form-data", "application/x-www-form-urlencoded"})
     public String createPost(@AuthenticationPrincipal CustomUserDetails currentUser,
-                             @RequestParam String content,
+                             @RequestParam(required = false, defaultValue = "") String content,
                              @RequestParam String privacySetting,
+                             @RequestParam(name = "images", required = false) List<MultipartFile> images,
                              RedirectAttributes redirectAttributes) {
         try {
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
-            postService.createPost(currentUser.getUserId(), content, privacy);
+            postService.createPost(currentUser.getUserId(), content, privacy, images);
             redirectAttributes.addFlashAttribute("success", "Post created!");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -82,19 +86,22 @@ public class SocialController {
             return "redirect:/social";
         }
         model.addAttribute("post", post);
+        model.addAttribute("images", postService.getImagePathsForPost(postId));
         model.addAttribute("privacySettings", new PrivacySetting[]{PrivacySetting.PUBLIC, PrivacySetting.FOLLOWERS});
         return "social/edit";
     }
 
-    @PostMapping("/social/edit/{postId}")
+    @PostMapping(value = "/social/edit/{postId}", consumes = {"multipart/form-data", "application/x-www-form-urlencoded"})
     public String editPost(@PathVariable Long postId,
                            @AuthenticationPrincipal CustomUserDetails currentUser,
-                           @RequestParam String content,
+                           @RequestParam(required = false, defaultValue = "") String content,
                            @RequestParam String privacySetting,
+                           @RequestParam(name = "removeImages", required = false) List<String> removeImages,
+                           @RequestParam(name = "images", required = false) List<MultipartFile> images,
                            RedirectAttributes redirectAttributes) {
         try {
             PrivacySetting privacy = PrivacySetting.valueOf(privacySetting.toUpperCase());
-            postService.updatePost(postId, currentUser.getUserId(), content, privacy);
+            postService.updatePost(postId, currentUser.getUserId(), content, privacy, removeImages, images);
             redirectAttributes.addFlashAttribute("success", "Post updated!");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -166,6 +173,7 @@ public class SocialController {
                            Model model) {
         Post post = postService.getPostWithUser(postId);
         model.addAttribute("post", post);
+        model.addAttribute("images", postService.getImagePathsForPost(postId));
         model.addAttribute("comments", commentService.getCommentsForPost(postId));
         model.addAttribute("likeCount", likeService.getLikeCount(postId));
         model.addAttribute("isLiked", likeService.isLikedByUser(currentUser.getUserId(), postId));

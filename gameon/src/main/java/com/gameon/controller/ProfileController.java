@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for user profile management.
@@ -200,8 +201,15 @@ public class ProfileController {
         Pageable pageable = PageRequest.of(page, 10);
         Page<Post> posts = postService.getPostsByUser(userId, pageable);
 
+        // Batch-load images for the posts on this page (keyed by postId) so the shared
+        // Social Feed carousel can render them without per-post N+1 queries. This does not
+        // change which posts are returned above.
+        List<Long> postIds = posts.getContent().stream().map(Post::getPostId).toList();
+        Map<Long, List<String>> postImages = postService.getImagePathsForPosts(postIds);
+
         model.addAttribute("user", user);
         model.addAttribute("posts", posts);
+        model.addAttribute("postImages", postImages);
         model.addAttribute("isOwnProfile", userId.equals(currentUser.getUserId()));
         return "profile/profile-posts";
     }

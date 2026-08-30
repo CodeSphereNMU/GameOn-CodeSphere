@@ -2,6 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Social')}"></head>
 <body class="bg-light">
+    <th:block th:replace="~{social/carousel-css :: style}"></th:block>
     <nav th:replace="~{fragments/layout :: navbar('social')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('social')}"></div>
 
@@ -102,7 +103,34 @@
                         </div>
 
                         <!-- Post Content -->
-                        <p class="card-text" th:text="${post.content}">Content here</p>
+                        <p class="card-text" th:if="${post.content != null and !post.content.isEmpty()}" th:text="${post.content}">Content here</p>
+
+                        <!-- Post Images (carousel) -->
+                        <div th:if="${post.hasImages}" class="post-carousel mb-2"
+                             th:attr="data-count=${post.imageCount}">
+                            <div class="post-carousel-viewport">
+                                <img th:each="path,iter : ${post.imagePaths}"
+                                     th:src="@{${path}}"
+                                     class="post-carousel-img"
+                                     th:classappend="${iter.index == 0} ? 'active'"
+                                     th:attr="data-index=${iter.index}"
+                                     alt="Post image" loading="lazy">
+                            </div>
+                            <button type="button" class="post-carousel-btn prev" th:if="${post.imageCount > 1}" aria-label="Previous">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <button type="button" class="post-carousel-btn next" th:if="${post.imageCount > 1}" aria-label="Next">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                            <div class="post-carousel-indicator" th:if="${post.imageCount > 1}">
+                                <span class="pos">1</span>/<span class="total" th:text="${post.imageCount}">1</span>
+                            </div>
+                            <div class="post-carousel-dots" th:if="${post.imageCount > 1}">
+                                <span th:each="path,iter : ${post.imagePaths}" class="dot"
+                                      th:classappend="${iter.index == 0} ? 'active'"
+                                      th:attr="data-index=${iter.index}"></span>
+                            </div>
+                        </div>
 
                         <!-- Privacy badge -->
                         <small class="text-muted">
@@ -149,6 +177,13 @@
         </div>
     </div>
 
+    <!-- Lightbox (shared) -->
+    <div id="imgLightbox" class="img-lightbox">
+        <button type="button" class="close-btn" aria-label="Close">&times;</button>
+        <img src="" alt="Enlarged post image">
+    </div>
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script th:replace="~{social/carousel-js :: script}"></script>
 </body>
 </html>

@@ -13,12 +13,46 @@
                         <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Post</h5>
                     </div>
                     <div class="card-body">
-                        <form th:action="@{'/social/edit/' + ${post.postId}}" method="post">
+                        <form th:action="@{'/social/edit/' + ${post.postId}}" method="post" enctype="multipart/form-data" id="editPostForm">
                             <div class="mb-3">
                                 <label for="content" class="form-label">Content</label>
                                 <textarea class="form-control" id="content" name="content" rows="4"
-                                          required maxlength="500" th:text="${post.content}"></textarea>
+                                          maxlength="500" th:text="${post.content}"></textarea>
+                                <div class="form-text">Text is optional if the post keeps or adds at least one image.</div>
                             </div>
+
+                            <!-- Existing images: thumbnail with an X control (in-page confirm) -->
+                            <div class="mb-3" th:if="${images != null and !images.isEmpty()}">
+                                <label class="form-label">Current images</label>
+                                <div class="d-flex flex-wrap gap-3" id="existingImages">
+                                    <div th:each="path : ${images}" class="existing-image position-relative"
+                                         th:attr="data-path=${path}"
+                                         style="width: 100px; height: 100px;">
+                                        <img th:src="@{${path}}" alt="Post image" loading="lazy"
+                                             style="width: 100px; height: 100px; object-fit: cover;"
+                                             class="rounded border">
+                                        <button type="button"
+                                                class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0 d-flex align-items-center justify-content-center remove-existing-btn"
+                                                style="width: 22px; height: 22px; border-radius: 50%; transform: translate(30%, -30%);"
+                                                aria-label="Remove image">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Hidden inputs for images the user confirmed removal of are injected here -->
+                                <div id="removeImagesContainer"></div>
+                            </div>
+
+                            <!-- Add new images -->
+                            <div class="mb-3">
+                                <label for="images" class="form-label">Add images <span class="text-muted">(up to 4 total)</span></label>
+                                <input class="form-control" type="file" id="images" name="images"
+                                       accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple>
+                                <div class="form-text">JPG, PNG or WEBP. Max 5 MB each. Total images per post cannot exceed 4.</div>
+                                <div id="imageError" class="text-danger small mt-1 d-none"></div>
+                                <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
+                            </div>
+
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Privacy</label>
                                 <select class="form-select" id="privacySetting" name="privacySetting" required>
@@ -37,6 +71,182 @@
         </div>
     </div>
 
+    <!-- In-page confirmation modal for existing-image removal (no window.confirm) -->
+    <div id="removeConfirm" class="remove-confirm-overlay">
+        <div class="remove-confirm-box shadow">
+            <p class="mb-3">Remove this image?</p>
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="removeConfirmNo">No</button>
+                <button type="button" class="btn btn-sm btn-danger" id="removeConfirmYes">Yes</button>
+            </div>
+        </div>
+    </div>
+    <style>
+        .remove-confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1090;
+        }
+        .remove-confirm-overlay.open { display: flex; }
+        .remove-confirm-box {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px 22px;
+            max-width: 320px;
+            width: 90%;
+        }
+    </style>
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script th:inline="javascript">
+        (function () {
+            const MAX_IMAGES = 4;
+            const MAX_BYTES = 5 * 1024 * 1024;
+            const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+            const input = document.getElementById('images');
+            const preview = document.getElementById('imagePreview');
+            const error = document.getElementById('imageError');
+            const content = document.getElementById('content');
+            const form = document.getElementById('editPostForm');
+            const removeContainer = document.getElementById('removeImagesContainer');
+            const overlay = document.getElementById('removeConfirm');
+            const btnYes = document.getElementById('removeConfirmYes');
+            const btnNo = document.getElementById('removeConfirmNo');
+            if (!input) return;
+
+            // Accumulated new-image selection is the source of truth for the file input.
+            let selected = [];
+            // The existing-image element currently pending a remove confirmation.
+            let pendingRemoveEl = null;
+
+            function keptExisting() {
+                return document.querySelectorAll('.existing-image').length;
+            }
+            function showError(msg) {
+                error.textContent = msg;
+                error.classList.toggle('d-none', !msg);
+            }
+            function syncInputFiles() {
+                const dt = new DataTransfer();
+                selected.forEach(function (f) { dt.items.add(f); });
+                input.files = dt.files;
+            }
+            function isDuplicate(file) {
+                return selected.some(function (f) {
+                    return f.name === file.name && f.size === file.size && f.lastModified === file.lastModified;
+                });
+            }
+            function renderNew() {
+                preview.innerHTML = '';
+                selected.forEach(function (file, index) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'position-relative';
+                    wrap.style.width = '90px';
+                    wrap.style.height = '90px';
+
+                    const url = URL.createObjectURL(file);
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.style.width = '90px';
+                    img.style.height = '90px';
+                    img.style.objectFit = 'cover';
+                    img.className = 'rounded border';
+                    img.onload = function () { URL.revokeObjectURL(url); };
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 p-0 d-flex align-items-center justify-content-center';
+                    btn.style.width = '20px';
+                    btn.style.height = '20px';
+                    btn.style.borderRadius = '50%';
+                    btn.style.transform = 'translate(30%, -30%)';
+                    btn.setAttribute('aria-label', 'Remove image');
+                    btn.innerHTML = '<i class="bi bi-x"></i>';
+                    btn.addEventListener('click', function () {
+                        selected.splice(index, 1);
+                        syncInputFiles();
+                        showError('');
+                        renderNew();
+                    });
+
+                    wrap.appendChild(img);
+                    wrap.appendChild(btn);
+                    preview.appendChild(wrap);
+                });
+            }
+
+            // ===== In-page confirm for existing images =====
+            function openConfirm(el) {
+                pendingRemoveEl = el;
+                overlay.classList.add('open');
+            }
+            function closeConfirm() {
+                pendingRemoveEl = null;
+                overlay.classList.remove('open');
+            }
+            btnNo.addEventListener('click', closeConfirm);
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) { closeConfirm(); }
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && overlay.classList.contains('open')) { closeConfirm(); }
+            });
+            btnYes.addEventListener('click', function () {
+                if (!pendingRemoveEl) { return; }
+                const path = pendingRemoveEl.getAttribute('data-path');
+                // Mark for removal: add a hidden input so the server performs the DB/file deletion on save.
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'removeImages';
+                hidden.value = path;
+                removeContainer.appendChild(hidden);
+                // Remove the thumbnail from the edit state (file is not deleted until save).
+                pendingRemoveEl.remove();
+                closeConfirm();
+                showError('');
+            });
+            document.querySelectorAll('.remove-existing-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openConfirm(btn.closest('.existing-image'));
+                });
+            });
+
+            // ===== New image selection (accumulating) =====
+            input.addEventListener('change', function () {
+                const picked = Array.from(input.files || []);
+                for (const f of picked) {
+                    if (!ALLOWED.includes(f.type)) { showError('Only JPG, PNG and WEBP images are allowed.'); syncInputFiles(); return; }
+                    if (f.size > MAX_BYTES) { showError('Each image must be 5 MB or smaller.'); syncInputFiles(); return; }
+                }
+                for (const f of picked) {
+                    if (isDuplicate(f)) { continue; }
+                    if (keptExisting() + selected.length >= MAX_IMAGES) {
+                        showError('A post can have at most ' + MAX_IMAGES + ' images in total.');
+                        break;
+                    }
+                    selected.push(f);
+                }
+                syncInputFiles();
+                renderNew();
+            });
+
+            form.addEventListener('submit', function (e) {
+                if (keptExisting() + selected.length > MAX_IMAGES) {
+                    e.preventDefault();
+                    showError('A post can have at most ' + MAX_IMAGES + ' images in total.');
+                    return;
+                }
+                const hasText = content.value.trim().length > 0;
+                if (!hasText && keptExisting() + selected.length === 0) {
+                    e.preventDefault();
+                    showError('The post must keep some text or at least one image.');
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

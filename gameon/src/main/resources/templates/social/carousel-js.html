@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Shared carousel + lightbox behaviour for Social Feed post images.
+  Usage: <script th:replace="~{social/carousel-js :: script}"></script>
+  Requires an element with id="imgLightbox" containing a <button class="close-btn"> and an <img>.
+-->
+<th:block th:fragment="script">
+<script>
+(function () {
+    function initCarousel(root) {
+        var imgs = Array.prototype.slice.call(root.querySelectorAll('.post-carousel-img'));
+        if (imgs.length <= 1) { return; }
+        var dots = Array.prototype.slice.call(root.querySelectorAll('.post-carousel-dots .dot'));
+        var posEl = root.querySelector('.post-carousel-indicator .pos');
+        var prev = root.querySelector('.post-carousel-btn.prev');
+        var next = root.querySelector('.post-carousel-btn.next');
+        var current = 0;
+
+        function show(i) {
+            current = (i + imgs.length) % imgs.length;
+            imgs.forEach(function (img, idx) { img.classList.toggle('active', idx === current); });
+            dots.forEach(function (dot, idx) { dot.classList.toggle('active', idx === current); });
+            if (posEl) { posEl.textContent = (current + 1); }
+        }
+        if (prev) { prev.addEventListener('click', function () { show(current - 1); }); }
+        if (next) { next.addEventListener('click', function () { show(current + 1); }); }
+        dots.forEach(function (dot, idx) {
+            dot.addEventListener('click', function () { show(idx); });
+        });
+    }
+
+    function initLightbox() {
+        var box = document.getElementById('imgLightbox');
+        if (!box) { return; }
+        var boxImg = box.querySelector('img');
+        var closeBtn = box.querySelector('.close-btn');
+
+        document.querySelectorAll('.post-carousel-img').forEach(function (img) {
+            img.addEventListener('click', function () {
+                boxImg.setAttribute('src', img.getAttribute('src'));
+                box.classList.add('open');
+            });
+        });
+        function close() { box.classList.remove('open'); boxImg.setAttribute('src', ''); }
+        box.addEventListener('click', function (e) {
+            if (e.target === box || e.target === closeBtn) { close(); }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { close(); }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.post-carousel').forEach(initCarousel);
+        initLightbox();
+    });
+})();
+</script>
+</th:block>
+</body>
+</html>
