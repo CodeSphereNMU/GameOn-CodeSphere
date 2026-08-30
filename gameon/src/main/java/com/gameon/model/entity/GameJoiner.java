@@ -53,6 +53,14 @@ public class GameJoiner {
     @Column(name = "status", nullable = false, length = 20)
     private JoinerStatus status = JoinerStatus.ACCEPTED;
 
+    /** When the player explicitly confirmed attendance. Null if not yet confirmed. */
+    @Column(name = "attendance_confirmed_at")
+    private LocalDateTime attendanceConfirmedAt;
+
+    /** Whether this player's departure was a late withdrawal (T-2h → T-1h). */
+    @Column(name = "is_late_withdrawal", nullable = false)
+    private boolean lateWithdrawal = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -162,6 +170,22 @@ public class GameJoiner {
     public void setStatus(JoinerStatus status) {
         this.status = status;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public LocalDateTime getAttendanceConfirmedAt() {
+        return attendanceConfirmedAt;
+    }
+
+    public void setAttendanceConfirmedAt(LocalDateTime attendanceConfirmedAt) {
+        this.attendanceConfirmedAt = attendanceConfirmedAt;
+    }
+
+    public boolean isLateWithdrawal() {
+        return lateWithdrawal;
+    }
+
+    public void setLateWithdrawal(boolean lateWithdrawal) {
+        this.lateWithdrawal = lateWithdrawal;
     }
 
     public LocalDateTime getCreatedAt() {

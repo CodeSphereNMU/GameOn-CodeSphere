@@ -146,4 +146,34 @@ public class GameJoinerController {
         }
         return "redirect:/lobby/joined";
     }
+
+    // ===== Confirm Attendance =====
+
+    @PostMapping("/confirm/{listingId}")
+    public String confirmAttendance(@PathVariable Long listingId,
+                                    @AuthenticationPrincipal CustomUserDetails currentUser,
+                                    RedirectAttributes redirectAttributes) {
+        try {
+            gameJoinerService.confirmAttendance(currentUser.getUserId(), listingId);
+            redirectAttributes.addFlashAttribute("success", "Attendance confirmed!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/lobby/joined";
+    }
+
+    // ===== Claim Last-Call Place =====
+
+    @PostMapping("/claim/{listingId}")
+    public String claimLastCallPlace(@PathVariable Long listingId,
+                                     @AuthenticationPrincipal CustomUserDetails currentUser,
+                                     RedirectAttributes redirectAttributes) {
+        try {
+            gameJoinerService.claimLastCallPlace(currentUser.getUserId(), listingId);
+            redirectAttributes.addFlashAttribute("success", "You successfully claimed a place in the game!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/lobby/joined";
+    }
 }

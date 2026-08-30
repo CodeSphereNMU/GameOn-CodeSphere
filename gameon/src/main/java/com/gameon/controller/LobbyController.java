@@ -3,10 +3,12 @@ package com.gameon.controller;
 import com.gameon.model.entity.GameJoiner;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.entity.JoinRequest;
+import com.gameon.model.enums.JoinerStatus;
 import com.gameon.model.enums.Team;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.GameJoinerService;
 import com.gameon.service.GameListingService;
+import com.gameon.service.ListingLifecycleService;
 import com.gameon.service.MatchResultService;
 import com.gameon.service.SportService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,11 +18,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Controller for the Lobby tab.
  * Created Listings tab, Joined Listings tab, Match History tab.
- * Also handles C500 (Accept/Reject join requests).
+ * Also handles C500 (Accept/Reject join requests) and last-call selection.
  */
 @Controller
 @RequestMapping("/lobby")
@@ -30,15 +34,18 @@ public class LobbyController {
     private final GameJoinerService gameJoinerService;
     private final MatchResultService matchResultService;
     private final SportService sportService;
+    private final ListingLifecycleService listingLifecycleService;
 
     public LobbyController(GameListingService gameListingService,
                            GameJoinerService gameJoinerService,
                            MatchResultService matchResultService,
-                           SportService sportService) {
+                           SportService sportService,
+                           ListingLifecycleService listingLifecycleService) {
         this.gameListingService = gameListingService;
         this.gameJoinerService = gameJoinerService;
         this.matchResultService = matchResultService;
         this.sportService = sportService;
+        this.listingLifecycleService = listingLifecycleService;
     }
 
     // ===== Lobby - Default (Created Tab) =====
@@ -57,11 +64,26 @@ public class LobbyController {
         model.addAttribute("editableListingIds", listings.stream()
                 .filter(gameListingService::isEditable)
                 .map(GameListing::getGameListingId)
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
         model.addAttribute("requestOpenListingIds", listings.stream()
                 .filter(gameJoinerService::isRequestWindowOpen)
                 .map(GameListing::getGameListingId)
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
+        // Listings the creator may still cancel (OPEN and more than 1 hour before start).
+        model.addAttribute("cancellableListingIds", listings.stream()
+                .filter(gameListingService::isCreatorCancellable)
+                .map(GameListing::getGameListingId)
+                .collect(Collectors.toSet()));
+        // Listings in last-call period (T-2h → T-1h) where creator can manage replacements
+        model.addAttribute("lastCallListingIds", listings.stream()
+                .filter(listingLifecycleService::isInLastCallPeriod)
+                .map(GameListing::getGameListingId)
+                .collect(Collectors.toSet()));
+        // Listings where confirmation is available (for creator's own confirmation)
+        model.addAttribute("confirmationAvailableIds", listings.stream()
+                .filter(listingLifecycleService::isConfirmationWindowOpen)
+                .map(GameListing::getGameListingId)
+                .collect(Collectors.toSet()));
         model.addAttribute("activeTab", "created");
         return "lobby/index";
     }
@@ -74,10 +96,27 @@ public class LobbyController {
         model.addAttribute("joinedGames", joinedGames);
         model.addAttribute("pendingRequests",
                 gameJoinerService.getPendingRequestsForUser(currentUser.getUserId()));
+
+        // IDs where leaving is possible (before T-1h and listing still open)
         model.addAttribute("leaveOpenListingIds", joinedGames.stream()
-                .filter(joiner -> gameJoinerService.isRequestWindowOpen(joiner.getGameListing()))
+                .filter(joiner -> gameJoinerService.isRequestWindowOpen(joiner.getGameListing())
+                        || gameJoinerService.isInLastCallPeriod(joiner.getGameListing()))
                 .map(joiner -> joiner.getGameListing().getGameListingId())
-                .collect(java.util.stream.Collectors.toSet()));
+                .collect(Collectors.toSet()));
+
+        // IDs where attendance confirmation is available
+        model.addAttribute("confirmationAvailableIds", joinedGames.stream()
+                .filter(joiner -> joiner.getStatus() == JoinerStatus.ACCEPTED)
+                .filter(joiner -> listingLifecycleService.isConfirmationWindowOpen(joiner.getGameListing()))
+                .map(joiner -> joiner.getGameListing().getGameListingId())
+                .collect(Collectors.toSet()));
+
+        // IDs in late-withdrawal period (for warning display)
+        model.addAttribute("lateWithdrawalIds", joinedGames.stream()
+                .filter(joiner -> listingLifecycleService.isInLastCallPeriod(joiner.getGameListing()))
+                .map(joiner -> joiner.getGameListing().getGameListingId())
+                .collect(Collectors.toSet()));
+
         model.addAttribute("activeTab", "joined");
         return "lobby/index";
     }
@@ -116,6 +155,10 @@ public class LobbyController {
         boolean teamAFull = gameJoinerService.isTeamFull(listingId, Team.A, maxPlayers);
         boolean teamBFull = gameJoinerService.isTeamFull(listingId, Team.B, maxPlayers);
 
+        // Lifecycle phase info
+        boolean isInLastCallPeriod = listingLifecycleService.isInLastCallPeriod(listing);
+        boolean confirmationWindowOpen = listingLifecycleService.isConfirmationWindowOpen(listing);
+
         model.addAttribute("listing", listing);
         model.addAttribute("pendingRequests", pendingRequests);
         model.addAttribute("acceptedJoiners", acceptedJoiners);
@@ -126,6 +169,9 @@ public class LobbyController {
         model.addAttribute("teamAFull", teamAFull);
         model.addAttribute("teamBFull", teamBFull);
         model.addAttribute("requestWindowOpen", gameJoinerService.isRequestWindowOpen(listing));
+        model.addAttribute("isInLastCallPeriod", isInLastCallPeriod);
+        model.addAttribute("confirmationWindowOpen", confirmationWindowOpen);
+
         if (listing.getFormat().getHasPositions()) {
             model.addAttribute("positionNames",
                     sportService.getPositionNamesForFormat(listing.getFormat().getFormatId()));
@@ -163,5 +209,42 @@ public class LobbyController {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/lobby/requests/" + listingId;
+    }
+
+    // ===== Last-Call: Creator selects multiple users for replacement notification =====
+
+    @PostMapping("/requests/{listingId}/last-call")
+    public String approveLastCall(@PathVariable Long listingId,
+                                  @RequestParam(required = false) List<Long> selectedUserIds,
+                                  @AuthenticationPrincipal CustomUserDetails currentUser,
+                                  RedirectAttributes redirectAttributes) {
+        if (selectedUserIds == null || selectedUserIds.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Please select at least one requester to send a last-call notification.");
+            return "redirect:/lobby/requests/" + listingId;
+        }
+        try {
+            gameJoinerService.approveLastCallRequesters(listingId, currentUser.getUserId(), selectedUserIds);
+            redirectAttributes.addFlashAttribute("success",
+                    "Last-call notifications sent to " + selectedUserIds.size() + " player(s).");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/lobby/requests/" + listingId;
+    }
+
+    // ===== Creator Confirm Attendance (from Created tab) =====
+
+    @PostMapping("/created/{listingId}/confirm")
+    public String creatorConfirmAttendance(@PathVariable Long listingId,
+                                           @AuthenticationPrincipal CustomUserDetails currentUser,
+                                           RedirectAttributes redirectAttributes) {
+        try {
+            gameJoinerService.confirmAttendance(currentUser.getUserId(), listingId);
+            redirectAttributes.addFlashAttribute("success", "Your attendance has been confirmed.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/lobby/created";
     }
 }

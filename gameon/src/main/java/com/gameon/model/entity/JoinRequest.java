@@ -49,6 +49,10 @@ public class JoinRequest {
     @Column(name = "status", nullable = false, length = 20)
     private JoinRequestStatus status = JoinRequestStatus.PENDING;
 
+    /** Whether the creator has pre-approved this requester for a last-call place (T-2h → T-1h). */
+    @Column(name = "is_last_call_approved", nullable = false)
+    private boolean lastCallApproved = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -86,6 +90,8 @@ public class JoinRequest {
         this.status = status;
         this.updatedAt = LocalDateTime.now();
     }
+    public boolean isLastCallApproved() { return lastCallApproved; }
+    public void setLastCallApproved(boolean lastCallApproved) { this.lastCallApproved = lastCallApproved; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

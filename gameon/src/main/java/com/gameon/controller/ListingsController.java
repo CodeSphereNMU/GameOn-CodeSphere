@@ -365,6 +365,25 @@ public class ListingsController {
                     ? "PENDING"
                     : gameJoinerService.isParticipant(currentUser.getUserId(), id) ? "PARTICIPANT" : null;
             model.addAttribute("joinState", joinState);
+
+            // Attendance confirmation state for participant
+            if ("PARTICIPANT".equals(joinState)) {
+                listing.getJoiners().stream()
+                        .filter(j -> j.getUser().getUserId().equals(currentUser.getUserId()))
+                        .findFirst()
+                        .ifPresent(joiner -> {
+                            model.addAttribute("myJoinerStatus", joiner.getStatus().name());
+                            model.addAttribute("confirmationAvailable",
+                                    joiner.getStatus().name().equals("ACCEPTED")
+                                            && gameJoinerService.isConfirmationAvailable(listing));
+                        });
+            }
+
+            // Check if user has a last-call offer
+            if ("PENDING".equals(joinState)) {
+                model.addAttribute("hasLastCallOffer",
+                        gameJoinerService.hasLastCallOffer(currentUser.getUserId(), id));
+            }
         }
 
         return "listings/detail";
@@ -391,6 +410,8 @@ public class ListingsController {
         model.addAttribute("listing", listing);
         model.addAttribute("skillLevels", SkillLevel.values());
         model.addAttribute("privacySettings", PrivacySetting.values());
+        // Cancel is only shown while the listing is still cancellable (more than 1 hour before start).
+        model.addAttribute("cancellable", gameListingService.isCreatorCancellable(listing));
         return "listings/edit";
     }
 

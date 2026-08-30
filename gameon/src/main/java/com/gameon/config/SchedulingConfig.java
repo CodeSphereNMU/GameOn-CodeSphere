@@ -11,10 +11,13 @@ import org.springframework.scheduling.annotation.Scheduled;
 import java.util.List;
 
 /**
- * Scheduled tasks for time-triggered features.
- * A500: Confirmation notifications sent at lock-in.
- * A600: Listings are hidden from Browse at the two-hour lock-in point.
- * A700: Listing confirmation/cancellation 2 hours before scheduled time.
+ * Scheduled tasks for time-triggered listing lifecycle processing.
+ *
+ * New lifecycle phases:
+ *   T-2h  — Confirmation Deadline: releases unconfirmed players, warns creator.
+ *   T-1h  — Finalisation: confirms or cancels the listing, locks participants.
+ *
+ * Both run every minute to ensure timely processing.
  */
 @Configuration
 @EnableScheduling
@@ -29,20 +32,40 @@ public class SchedulingConfig {
     }
 
     /**
-     * Runs every minute to process listings at the two-hour lock-in point.
-     * Full listings are confirmed and locked; incomplete listings are cancelled.
+     * Runs every minute. Processes listings that have reached the T-2h confirmation deadline
+     * but have not yet reached T-1h finalisation.
      */
-    @Scheduled(fixedRate = 60000) // 1 minute
-    public void confirmUpcomingSessions() {
-        List<GameListing> listings = listingLifecycleService.findListingsNeedingLockIn();
+    @Scheduled(fixedRate = 60000)
+    public void processConfirmationDeadlines() {
+        List<GameListing> listings = listingLifecycleService.findListingsNeedingConfirmationDeadline();
 
         if (!listings.isEmpty()) {
-            logger.info("Found {} listings needing lock-in processing", listings.size());
+            logger.info("Found {} listings needing confirmation deadline processing", listings.size());
             for (GameListing listing : listings) {
                 try {
-                    listingLifecycleService.lockInListing(listing.getGameListingId());
+                    listingLifecycleService.processConfirmationDeadline(listing.getGameListingId());
                 } catch (Exception e) {
-                    logger.error("Failed to process lock-in for listing {}: {}",
+                    logger.error("Failed to process confirmation deadline for listing {}: {}",
+                            listing.getGameListingId(), e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs every minute. Processes listings that have reached (or passed) the T-1h finalisation point.
+     */
+    @Scheduled(fixedRate = 60000)
+    public void finaliseListings() {
+        List<GameListing> listings = listingLifecycleService.findListingsNeedingFinalisation();
+
+        if (!listings.isEmpty()) {
+            logger.info("Found {} listings needing finalisation", listings.size());
+            for (GameListing listing : listings) {
+                try {
+                    listingLifecycleService.finaliseListing(listing.getGameListingId());
+                } catch (Exception e) {
+                    logger.error("Failed to finalise listing {}: {}",
                             listing.getGameListingId(), e.getMessage());
                 }
             }

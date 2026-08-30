@@ -34,7 +34,7 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
     @Query("SELECT gj FROM GameJoiner gj " +
            "JOIN gj.gameListing gl " +
            "WHERE gj.id.userId = :userId " +
-           "AND gj.status IN ('ACCEPTED', 'LOCKED') " +
+           "AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED') " +
            "AND gl.scheduledDate BETWEEN :startTime AND :endTime")
     List<GameJoiner> findUserJoinedListingsInTimeRange(
             @Param("userId") Long userId,
@@ -47,7 +47,7 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
            "JOIN FETCH gl.format sf " +
            "JOIN FETCH sf.sport " +
            "WHERE gj.id.userId = :userId " +
-           "AND gj.status IN ('ACCEPTED', 'LOCKED') " +
+           "AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED') " +
            "AND gl.listingStatus IN ('OPEN', 'CONFIRMED') " +
            "AND gl.scheduledDate > :now " +
            "AND gl.creator.userId <> :userId " +
@@ -55,27 +55,46 @@ public interface GameJoinerRepository extends JpaRepository<GameJoiner, GameJoin
     List<GameJoiner> findJoinedListingsForUser(@Param("userId") Long userId,
                                                @Param("now") LocalDateTime now);
 
-    // Lock all accepted joiners for a listing (A700)
+    // Lock all confirmed-attendance joiners for a listing at finalisation (T-1h)
+    @Modifying
+    @Query("UPDATE GameJoiner gj SET gj.status = 'LOCKED', gj.updatedAt = CURRENT_TIMESTAMP " +
+           "WHERE gj.id.gameListingId = :listingId AND gj.status = 'CONFIRMED_ATTENDANCE'")
+    int lockAllConfirmedJoiners(@Param("listingId") Long listingId);
+
+    // Legacy: Lock all accepted joiners (kept for backward compatibility during migration)
     @Modifying
     @Query("UPDATE GameJoiner gj SET gj.status = 'LOCKED', gj.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE gj.id.gameListingId = :listingId AND gj.status = 'ACCEPTED'")
     int lockAllAcceptedJoiners(@Param("listingId") Long listingId);
 
-    // Get all participants (accepted + locked) for notifications
+    // Get all active participants (accepted + confirmed + locked) for notifications
     @Query("SELECT gj FROM GameJoiner gj " +
            "WHERE gj.id.gameListingId = :listingId " +
-           "AND gj.status IN ('ACCEPTED', 'LOCKED')")
+           "AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')")
     List<GameJoiner> findParticipants(@Param("listingId") Long listingId);
 
-    // Check if user is already an accepted/locked participant
+    // Get confirmed-attendance participants only (for T-2h→T-1h period and finalisation)
+    @Query("SELECT gj FROM GameJoiner gj " +
+           "WHERE gj.id.gameListingId = :listingId " +
+           "AND gj.status = 'CONFIRMED_ATTENDANCE'")
+    List<GameJoiner> findConfirmedParticipants(@Param("listingId") Long listingId);
+
+    // Get unconfirmed accepted participants (those who haven't confirmed by T-2h)
+    @Query("SELECT gj FROM GameJoiner gj " +
+           "WHERE gj.id.gameListingId = :listingId " +
+           "AND gj.status = 'ACCEPTED' " +
+           "AND gj.attendanceConfirmedAt IS NULL")
+    List<GameJoiner> findUnconfirmedAccepted(@Param("listingId") Long listingId);
+
+    // Check if user is already an accepted/confirmed/locked participant
     @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
            "WHERE gj.id.userId = :userId AND gj.id.gameListingId = :listingId " +
-           "AND gj.status IN ('ACCEPTED', 'LOCKED')")
+           "AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')")
     boolean existsAcceptedOrLocked(@Param("userId") Long userId, @Param("listingId") Long listingId);
 
     @Query("SELECT CASE WHEN COUNT(gj) > 0 THEN true ELSE false END FROM GameJoiner gj " +
            "WHERE gj.id.gameListingId = :listingId AND gj.id.userId <> :creatorId " +
-           "AND gj.status IN ('ACCEPTED', 'LOCKED')")
+           "AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')")
     boolean existsNonCreatorParticipant(@Param("listingId") Long listingId,
                                         @Param("creatorId") Long creatorId);
 

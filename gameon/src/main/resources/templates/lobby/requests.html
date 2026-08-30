@@ -38,15 +38,22 @@
             </span>
         </div>
 
-        <div th:unless="${requestWindowOpen}" class="alert alert-secondary">
-            <i class="bi bi-lock me-1"></i>
-            The request window closed 2 hours before the session. Requests can no longer be accepted or rejected.
+        <!-- Lifecycle Phase Indicator -->
+        <div th:if="${isInLastCallPeriod}" class="alert alert-warning">
+            <i class="bi bi-lightning me-1"></i>
+            <strong>Last-Call Period</strong> — The game starts within 2 hours.
+            Tick the checkboxes below to select requesters, then click "Send Last-Call Notification" to let them claim available places on a first-come basis.
         </div>
 
-        <!-- Accepted Players -->
+        <div th:if="${!requestWindowOpen && !isInLastCallPeriod}" class="alert alert-secondary">
+            <i class="bi bi-lock me-1"></i>
+            The request window closed 1 hour before the session. Requests can no longer be accepted or rejected.
+        </div>
+
+        <!-- Accepted Players (with confirmation status) -->
         <div th:if="${!acceptedJoiners.isEmpty()}" class="card shadow-sm mb-4">
             <div class="card-header bg-white">
-                <h6 class="mb-0 text-success"><i class="bi bi-check-circle me-1"></i>Accepted Players</h6>
+                <h6 class="mb-0 text-success"><i class="bi bi-check-circle me-1"></i>Participants</h6>
             </div>
             <div class="list-group list-group-flush">
                 <div th:each="joiner : ${acceptedJoiners}" class="list-group-item d-flex justify-content-between align-items-center">
@@ -62,8 +69,12 @@
                                   th:text="${' · Alternative: ' + positionNames[joiner.altFormatPositionId]}"></span>
                         </div>
                     </div>
-                    <span class="badge bg-success"
-                          th:text="${joiner.status.name() == 'LOCKED' ? 'Confirmed' : 'Accepted'}">Accepted</span>
+                    <div>
+                        <span th:if="${joiner.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Confirmed</span>
+                        <span th:if="${joiner.status.name() == 'LOCKED'}" class="badge bg-info">Locked In</span>
+                        <span th:if="${joiner.status.name() == 'ACCEPTED' && confirmationWindowOpen}" class="badge bg-warning text-dark">Not Yet Confirmed</span>
+                        <span th:if="${joiner.status.name() == 'ACCEPTED' && !confirmationWindowOpen}" class="badge bg-success">Accepted</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -78,44 +89,144 @@
             <div th:if="${pendingRequests.isEmpty()}" class="card-body text-center text-muted py-4">
                 <p>No pending requests</p>
             </div>
-            <div th:unless="${pendingRequests.isEmpty()}" class="list-group list-group-flush">
-                <div th:each="req : ${pendingRequests}" class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="bi bi-person-circle me-2"></i>
-                            <a th:href="@{'/profile/' + ${req.user.userId}}" th:text="${req.user.username}" class="fw-bold text-decoration-none">User</a>
-                            <span class="badge ms-2" th:classappend="${req.team.name() == 'A'} ? 'bg-danger' : 'bg-primary'"
-                                  th:text="${'Team ' + req.team}">Team</span>
-                            <div th:if="${listing.format.hasPositions}" class="small text-muted mt-1">
-                                Preferred:
-                                <span th:text="${req.formatPositionId == null ? 'Any Position' : positionNames[req.formatPositionId]}">Any Position</span>
-                                <span th:if="${req.altFormatPositionId != null}"
-                                      th:text="${' · Alternative: ' + positionNames[req.altFormatPositionId]}"></span>
+            <div th:unless="${pendingRequests.isEmpty()}">
+                <!--
+                    LAST-CALL PERIOD: show checkboxes in their own form, plus independent Accept/Reject forms.
+                    The last-call form wraps ONLY the checkboxes and submit button — not the Accept/Reject buttons.
+                -->
+                <div th:if="${isInLastCallPeriod && !listingFull}">
+                    <form th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/last-call'}" method="post"
+                          id="lastCallForm">
+                        <div class="list-group list-group-flush">
+                            <div th:each="req : ${pendingRequests}" class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <!-- Last-call checkbox (inside the form) -->
+                                        <div class="form-check me-3">
+                                            <input class="form-check-input last-call-check" type="checkbox"
+                                                   name="selectedUserIds"
+                                                   th:value="${req.user.userId}"
+                                                   th:disabled="${req.lastCallApproved}"
+                                                   th:checked="${req.lastCallApproved}">
+                                            <label class="form-check-label small text-muted">Select</label>
+                                        </div>
+                                        <div>
+                                            <i class="bi bi-person-circle me-2"></i>
+                                            <a th:href="@{'/profile/' + ${req.user.userId}}" th:text="${req.user.username}" class="fw-bold text-decoration-none">User</a>
+                                            <span class="badge ms-2" th:classappend="${req.team.name() == 'A'} ? 'bg-danger' : 'bg-primary'"
+                                                  th:text="${'Team ' + req.team}">Team</span>
+                                            <span th:if="${req.lastCallApproved}" class="badge bg-info ms-1">
+                                                <i class="bi bi-check2 me-1"></i>Last-call sent
+                                            </span>
+                                            <div th:if="${listing.format.hasPositions}" class="small text-muted mt-1">
+                                                Preferred:
+                                                <span th:text="${req.formatPositionId == null ? 'Any Position' : positionNames[req.formatPositionId]}">Any Position</span>
+                                                <span th:if="${req.altFormatPositionId != null}"
+                                                      th:text="${' · Alternative: ' + positionNames[req.altFormatPositionId]}"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Accept/Reject buttons — these are OUTSIDE the last-call form via form attribute trick.
+                                         Actually we use independent forms that are NOT nested (they use button formaction). -->
+                                </div>
                             </div>
                         </div>
-                        <div class="d-flex gap-2"
-                             th:with="teamFull=${(req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull)},
-                                      btnDisabled=${!requestWindowOpen or listingFull or ((req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull))},
-                                      btnTitle=${listingFull ? 'Listing is full' : (teamFull ? 'Team is full' : 'Accept request')}">
-                            <form th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/accept/' + ${req.user.userId}}" method="post">
-                                <button type="submit" class="btn btn-success btn-sm"
-                                        th:disabled="${btnDisabled}"
-                                        th:title="${btnTitle}">
-                                    <i class="bi bi-check-lg"></i> Accept
-                                </button>
-                            </form>
-                            <form th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/reject/' + ${req.user.userId}}" method="post">
-                                <button type="submit" class="btn btn-outline-danger btn-sm"
-                                        th:disabled="${!requestWindowOpen}">
-                                    <i class="bi bi-x-lg"></i> Reject
-                                </button>
-                            </form>
+                        <!-- Last-call submit button -->
+                        <div class="card-footer bg-white d-flex align-items-center gap-2">
+                            <button type="submit" class="btn btn-warning btn-sm" id="lastCallSubmitBtn">
+                                <i class="bi bi-lightning me-1"></i>Send Last-Call Notification to Selected
+                            </button>
+                            <small class="text-muted">Only newly-checked requesters will be notified.</small>
+                        </div>
+                    </form>
+
+                    <!--
+                        During the last-call window players cannot be accepted directly; they must
+                        claim a last-call offer. Requesters already sent an offer are shown as waiting
+                        and cannot be rejected. Non-offered pending requesters may still be rejected.
+                    -->
+                    <div th:if="${requestWindowOpen}" class="card-footer bg-light border-top">
+                        <p class="small text-muted mb-2">
+                            <i class="bi bi-info-circle me-1"></i>Direct Accept is unavailable during the last-call window.
+                            Notify requesters above so they can claim an available spot.
+                        </p>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div th:each="req : ${pendingRequests}" class="d-flex align-items-center gap-2">
+                                <span class="small fw-bold" th:text="${req.user.username}">User</span>
+                                <!-- Offer already sent: waiting for response, no reject -->
+                                <span th:if="${req.lastCallApproved}" class="badge bg-info">
+                                    <i class="bi bi-hourglass-split me-1"></i>Last-call offer sent — waiting for response
+                                </span>
+                                <!-- No offer yet: allow reject only -->
+                                <form th:unless="${req.lastCallApproved}"
+                                      th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/reject/' + ${req.user.userId}}" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="Reject">
+                                        <i class="bi bi-x-lg"></i> Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Non-last-call period: regular list with Accept/Reject -->
+                <div th:if="${!isInLastCallPeriod || listingFull}" class="list-group list-group-flush">
+                    <div th:each="req : ${pendingRequests}" class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-person-circle me-2"></i>
+                                <a th:href="@{'/profile/' + ${req.user.userId}}" th:text="${req.user.username}" class="fw-bold text-decoration-none">User</a>
+                                <span class="badge ms-2" th:classappend="${req.team.name() == 'A'} ? 'bg-danger' : 'bg-primary'"
+                                      th:text="${'Team ' + req.team}">Team</span>
+                                <div th:if="${listing.format.hasPositions}" class="small text-muted mt-1">
+                                    Preferred:
+                                    <span th:text="${req.formatPositionId == null ? 'Any Position' : positionNames[req.formatPositionId]}">Any Position</span>
+                                    <span th:if="${req.altFormatPositionId != null}"
+                                          th:text="${' · Alternative: ' + positionNames[req.altFormatPositionId]}"></span>
+                                </div>
+                            </div>
+                            <div th:if="${requestWindowOpen}" class="d-flex gap-2"
+                                 th:with="teamFull=${(req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull)},
+                                          btnDisabled=${listingFull or ((req.team.name() == 'A' and teamAFull) or (req.team.name() == 'B' and teamBFull))},
+                                          btnTitle=${listingFull ? 'Listing is full' : (teamFull ? 'Team is full' : 'Accept request')}">
+                                <!-- Direct Accept is not available during the last-call window (T-2h to T-1h). -->
+                                <form th:unless="${isInLastCallPeriod}"
+                                      th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/accept/' + ${req.user.userId}}" method="post">
+                                    <button type="submit" class="btn btn-success btn-sm"
+                                            th:disabled="${btnDisabled}"
+                                            th:title="${btnTitle}">
+                                        <i class="bi bi-check-lg"></i> Accept
+                                    </button>
+                                </form>
+                                <!-- Reject is unavailable for requesters already sent a last-call offer. -->
+                                <form th:unless="${req.lastCallApproved}"
+                                      th:action="@{'/lobby/requests/' + ${listing.gameListingId} + '/reject/' + ${req.user.userId}}" method="post">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                                            th:disabled="${!requestWindowOpen}">
+                                        <i class="bi bi-x-lg"></i> Reject
+                                    </button>
+                                </form>
+                                <span th:if="${req.lastCallApproved}" class="badge bg-info align-self-center">
+                                    <i class="bi bi-hourglass-split me-1"></i>Last-call offer sent — waiting for response
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Validation: prevent last-call submit with no selection -->
+    <script th:if="${isInLastCallPeriod && !listingFull}">
+        document.getElementById('lastCallForm').addEventListener('submit', function(e) {
+            var checked = this.querySelectorAll('input.last-call-check:checked:not(:disabled)');
+            if (checked.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one requester to send a last-call notification.');
+            }
+        });
+    </script>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
 </body>

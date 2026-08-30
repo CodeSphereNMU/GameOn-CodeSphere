@@ -392,16 +392,16 @@ class GameListingServiceTest {
     class BrowseLockIn {
 
         @Test
-        @DisplayName("Browse cutoff is two hours from now")
-        void browseUsesTwoHourCutoff() {
+        @DisplayName("Browse cutoff is one hour from now")
+        void browseUsesOneHourCutoff() {
             when(userSportProfileRepository.findDistinctSportIdsByUserId(1L)).thenReturn(List.of(1L));
             when(sportService.getFormatsBySportIds(List.of(1L))).thenReturn(List.of(testFormat));
             when(gameListingRepository.findAvailablePublicListings(anyList(), any(), eq(1L), any()))
                     .thenReturn(Page.empty());
 
-            LocalDateTime before = LocalDateTime.now().plusHours(2).minusSeconds(1);
+            LocalDateTime before = LocalDateTime.now().plusHours(1).minusSeconds(1);
             gameListingService.browseAvailableListings(1L, PageRequest.of(0, 12));
-            LocalDateTime after = LocalDateTime.now().plusHours(2).plusSeconds(1);
+            LocalDateTime after = LocalDateTime.now().plusHours(1).plusSeconds(1);
 
             ArgumentCaptor<LocalDateTime> cutoff = ArgumentCaptor.forClass(LocalDateTime.class);
             verify(gameListingRepository).findAvailablePublicListings(anyList(), cutoff.capture(), eq(1L), any());
@@ -451,8 +451,10 @@ class GameListingServiceTest {
         }
 
         @Test
-        void cancellationBeforeScheduledStartIsAllowed() {
-            GameListing listing = cancellableListing(fixedNow.plusMinutes(1));
+        @DisplayName("OPEN listing at T-1h01m: cancellation allowed")
+        void cancellationBeforeFinalisationBoundaryIsAllowed() {
+            // 1 hour and 1 minute before start — more than 1h remains, so cancellation is permitted.
+            GameListing listing = cancellableListing(fixedNow.plusMinutes(61));
             GameListingService fixedTimeService = serviceAtFixedTime();
             when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
 
@@ -463,6 +465,57 @@ class GameListingServiceTest {
         }
 
         @Test
+        @DisplayName("OPEN listing at exactly T-1h: cancellation rejected")
+        void cancellationAtFinalisationBoundaryIsRejected() {
+            // Exactly 1 hour before start — at the commitment point, cancellation is rejected
+            // even though the listing is still OPEN (scheduler may not have finalised it yet).
+            GameListing listing = cancellableListing(fixedNow.plusHours(1));
+            GameListingService fixedTimeService = serviceAtFixedTime();
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+
+            assertThatThrownBy(() -> fixedTimeService.cancelListing(10L, 1L))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("within 1 hour of its scheduled start");
+
+            assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.OPEN);
+            verify(gameListingRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("OPEN listing at T-59m: cancellation rejected")
+        void cancellationInsideFinalisationWindowIsRejected() {
+            // 59 minutes before start — inside T-1h, still OPEN — cancellation rejected.
+            GameListing listing = cancellableListing(fixedNow.plusMinutes(59));
+            GameListingService fixedTimeService = serviceAtFixedTime();
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+
+            assertThatThrownBy(() -> fixedTimeService.cancelListing(10L, 1L))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("within 1 hour of its scheduled start");
+
+            assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.OPEN);
+            verify(gameListingRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("CONFIRMED listing: cancellation rejected (state safeguard)")
+        void cancellationOfConfirmedListingIsRejected() {
+            // The CONFIRMED status check precedes any time computation, so currentTime() is not
+            // exercised here — deliberately not stubbed to avoid an unnecessary-stubbing error.
+            GameListing listing = cancellableListing(fixedNow.plusMinutes(45));
+            listing.setListingStatus(ListingStatus.CONFIRMED);
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+
+            assertThatThrownBy(() -> gameListingService.cancelListing(10L, 1L))
+                    .isInstanceOf(BusinessRuleException.class)
+                    .hasMessageContaining("confirmed and can no longer be cancelled");
+
+            assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.CONFIRMED);
+            verify(gameListingRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Scheduled start reached: cancellation rejected")
         void cancellationAtOrAfterScheduledStartIsRejected() {
             GameListingService fixedTimeService = serviceAtFixedTime();
 

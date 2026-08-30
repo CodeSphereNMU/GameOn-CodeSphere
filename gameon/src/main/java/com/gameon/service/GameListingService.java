@@ -45,6 +45,9 @@ public class GameListingService {
 
     private static final Logger logger = LoggerFactory.getLogger(GameListingService.class);
     private static final int MIN_CREATION_HOURS_BEFORE_START = 3;
+    /** Browse Listings cutoff: listings hidden from browse at T-1h (was T-2h). */
+    public static final int BROWSE_CUTOFF_HOURS_BEFORE_START = 1;
+    /** Legacy constant kept for any external references; prefer BROWSE_CUTOFF_HOURS_BEFORE_START. */
     public static final int LOCK_IN_HOURS_BEFORE_START = 2;
 
     private final GameListingRepository gameListingRepository;
@@ -209,6 +212,7 @@ public class GameListingService {
      * Browse available PUBLIC listings (A200).
      * Shows future, non-completed PUBLIC listings that the user hasn't created, matching their sports.
      * Private listings are excluded from browse.
+     * Listings are hidden from browse at T-1h (finalisation point).
      */
     @Transactional(readOnly = true)
     public Page<GameListing> browseAvailableListings(Long userId, Pageable pageable) {
@@ -222,7 +226,7 @@ public class GameListingService {
         if (formatIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        LocalDateTime browseCutoff = LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START);
+        LocalDateTime browseCutoff = LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START);
         return gameListingRepository.findAvailablePublicListings(formatIds, browseCutoff, userId, pageable);
     }
 
@@ -241,7 +245,7 @@ public class GameListingService {
         if (formatIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        LocalDateTime browseCutoff = LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START);
+        LocalDateTime browseCutoff = LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START);
         return gameListingRepository.findAvailablePublicListingsBySkill(formatIds, browseCutoff, userId, skillLevel, pageable);
     }
 
@@ -263,7 +267,7 @@ public class GameListingService {
             toDate = date.plusDays(1).atStartOfDay();
         }
         return gameListingRepository.searchAvailablePublicListings(
-                formatIds, LocalDateTime.now().plusHours(LOCK_IN_HOURS_BEFORE_START), userId,
+                formatIds, LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START), userId,
                 sportId, skillLevel, fromDate, toDate, hideFull, pageable);
     }
 
@@ -351,9 +355,26 @@ public class GameListingService {
             throw new BusinessRuleException("This listing can no longer be cancelled.");
         }
 
+        // CONFIRMED is an additional state safeguard: a finalised listing is never cancellable.
+        if (listing.getListingStatus() == ListingStatus.CONFIRMED) {
+            throw new BusinessRuleException(
+                    "This listing has been confirmed and can no longer be cancelled.");
+        }
+
         if (!listing.getScheduledDate().isAfter(currentTime())) {
             throw new BusinessRuleException(
                     "This listing can no longer be cancelled because its scheduled start time has been reached.");
+        }
+
+        // T-1h is the creator's commitment point. Cancellation is rejected once the scheduled
+        // start is one hour or less away, independent of the once-per-minute lifecycle scheduler.
+        // This closes the race where a listing is still OPEN at/inside T-1h because the scheduler
+        // has not yet finalised it.
+        LocalDateTime finalisationBoundary = currentTime()
+                .plusHours(ListingLifecycleService.FINALISATION_HOURS);
+        if (!listing.getScheduledDate().isAfter(finalisationBoundary)) {
+            throw new BusinessRuleException(
+                    "This listing can no longer be cancelled because it is within 1 hour of its scheduled start.");
         }
 
         Set<Long> recipientIds = new LinkedHashSet<>();
@@ -385,6 +406,25 @@ public class GameListingService {
     @Transactional
     public void deleteListing(Long listingId, Long userId) {
         cancelListing(listingId, userId);
+    }
+
+    /**
+     * Whether the creator may currently cancel this listing. Mirrors the guards in
+     * {@link #cancelListing(Long, Long)}: not already finished/cancelled, not CONFIRMED,
+     * and more than 1 hour (T-1h) before the scheduled start. Used to drive UI visibility.
+     */
+    @Transactional(readOnly = true)
+    public boolean isCreatorCancellable(GameListing listing) {
+        ListingStatus status = listing.getListingStatus();
+        if (status == ListingStatus.COMPLETED
+                || status == ListingStatus.CANCELLED_BY_CREATOR
+                || status == ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS
+                || status == ListingStatus.CONFIRMED) {
+            return false;
+        }
+        LocalDateTime finalisationBoundary = currentTime()
+                .plusHours(ListingLifecycleService.FINALISATION_HOURS);
+        return listing.getScheduledDate().isAfter(finalisationBoundary);
     }
 
     @Transactional(readOnly = true)

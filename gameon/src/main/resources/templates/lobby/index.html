@@ -51,12 +51,19 @@
                             <span class="badge"
                                   th:classappend="${listing.effectiveStatus == 'COMPLETED'} ? 'bg-secondary' : (${#strings.startsWith(listing.effectiveStatus, 'CANCELLED')} ? 'bg-danger' : 'bg-success')"
                                   th:text="${#strings.replace(listing.effectiveStatus, '_', ' ')}">Status</span>
-                            <a th:if="${requestOpenListingIds.contains(listing.gameListingId)}" th:href="@{'/lobby/requests/' + ${listing.gameListingId}}"
+                            <!-- Creator attendance confirmation -->
+                            <form th:if="${confirmationAvailableIds != null && confirmationAvailableIds.contains(listing.gameListingId)}"
+                                  th:action="@{'/lobby/created/' + ${listing.gameListingId} + '/confirm'}" method="post">
+                                <button type="submit" class="btn btn-success btn-sm">Confirm Attendance</button>
+                            </form>
+                            <a th:if="${requestOpenListingIds.contains(listing.gameListingId) || (lastCallListingIds != null && lastCallListingIds.contains(listing.gameListingId))}"
+                               th:href="@{'/lobby/requests/' + ${listing.gameListingId}}"
                                class="btn btn-outline-gameon btn-sm">Requests</a>
                             <a th:if="${editableListingIds.contains(listing.gameListingId)}"
                                th:href="@{'/listings/' + ${listing.gameListingId} + '/edit'}"
                                class="btn btn-sm btn-outline-secondary">Edit</a>
-                            <form th:if="${listing.listingStatus.name() == 'OPEN' || listing.listingStatus.name() == 'CONFIRMED'}"
+                            <!-- Cancel is only available more than 1 hour before start (before the T-1h commitment point). -->
+                            <form th:if="${cancellableListingIds != null && cancellableListingIds.contains(listing.gameListingId)}"
                                   th:action="@{'/listings/' + ${listing.gameListingId} + '/cancel'}" method="post"
                                   onsubmit="return confirm('Cancel this listing? Affected users will be notified.')">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
@@ -85,11 +92,22 @@
                                 <strong th:text="${request.gameListing.format.sport.sportName + ' - ' + request.gameListing.format.formatName}">Sport</strong>
                                 <small class="d-block text-muted"
                                        th:text="${#temporals.format(request.gameListing.scheduledDate, 'dd MMM yyyy HH:mm') + ' · Team ' + request.team}">Date</small>
+                                <!-- Show last-call claim button if approved -->
+                                <span th:if="${request.lastCallApproved}" class="badge bg-warning text-dark mt-1">
+                                    <i class="bi bi-lightning me-1"></i>Last-call offer available!
+                                </span>
                             </div>
-                            <form th:action="@{'/game-joiner/leave/' + ${request.gameListing.gameListingId}}" method="post"
-                                  onsubmit="return confirm('Withdraw this join request?')">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Withdraw</button>
-                            </form>
+                            <div class="d-flex gap-2">
+                                <!-- Claim last-call place -->
+                                <form th:if="${request.lastCallApproved}"
+                                      th:action="@{'/game-joiner/claim/' + ${request.gameListing.gameListingId}}" method="post">
+                                    <button type="submit" class="btn btn-success btn-sm">Join Game</button>
+                                </form>
+                                <form th:action="@{'/game-joiner/leave/' + ${request.gameListing.gameListingId}}" method="post"
+                                      onsubmit="return confirm('Withdraw this join request?')">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Withdraw</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -107,13 +125,28 @@
                             </small>
                         </div>
                         <div class="d-flex gap-2 align-items-center">
-                            <span class="badge"
-                                  th:classappend="${gj.status.name() == 'ACCEPTED'} ? 'bg-success' : 'bg-info'"
-                                  th:text="${gj.status.name() == 'LOCKED'} ? 'Confirmed' : ${gj.status}">Status</span>
-                            <form th:if="${leaveOpenListingIds.contains(gj.gameListing.gameListingId)}"
+                            <!-- Status badge reflecting attendance confirmation -->
+                            <span th:if="${gj.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Confirmed</span>
+                            <span th:if="${gj.status.name() == 'LOCKED'}" class="badge bg-info">Locked In</span>
+                            <span th:if="${gj.status.name() == 'ACCEPTED' && (confirmationAvailableIds == null || !confirmationAvailableIds.contains(gj.gameListing.gameListingId))}"
+                                  class="badge bg-secondary">Accepted</span>
+                            <span th:if="${gj.status.name() == 'ACCEPTED' && confirmationAvailableIds != null && confirmationAvailableIds.contains(gj.gameListing.gameListingId)}"
+                                  class="badge bg-warning text-dark">Awaiting Confirmation</span>
+
+                            <!-- Confirm Attendance button -->
+                            <form th:if="${gj.status.name() == 'ACCEPTED' && confirmationAvailableIds != null && confirmationAvailableIds.contains(gj.gameListing.gameListingId)}"
+                                  th:action="@{'/game-joiner/confirm/' + ${gj.gameListing.gameListingId}}" method="post">
+                                <button type="submit" class="btn btn-success btn-sm">Confirm Attendance</button>
+                            </form>
+
+                            <!-- Leave/Withdraw button -->
+                            <form th:if="${leaveOpenListingIds.contains(gj.gameListing.gameListingId) && gj.status.name() != 'LOCKED'}"
                                   th:action="@{'/game-joiner/leave/' + ${gj.gameListing.gameListingId}}" method="post"
-                                  onsubmit="return confirm('Are you sure?')">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Leave</button>
+                                  th:attr="onsubmit=${lateWithdrawalIds != null && lateWithdrawalIds.contains(gj.gameListing.gameListingId)}
+                                    ? 'return confirm(\'WARNING: The game starts within 2 hours. This will be recorded as a late withdrawal. Continue?\')'
+                                    : 'return confirm(\'Are you sure?\')'">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                        th:text="${lateWithdrawalIds != null && lateWithdrawalIds.contains(gj.gameListing.gameListingId)} ? 'Late Withdraw' : 'Leave'">Leave</button>
                             </form>
                         </div>
                     </div>

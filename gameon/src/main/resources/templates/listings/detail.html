@@ -61,7 +61,7 @@
                                         </small>
                                     </li>
                                     <li th:each="joiner : ${listing.joiners}"
-                                        th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED') && !joiner.user.userId.equals(listing.creator.userId)}"
+                                        th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'CONFIRMED_ATTENDANCE' || joiner.status.name() == 'LOCKED') && !joiner.user.userId.equals(listing.creator.userId)}"
                                         class="list-group-item small">
                                         <span th:text="${joiner.user.username}">Player</span>
                                         <small th:if="${listing.format.hasPositions}" class="d-block text-muted">
@@ -82,7 +82,7 @@
                                 <h6 class="text-center text-primary">Team B <small th:text="${teamBCount + '/' + teamCapacity}"></small></h6>
                                 <ul class="list-group list-group-flush">
                                     <li th:each="joiner : ${listing.joiners}"
-                                        th:if="${joiner.team.name() == 'B' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED')}"
+                                        th:if="${joiner.team.name() == 'B' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'CONFIRMED_ATTENDANCE' || joiner.status.name() == 'LOCKED')}"
                                         class="list-group-item small">
                                         <span th:text="${joiner.user.username}">Player</span>
                                         <small th:if="${listing.format.hasPositions}" class="d-block text-muted">
@@ -107,18 +107,45 @@
                                 <span class="badge bg-secondary fs-6 px-3 py-2">Join Requests Closed</span>
                             </div>
                             <!-- Pending request: show status badge -->
-                            <div th:if="${joinState == 'PENDING'}">
+                            <div th:if="${joinState == 'PENDING' && (hasLastCallOffer == null || !hasLastCallOffer)}">
                                 <span class="badge bg-warning text-dark fs-6 px-3 py-2">
                                     <i class="bi bi-hourglass-split me-1"></i>Pending Approval
                                 </span>
                                 <p class="text-muted small mt-2 mb-0">Your join request is awaiting approval.</p>
                             </div>
-                            <!-- Accepted/Locked: show participant badge -->
-                            <div th:if="${joinState == 'PARTICIPANT'}">
+                            <!-- Last-call offer: show claim button -->
+                            <div th:if="${joinState == 'PENDING' && hasLastCallOffer != null && hasLastCallOffer}">
+                                <div class="alert alert-success py-2 px-3 d-inline-block">
+                                    <i class="bi bi-lightning me-1"></i><strong>A place is available!</strong>
+                                </div>
+                                <form th:action="@{'/game-joiner/claim/' + ${listing.gameListingId}}" method="post" class="mt-2">
+                                    <button type="submit" class="btn btn-success">Join Game</button>
+                                </form>
+                                <p class="text-muted small mt-2 mb-0">Places are filled first-come, first-served.</p>
+                            </div>
+                            <!-- Accepted participant awaiting confirmation -->
+                            <div th:if="${joinState == 'PARTICIPANT' && confirmationAvailable != null && confirmationAvailable}">
+                                <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                                    <i class="bi bi-clock me-1"></i>Awaiting Your Confirmation
+                                </span>
+                                <form th:action="@{'/game-joiner/confirm/' + ${listing.gameListingId}}" method="post" class="mt-2">
+                                    <button type="submit" class="btn btn-success">Confirm Attendance</button>
+                                </form>
+                                <p class="text-muted small mt-2 mb-0">Confirm before the deadline or your place will be released.</p>
+                            </div>
+                            <!-- Confirmed participant -->
+                            <div th:if="${joinState == 'PARTICIPANT' && myJoinerStatus != null && (myJoinerStatus == 'CONFIRMED_ATTENDANCE' || myJoinerStatus == 'LOCKED')}">
+                                <span class="badge bg-success fs-6 px-3 py-2">
+                                    <i class="bi bi-check-circle me-1"></i>Attendance Confirmed
+                                </span>
+                                <p class="text-muted small mt-2 mb-0">You are confirmed for this game.</p>
+                            </div>
+                            <!-- Accepted but confirmation not yet available -->
+                            <div th:if="${joinState == 'PARTICIPANT' && (confirmationAvailable == null || !confirmationAvailable) && (myJoinerStatus == null || myJoinerStatus == 'ACCEPTED')}">
                                 <span class="badge bg-success fs-6 px-3 py-2">
                                     <i class="bi bi-check-circle me-1"></i>Participant
                                 </span>
-                                <p class="text-muted small mt-2 mb-0">You are already a participant in this listing.</p>
+                                <p class="text-muted small mt-2 mb-0">Attendance confirmation will open 24 hours before the game.</p>
                             </div>
                         </div>
 
