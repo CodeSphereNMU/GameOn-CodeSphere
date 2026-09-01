@@ -86,7 +86,10 @@
                                         <i class="bi bi-pencil me-2"></i>Edit</a></li>
                                     <li>
                                         <form th:action="@{'/social/delete/' + ${post.postId}}" method="post"
-                                              onsubmit="return confirm('Delete this post?')">
+                                              data-confirm="This post will be permanently deleted."
+                                              data-confirm-title="Delete post?"
+                                              data-confirm-ok="Delete"
+                                              data-confirm-cancel="Keep Post">
                                             <button type="submit" class="dropdown-item text-danger">
                                                 <i class="bi bi-trash me-2"></i>Delete
                                             </button>

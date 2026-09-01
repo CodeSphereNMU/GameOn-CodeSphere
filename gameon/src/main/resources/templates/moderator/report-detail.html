@@ -66,7 +66,10 @@
                         </button>
                     </form>
                     <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/action'}" method="post"
-                          onsubmit="return confirm('This will remove the content. Are you sure?')">
+                          data-confirm="This will remove the reported content."
+                          data-confirm-title="Remove content?"
+                          data-confirm-ok="Remove"
+                          data-confirm-cancel="Cancel">
                         <button type="submit" class="btn btn-danger">
                             <i class="bi bi-trash me-1"></i>Remove <span th:text="${report.reportType.name() == 'USER'} ? 'User' : 'Post'">Item</span>
                         </button>

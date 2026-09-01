@@ -51,7 +51,10 @@
                         <!-- Cancel Listing — only while more than 1 hour remains before start. -->
                         <form th:if="${cancellable}"
                               th:action="@{'/listings/' + ${listing.gameListingId} + '/cancel'}" method="post"
-                              onsubmit="return confirm('Cancel this listing? Affected users will be notified.')">
+                              data-confirm="Affected users will be notified."
+                              data-confirm-title="Cancel listing?"
+                              data-confirm-ok="Cancel Listing"
+                              data-confirm-cancel="Keep Listing">
                             <button type="submit" class="btn btn-outline-danger w-100">
                                 <i class="bi bi-x-circle me-1"></i>Cancel Listing
                             </button>

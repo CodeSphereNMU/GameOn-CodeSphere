@@ -132,11 +132,15 @@
                             </div>
                         </div>
                         <!-- Last-call submit button -->
-                        <div class="card-footer bg-white d-flex align-items-center gap-2">
-                            <button type="submit" class="btn btn-warning btn-sm" id="lastCallSubmitBtn">
-                                <i class="bi bi-lightning me-1"></i>Send Last-Call Notification to Selected
-                            </button>
-                            <small class="text-muted">Only newly-checked requesters will be notified.</small>
+                        <div class="card-footer bg-white">
+                            <div class="alert alert-danger d-none py-2 mb-2" role="alert" id="lastCallValidationMsg">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Please select at least one requester to send a last-call notification.
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="submit" class="btn btn-warning btn-sm" id="lastCallSubmitBtn">
+                                    <i class="bi bi-lightning me-1"></i>Send Last-Call Notification to Selected
+                                </button>
+                            </div>
                         </div>
                     </form>
 
@@ -219,13 +223,19 @@
 
     <!-- Validation: prevent last-call submit with no selection -->
     <script th:if="${isInLastCallPeriod && !listingFull}">
-        document.getElementById('lastCallForm').addEventListener('submit', function(e) {
-            var checked = this.querySelectorAll('input.last-call-check:checked:not(:disabled)');
-            if (checked.length === 0) {
-                e.preventDefault();
-                alert('Please select at least one requester to send a last-call notification.');
-            }
-        });
+        (function () {
+            var form = document.getElementById('lastCallForm');
+            var validationMsg = document.getElementById('lastCallValidationMsg');
+            form.addEventListener('submit', function(e) {
+                var checked = this.querySelectorAll('input.last-call-check:checked:not(:disabled)');
+                if (checked.length === 0) {
+                    e.preventDefault();
+                    if (validationMsg) { validationMsg.classList.remove('d-none'); }
+                } else if (validationMsg) {
+                    validationMsg.classList.add('d-none');
+                }
+            });
+        })();
     </script>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>

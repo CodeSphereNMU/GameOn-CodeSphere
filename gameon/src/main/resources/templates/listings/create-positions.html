@@ -19,6 +19,9 @@
                            value="true" id="anyPosition" th:checked="${submittedAnyPosition == true || (submittedAnyPosition == null && draft.positionIds != null && draft.positionIds.isEmpty())}">
                     <label class="form-check-label fw-bold" for="anyPosition">Any Position</label>
                 </div>
+                <div class="alert alert-danger d-none py-2" role="alert" id="positionLimitValidationMsg">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Select no more than 2 preferred positions.
+                </div>
                 <div class="list-group mb-3">
                     <label th:each="fp : ${positions}" class="list-group-item">
                         <input class="form-check-input me-2 position-choice" type="checkbox" name="positionIds"
@@ -39,11 +42,17 @@
 <script>
     const any = document.getElementById('anyPosition');
     const choices = [...document.querySelectorAll('.position-choice')];
+    const positionLimitMsg = document.getElementById('positionLimitValidationMsg');
     any.addEventListener('change', () => { if (any.checked) choices.forEach(c => c.checked = false); });
     choices.forEach(choice => choice.addEventListener('change', () => {
         if (choice.checked) any.checked = false;
         const selected = choices.filter(c => c.checked);
-        if (selected.length > 2) { choice.checked = false; alert('Select no more than 2 preferred positions.'); }
+        if (selected.length > 2) {
+            choice.checked = false;
+            if (positionLimitMsg) { positionLimitMsg.classList.remove('d-none'); }
+        } else if (positionLimitMsg) {
+            positionLimitMsg.classList.add('d-none');
+        }
     }));
 </script>
 </body>

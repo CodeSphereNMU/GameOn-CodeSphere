@@ -32,6 +32,9 @@
                             <div class="alert alert-light border py-2">
                                 Requesting to join <strong th:text="${'Team ' + selectedTeam}">Team A</strong>
                             </div>
+                            <div class="alert alert-danger d-none py-2" role="alert" id="joinPositionValidationMsg">
+                                <i class="bi bi-exclamation-triangle me-1"></i><span id="joinPositionValidationText"></span>
+                            </div>
 
                             <!-- Position Selection (if applicable) -->
                             <div th:if="${positions != null && !positions.isEmpty()}" class="mb-3">
@@ -69,17 +72,32 @@
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script>
-        document.getElementById('joinRequestForm')?.addEventListener('submit', function (event) {
-            const primary = document.getElementById('primaryPosition');
-            const alternate = document.getElementById('alternatePosition');
-            if (primary && alternate && alternate.value && !primary.value) {
-                event.preventDefault();
-                alert('Choose a primary position before an alternative position.');
-            } else if (primary && alternate && primary.value && primary.value === alternate.value) {
-                event.preventDefault();
-                alert('Primary and alternative positions must be different.');
+        (function () {
+            var form = document.getElementById('joinRequestForm');
+            if (!form) { return; }
+            var validationMsg = document.getElementById('joinPositionValidationMsg');
+            var validationText = document.getElementById('joinPositionValidationText');
+            function showValidation(message) {
+                if (validationText) { validationText.textContent = message; }
+                if (validationMsg) { validationMsg.classList.remove('d-none'); }
             }
-        });
+            function hideValidation() {
+                if (validationMsg) { validationMsg.classList.add('d-none'); }
+            }
+            form.addEventListener('submit', function (event) {
+                var primary = document.getElementById('primaryPosition');
+                var alternate = document.getElementById('alternatePosition');
+                if (primary && alternate && alternate.value && !primary.value) {
+                    event.preventDefault();
+                    showValidation('Choose a primary position before an alternative position.');
+                } else if (primary && alternate && primary.value && primary.value === alternate.value) {
+                    event.preventDefault();
+                    showValidation('Primary and alternative positions must be different.');
+                } else {
+                    hideValidation();
+                }
+            });
+        })();
     </script>
 </body>
 </html>

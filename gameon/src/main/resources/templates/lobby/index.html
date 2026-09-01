@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/layout :: head('Lobby')}"></head>
+<head th:replace="~{fragments/layout :: head('My Matches')}"></head>
 <body class="bg-light">
     <nav th:replace="~{fragments/layout :: navbar('lobby')}"></nav>
     <div th:replace="~{fragments/layout :: tabs('lobby')}"></div>
@@ -65,7 +65,10 @@
                             <!-- Cancel is only available more than 1 hour before start (before the T-1h commitment point). -->
                             <form th:if="${cancellableListingIds != null && cancellableListingIds.contains(listing.gameListingId)}"
                                   th:action="@{'/listings/' + ${listing.gameListingId} + '/cancel'}" method="post"
-                                  onsubmit="return confirm('Cancel this listing? Affected users will be notified.')">
+                                  data-confirm="Affected users will be notified."
+                                  data-confirm-title="Cancel listing?"
+                                  data-confirm-ok="Cancel Listing"
+                                  data-confirm-cancel="Keep Listing">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
                             </form>
                             <a th:href="@{'/listings/' + ${listing.gameListingId}}" class="btn btn-sm btn-outline-secondary">View</a>
@@ -104,7 +107,10 @@
                                     <button type="submit" class="btn btn-success btn-sm">Join Game</button>
                                 </form>
                                 <form th:action="@{'/game-joiner/leave/' + ${request.gameListing.gameListingId}}" method="post"
-                                      onsubmit="return confirm('Withdraw this join request?')">
+                                      data-confirm="Your pending join request will be withdrawn."
+                                      data-confirm-title="Withdraw request?"
+                                      data-confirm-ok="Withdraw"
+                                      data-confirm-cancel="Keep Request">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">Withdraw</button>
                                 </form>
                             </div>
@@ -142,9 +148,14 @@
                             <!-- Leave/Withdraw button -->
                             <form th:if="${leaveOpenListingIds.contains(gj.gameListing.gameListingId) && gj.status.name() != 'LOCKED'}"
                                   th:action="@{'/game-joiner/leave/' + ${gj.gameListing.gameListingId}}" method="post"
-                                  th:attr="onsubmit=${lateWithdrawalIds != null && lateWithdrawalIds.contains(gj.gameListing.gameListingId)}
-                                    ? 'return confirm(\'WARNING: The game starts within 2 hours. This will be recorded as a late withdrawal. Continue?\')'
-                                    : 'return confirm(\'Are you sure?\')'">
+                                  data-confirm-ok="Withdraw"
+                                  data-confirm-cancel="Stay in Game"
+                                  th:attr="data-confirm=${lateWithdrawalIds != null && lateWithdrawalIds.contains(gj.gameListing.gameListingId)}
+                                             ? 'The game starts soon. This will be recorded as a late withdrawal.'
+                                             : 'You will be removed from this game.',
+                                           data-confirm-title=${lateWithdrawalIds != null && lateWithdrawalIds.contains(gj.gameListing.gameListingId)}
+                                             ? 'Late withdrawal?'
+                                             : 'Leave game?'">
                                 <button type="submit" class="btn btn-outline-danger btn-sm"
                                         th:text="${lateWithdrawalIds != null && lateWithdrawalIds.contains(gj.gameListing.gameListingId)} ? 'Late Withdraw' : 'Leave'">Leave</button>
                             </form>

@@ -46,9 +46,9 @@
                         <h5 class="mb-0">Teams</h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
+                        <div class="row align-items-stretch">
                             <!-- Team A -->
-                            <div class="col-6">
+                            <div class="col-6 d-flex flex-column">
                                 <h6 class="text-center text-danger">Team A <small th:text="${teamACount + '/' + teamCapacity}"></small></h6>
                                 <ul class="list-group list-group-flush">
                                     <li class="list-group-item small">
@@ -72,13 +72,14 @@
                                     </li>
                                 </ul>
                                 <form th:if="${!isCreator && requestWindowOpen && joinState == null}"
-                                      th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-3">
+                                      th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-auto pt-3">
                                     <input type="hidden" name="team" value="A">
                                     <button type="submit" class="btn btn-gameon btn-sm w-100">Join Team A</button>
                                 </form>
                             </div>
+
                             <!-- Team B -->
-                            <div class="col-6">
+                            <div class="col-6 d-flex flex-column">
                                 <h6 class="text-center text-primary">Team B <small th:text="${teamBCount + '/' + teamCapacity}"></small></h6>
                                 <ul class="list-group list-group-flush">
                                     <li th:each="joiner : ${listing.joiners}"
@@ -94,7 +95,7 @@
                                     <li th:if="${teamBCount == 0}" class="list-group-item small text-muted">No players yet</li>
                                 </ul>
                                 <form th:if="${!isCreator && requestWindowOpen && joinState == null}"
-                                      th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-3">
+                                      th:action="@{'/game-joiner/join/' + ${listing.gameListingId}}" method="get" class="mt-auto pt-3">
                                     <input type="hidden" name="team" value="B">
                                     <button type="submit" class="btn btn-gameon btn-sm w-100">Join Team B</button>
                                 </form>
@@ -106,6 +107,7 @@
                             <div th:if="${!requestWindowOpen && joinState == null}">
                                 <span class="badge bg-secondary fs-6 px-3 py-2">Join Requests Closed</span>
                             </div>
+
                             <!-- Pending request: show status badge -->
                             <div th:if="${joinState == 'PENDING' && (hasLastCallOffer == null || !hasLastCallOffer)}">
                                 <span class="badge bg-warning text-dark fs-6 px-3 py-2">
@@ -113,6 +115,7 @@
                                 </span>
                                 <p class="text-muted small mt-2 mb-0">Your join request is awaiting approval.</p>
                             </div>
+
                             <!-- Last-call offer: show claim button -->
                             <div th:if="${joinState == 'PENDING' && hasLastCallOffer != null && hasLastCallOffer}">
                                 <div class="alert alert-success py-2 px-3 d-inline-block">
@@ -123,6 +126,7 @@
                                 </form>
                                 <p class="text-muted small mt-2 mb-0">Places are filled first-come, first-served.</p>
                             </div>
+
                             <!-- Accepted participant awaiting confirmation -->
                             <div th:if="${joinState == 'PARTICIPANT' && confirmationAvailable != null && confirmationAvailable}">
                                 <span class="badge bg-warning text-dark fs-6 px-3 py-2">
@@ -133,6 +137,7 @@
                                 </form>
                                 <p class="text-muted small mt-2 mb-0">Confirm before the deadline or your place will be released.</p>
                             </div>
+
                             <!-- Confirmed participant -->
                             <div th:if="${joinState == 'PARTICIPANT' && myJoinerStatus != null && (myJoinerStatus == 'CONFIRMED_ATTENDANCE' || myJoinerStatus == 'LOCKED')}">
                                 <span class="badge bg-success fs-6 px-3 py-2">
@@ -140,6 +145,7 @@
                                 </span>
                                 <p class="text-muted small mt-2 mb-0">You are confirmed for this game.</p>
                             </div>
+
                             <!-- Accepted but confirmation not yet available -->
                             <div th:if="${joinState == 'PARTICIPANT' && (confirmationAvailable == null || !confirmationAvailable) && (myJoinerStatus == null || myJoinerStatus == 'ACCEPTED')}">
                                 <span class="badge bg-success fs-6 px-3 py-2">
