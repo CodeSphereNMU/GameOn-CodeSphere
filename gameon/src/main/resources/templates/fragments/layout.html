@@ -43,6 +43,35 @@
             #userSearchContainer { width: 100%; margin-bottom: 10px; }
         }
         .post-image { max-height: 500px; width: auto; object-fit: cover; }
+
+        /* ===== Global Application Shell (consistent page boundary) ===== */
+        .gameon-page {
+            background: #f5f6f8;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 40px;
+        }
+        .gameon-container {
+            max-width: 1600px;
+            width: 95%;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            min-height: calc(100vh - 120px);
+        }
+        /* Neutralise Bootstrap's default body background so the shell shows through */
+        body.gameon-page { background: #f5f6f8; }
+        /* Inner Bootstrap containers keep their own centring but drop redundant top margin
+           since the shell already provides consistent padding. */
+        .gameon-container > .container,
+        .gameon-container > .container-fluid { padding-left: 0; padding-right: 0; }
+
+        @media (max-width: 767.98px) {
+            .gameon-page { padding: 12px; padding-bottom: 24px; }
+            .gameon-container { width: 100%; padding: 16px; border-radius: 12px; margin: 12px auto; }
+        }
     </style>
 </head>
 
@@ -109,6 +138,27 @@
             <a class="nav-link" th:classappend="${activeTab == 'lobby'} ? 'active'" th:href="@{/lobby}">Lobby</a>
         </li>
     </ul>
+</div>
+
+<!-- ===== PAGE SHELL WRAPPER FRAGMENT =====
+     Reusable application boundary. A page passes its whole content as a fragment
+     so the shell markup (.gameon-page > .gameon-container) lives here only once
+     and every current/future page inherits an identical container.
+
+     Usage:
+         <body>
+             <nav th:replace="~{fragments/layout :: navbar('...')}"></nav>
+             <div th:replace="~{fragments/layout :: shell(~{::content})}"></div>
+             <div th:replace="~{fragments/layout :: scripts}"></div>
+         </body>
+     where the page defines: <div th:fragment="content"> ...page content... </div>
+
+     Simpler alternative used by existing pages: set <body class="gameon-page"> and
+     wrap content in <div class="gameon-container"> directly (same shared CSS). -->
+<div th:fragment="shell(content)" class="gameon-page">
+    <div class="gameon-container">
+        <div th:replace="${content}">Page content</div>
+    </div>
 </div>
 
 <!-- ===== SCRIPTS FRAGMENT ===== -->

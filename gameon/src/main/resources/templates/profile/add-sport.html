@@ -1,12 +1,79 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Add Sport')}"></head>
-<body class="bg-light">
+<body class="gameon-page">
     <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+    <div class="gameon-container">
+    <style>
+        /* ===== Clickable sport selection cards (Game On theme) ===== */
+        .sport-select-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+        }
+        .sport-option {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0.85rem 1rem;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+            font-weight: 600;
+            color: #212529;
+            min-height: 52px;
+        }
+        /* Hide the native radio but keep it accessible/focusable */
+        .sport-option .sport-radio {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+            margin: 0;
+            pointer-events: none;
+        }
+        .sport-option .sport-name { flex: 1; }
+        /* Hover feedback */
+        .sport-option:hover {
+            border-color: var(--gameon-red);
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.15);
+        }
+        /* Keyboard focus feedback */
+        .sport-option:focus-within {
+            outline: none;
+            border-color: var(--gameon-red);
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+        /* Selected state: red border, highlighted background, subtle shadow, checkmark */
+        .sport-option.selected {
+            border-color: var(--gameon-red);
+            background-color: #fff5f5;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+        }
+        /* Sports already on the profile */
+        .sport-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #f8f9fa;
+        }
+        .sport-option.disabled:hover {
+            border-color: #dee2e6;
+            box-shadow: none;
+        }
+        .sport-option .sport-added-note {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #6c757d;
+        }
+    </style>
 
     <div class="container mt-4">
         <div class="row justify-content-center">
-            <div class="col-md-6">
+            <div class="col-md-7">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white">
                         <h5 class="mb-0">Add Sport to Profile</h5>
@@ -14,14 +81,29 @@
                     <div class="card-body">
                         <form th:action="@{/profile/add-sport}" method="post">
                             <div class="mb-3">
-                                <label for="sportId" class="form-label">Sport</label>
-                                <select class="form-select" id="sportId" name="sportId" required>
-                                    <option value="">-- Select a sport --</option>
-                                    <option th:each="sport : ${sports}"
-                                            th:value="${sport.sportId}"
-                                            th:text="${sport.sportName}"
-                                            th:disabled="${userSportIds.contains(sport.sportId)}">Sport</option>
-                                </select>
+                                <label class="form-label d-block">Choose a Sport</label>
+
+                                <!-- Clickable sport cards. Each card is a <label> linked to its radio,
+                                     so clicking anywhere on the card selects the sport (also works on
+                                     mobile taps and keyboard) while still posting name="sportId". -->
+                                <div class="sport-select-grid" role="radiogroup" aria-label="Choose a sport">
+                                    <label th:each="sport, iter : ${sports}"
+                                           class="sport-option"
+                                           th:classappend="${userSportIds.contains(sport.sportId)} ? 'disabled' : ''"
+                                           th:for="'sport-' + ${sport.sportId}">
+                                        <input class="form-check-input sport-radio" type="radio"
+                                               name="sportId"
+                                               th:id="'sport-' + ${sport.sportId}"
+                                               th:value="${sport.sportId}"
+                                               th:disabled="${userSportIds.contains(sport.sportId)}"
+                                               required>
+                                        <span class="sport-name">
+                                            <span th:text="${sport.sportName}">Sport</span>
+                                            <span class="sport-added-note d-block"
+                                                  th:if="${userSportIds.contains(sport.sportId)}">Already added</span>
+                                        </span>
+                                    </label>
+                                </div>
                                 <div class="form-text">Sports already on your profile are disabled.</div>
                             </div>
                             <div class="mb-3">
@@ -43,6 +125,32 @@
         </div>
     </div>
 
+    </div><!-- /.gameon-container -->
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+        (function () {
+            const options = document.querySelectorAll('.sport-option');
+
+            function refreshSelection() {
+                options.forEach(function (opt) {
+                    const radio = opt.querySelector('.sport-radio');
+                    opt.classList.toggle('selected', !!radio && radio.checked && !radio.disabled);
+                });
+            }
+
+            // Keep the visual state in sync whenever any radio changes.
+            // The label[for] binding already toggles the radio on click/tap,
+            // so we only need to react to the resulting change event.
+            options.forEach(function (opt) {
+                const radio = opt.querySelector('.sport-radio');
+                if (!radio) return;
+                radio.addEventListener('change', refreshSelection);
+            });
+
+            // Reflect any pre-checked state on load.
+            refreshSelection();
+        })();
+    </script>
 </body>
 </html>

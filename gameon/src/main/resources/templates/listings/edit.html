@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Edit Listing')}"></head>
-<body class="bg-light">
+<body class="gameon-page">
     <nav th:replace="~{fragments/layout :: navbar('lobby')}"></nav>
+    <div class="gameon-container">
     <div th:replace="~{fragments/layout :: tabs('lobby')}"></div>
 
     <!-- Leaflet CSS -->
@@ -110,6 +111,8 @@
             </div>
         </div>
     </div>
+
+    </div><!-- /.gameon-container -->
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
 

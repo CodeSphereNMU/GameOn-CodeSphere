@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/layout :: head('Confirm Listing')}"></head>
-<body class="bg-light">
+<body class="gameon-page">
     <nav th:replace="~{fragments/layout :: navbar('listings')}"></nav>
+    <div class="gameon-container">
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
     <div class="container mt-4">
@@ -125,6 +126,8 @@
             </div>
         </div>
     </div>
+
+    </div><!-- /.gameon-container -->
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
 </body>
