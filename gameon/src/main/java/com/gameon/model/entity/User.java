@@ -39,6 +39,14 @@ public class User {
     @Column(name = "account_status", nullable = false, length = 20)
     private AccountStatus accountStatus = AccountStatus.ACTIVE;
 
+    /**
+     * Public URL path of the user's uploaded profile picture
+     * (e.g. {@code /uploads/profile-pictures/<uuid>.webp}), or {@code null} when the user
+     * has not uploaded one. Only the path/URL is stored here, never the image binary.
+     */
+    @Column(name = "profile_picture_url", length = 500)
+    private String profilePictureUrl;
+
     // ===== Relationships =====
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
@@ -119,6 +127,14 @@ public class User {
 
     public void setAccountStatus(AccountStatus accountStatus) {
         this.accountStatus = accountStatus;
+    }
+
+    public String getProfilePictureUrl() {
+        return profilePictureUrl;
+    }
+
+    public void setProfilePictureUrl(String profilePictureUrl) {
+        this.profilePictureUrl = profilePictureUrl;
     }
 
     public List<UserSportProfile> getSportProfiles() {

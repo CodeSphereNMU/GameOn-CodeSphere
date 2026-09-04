@@ -42,4 +42,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> searchActiveUsersByUsername(@Param("query") String query,
                                            @Param("status") AccountStatus status,
                                            Pageable pageable);
+
+    /**
+     * Batch projection of (userId, profilePictureUrl) for a set of users. Only rows with a
+     * non-null picture are returned, so it stays small. Used to attach author avatars to a
+     * page of feed DTOs in a single query (no per-post N+1 lookups, no entity loading).
+     */
+    @Query("SELECT u.userId, u.profilePictureUrl FROM User u " +
+           "WHERE u.userId IN :userIds AND u.profilePictureUrl IS NOT NULL")
+    List<Object[]> findProfilePictureUrlsByUserIds(@Param("userIds") List<Long> userIds);
 }

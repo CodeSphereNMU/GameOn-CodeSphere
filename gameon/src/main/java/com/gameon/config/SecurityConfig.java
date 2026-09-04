@@ -48,6 +48,9 @@ public class SecurityConfig {
                 // Post visibility is enforced by the feed/detail queries that expose these URLs.
                 .requestMatchers("/uploads/posts/**").permitAll()
 
+                // Uploaded profile pictures (served as static files; unguessable UUID filenames).
+                .requestMatchers("/uploads/profile-pictures/**").permitAll()
+
                 // Authentication pages - accessible to anonymous users only
                 .requestMatchers("/login", "/register", "/register-sports").permitAll()
 

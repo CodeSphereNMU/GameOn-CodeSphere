@@ -22,10 +22,13 @@ import java.time.Duration;
 public class WebConfig implements WebMvcConfigurer {
 
     private final Path postsUploadDir;
+    private final Path avatarsUploadDir;
 
     public WebConfig(
-            @Value("${gameon.uploads.posts-dir:${GAMEON_UPLOADS_POSTS_DIR:uploads/posts}}") String postsDir) {
+            @Value("${gameon.uploads.posts-dir:${GAMEON_UPLOADS_POSTS_DIR:uploads/posts}}") String postsDir,
+            @Value("${gameon.uploads.avatars-dir:${GAMEON_UPLOADS_AVATARS_DIR:uploads/profile-pictures}}") String avatarsDir) {
         this.postsUploadDir = Paths.get(postsDir).toAbsolutePath().normalize();
+        this.avatarsUploadDir = Paths.get(avatarsDir).toAbsolutePath().normalize();
     }
 
     @Override
@@ -35,13 +38,24 @@ public class WebConfig implements WebMvcConfigurer {
         // a URI WITHOUT a trailing slash (e.g. file:///C:/app/uploads/posts), which makes every
         // request under /uploads/posts/** fail to resolve (404 -> broken image icon in the browser).
         // Appending the trailing slash is the fix.
-        String location = postsUploadDir.toUri().toString();
+        registry.addResourceHandler("/uploads/posts/**")
+                .addResourceLocations(locationOf(postsUploadDir))
+                .setCacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+                .resourceChain(true);
+
+        // Profile pictures follow the exact same static-serving pattern as post images.
+        registry.addResourceHandler("/uploads/profile-pictures/**")
+                .addResourceLocations(locationOf(avatarsUploadDir))
+                .setCacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+                .resourceChain(true);
+    }
+
+    /** Builds a directory location URI with the mandatory trailing slash (see note above). */
+    private String locationOf(Path dir) {
+        String location = dir.toUri().toString();
         if (!location.endsWith("/")) {
             location = location + "/";
         }
-        registry.addResourceHandler("/uploads/posts/**")
-                .addResourceLocations(location)
-                .setCacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
-                .resourceChain(true);
+        return location;
     }
 }

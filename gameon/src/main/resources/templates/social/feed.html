@@ -67,7 +67,11 @@
                         <!-- Post Header -->
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div class="d-flex align-items-center">
-                                <i class="bi bi-person-circle fs-4 me-2 text-muted"></i>
+                                <img th:if="${post.authorProfilePictureUrl != null}"
+                                     th:src="@{${post.authorProfilePictureUrl}}"
+                                     class="gameon-avatar gameon-avatar-md me-2" alt="">
+                                <i th:unless="${post.authorProfilePictureUrl != null}"
+                                   class="bi bi-person-circle fs-4 me-2 text-muted"></i>
                                 <div>
                                     <a th:href="@{'/profile/' + ${post.userId}}"
                                        class="fw-bold text-decoration-none text-dark"

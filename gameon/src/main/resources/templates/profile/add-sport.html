@@ -4,6 +4,37 @@
 <body class="bg-light">
     <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
 
+    <style>
+        .sport-card {
+            cursor: pointer;
+            transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+            border: 2px solid #dee2e6;
+        }
+        .sport-card:hover {
+            border-color: #f1959b;
+        }
+        .sport-card.selected {
+            border-color: #DC3545;
+            background-color: #fff5f5;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.25);
+        }
+        .sport-card .sport-check {
+            color: #DC3545;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        .sport-card.selected .sport-check {
+            opacity: 1;
+        }
+        .sport-card.disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+        .sport-card.disabled:hover {
+            border-color: #dee2e6;
+        }
+    </style>
+
     <div class="container mt-4">
         <div class="row justify-content-center">
             <div class="col-md-6">
@@ -14,14 +45,26 @@
                     <div class="card-body">
                         <form th:action="@{/profile/add-sport}" method="post">
                             <div class="mb-3">
-                                <label for="sportId" class="form-label">Sport</label>
-                                <select class="form-select" id="sportId" name="sportId" required>
-                                    <option value="">-- Select a sport --</option>
-                                    <option th:each="sport : ${sports}"
-                                            th:value="${sport.sportId}"
-                                            th:text="${sport.sportName}"
-                                            th:disabled="${userSportIds.contains(sport.sportId)}">Sport</option>
-                                </select>
+                                <label class="form-label">Choose a Sport</label>
+
+                                <!-- Clickable sport cards. Each radio keeps name="sportId" so the
+                                     submitted parameter is identical to the previous dropdown. -->
+                                <div th:each="sport : ${sports}"
+                                     class="card sport-card mb-2 p-3"
+                                     th:classappend="${userSportIds.contains(sport.sportId)} ? 'disabled' : ''"
+                                     th:data-disabled="${userSportIds.contains(sport.sportId)}">
+                                    <div class="form-check d-flex align-items-center mb-0">
+                                        <input class="form-check-input sport-radio mt-0 me-2" type="radio"
+                                               name="sportId" required="required"
+                                               th:id="'sport-' + ${sport.sportId}"
+                                               th:value="${sport.sportId}"
+                                               th:disabled="${userSportIds.contains(sport.sportId)}">
+                                        <label class="form-check-label fw-semibold flex-grow-1"
+                                               th:for="'sport-' + ${sport.sportId}"
+                                               th:text="${sport.sportName}">Sport</label>
+                                        <i class="bi bi-check-circle-fill sport-check ms-2" aria-hidden="true"></i>
+                                    </div>
+                                </div>
                                 <div class="form-text">Sports already on your profile are disabled.</div>
                             </div>
                             <div class="mb-3">
@@ -44,5 +87,46 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+        (function () {
+            const cards = document.querySelectorAll('.sport-card');
+
+            function selectCard(card) {
+                if (card.dataset.disabled === 'true') { return; }
+                const radio = card.querySelector('.sport-radio');
+                if (!radio || radio.disabled) { return; }
+                radio.checked = true;
+                syncSelectedState();
+            }
+
+            function syncSelectedState() {
+                cards.forEach(function (c) {
+                    const r = c.querySelector('.sport-radio');
+                    c.classList.toggle('selected', !!(r && r.checked));
+                });
+            }
+
+            cards.forEach(function (card) {
+                // Click anywhere on the card selects the sport.
+                card.addEventListener('click', function (e) {
+                    // Let the native control handle its own clicks to avoid double-toggling.
+                    if (e.target.classList.contains('sport-radio') ||
+                        e.target.classList.contains('form-check-label')) {
+                        return;
+                    }
+                    selectCard(card);
+                });
+
+                // Keep visual state in sync with keyboard/native selection.
+                const radio = card.querySelector('.sport-radio');
+                if (radio) {
+                    radio.addEventListener('change', syncSelectedState);
+                }
+            });
+
+            // Reflect any pre-checked state on load.
+            syncSelectedState();
+        })();
+    </script>
 </body>
 </html>

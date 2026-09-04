@@ -21,7 +21,10 @@
             <div class="list-group">
                 <a th:each="user : ${users}" th:href="@{'/profile/' + ${user.userId}}"
                    class="list-group-item list-group-item-action d-flex align-items-center">
-                    <i class="bi bi-person-circle fs-3 me-3 text-muted"></i>
+                    <img th:if="${user.profilePictureUrl != null}"
+                         th:src="@{${user.profilePictureUrl}}"
+                         class="gameon-avatar gameon-avatar-md me-3" alt="">
+                    <i th:unless="${user.profilePictureUrl != null}" class="bi bi-person-circle fs-3 me-3 text-muted"></i>
                     <div>
                         <strong th:text="${user.username}">Username</strong>
                         <br><small class="text-muted" th:text="${user.typeOfUser}">Type</small>

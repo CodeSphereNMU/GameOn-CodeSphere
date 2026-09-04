@@ -40,6 +40,25 @@
         @media (max-width: 991.98px) {
             #userSearchContainer { width: 100%; margin-bottom: 10px; }
         }
+        /* Reusable profile picture (avatar) styles */
+        .gameon-avatar { border-radius: 50%; object-fit: cover; background-color: #e9ecef; }
+        .gameon-avatar-xl { width: 120px; height: 120px; }
+        .gameon-avatar-md { width: 40px; height: 40px; }
+        .gameon-avatar-sm { width: 32px; height: 32px; }
+        .navbar .gameon-avatar-nav { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,0.4); }
+        /* Profile page avatar + pencil overlay */
+        .profile-avatar-wrap { position: relative; display: inline-block; }
+        .profile-avatar-edit {
+            position: absolute; bottom: 4px; right: 4px;
+            width: 34px; height: 34px; border-radius: 50%;
+            background-color: #fff; color: #6c757d;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid #e9ecef; cursor: pointer; padding: 0;
+        }
+        .profile-avatar-edit:hover { color: var(--gameon-red); }
+        /* Edit pencil (username): muted by default, red on hover to match the avatar pencil */
+        .gameon-edit-pencil { color: #6c757d; }
+        .gameon-edit-pencil:hover, .gameon-edit-pencil:focus { color: var(--gameon-red); }
     </style>
 </head>
 
@@ -73,7 +92,10 @@
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle fs-5 me-1"></i>
+                        <img th:if="${currentUserProfilePictureUrl != null}"
+                             th:src="@{${currentUserProfilePictureUrl}}"
+                             class="gameon-avatar gameon-avatar-nav me-1" alt="Profile picture">
+                        <i th:unless="${currentUserProfilePictureUrl != null}" class="bi bi-person-circle fs-5 me-1"></i>
                         <span sec:authentication="name">User</span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">

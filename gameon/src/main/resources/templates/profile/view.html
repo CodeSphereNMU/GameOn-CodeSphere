@@ -22,14 +22,30 @@
             <div class="col-md-4 mb-3">
                 <div class="card shadow-sm">
                     <div class="card-body text-center">
-                        <i class="bi bi-person-circle text-muted" style="font-size: 5rem;"></i>
+                        <!-- Profile Picture (with edit pencil for own profile) -->
+                        <div class="profile-avatar-wrap">
+                            <img th:if="${user.profilePictureUrl != null}"
+                                 th:src="@{${user.profilePictureUrl}}"
+                                 class="gameon-avatar gameon-avatar-xl" alt="Profile picture">
+                            <i th:unless="${user.profilePictureUrl != null}"
+                               class="bi bi-person-circle text-muted" style="font-size: 120px; line-height: 1;"></i>
+
+                            <button th:if="${isOwnProfile}"
+                                    type="button"
+                                    class="profile-avatar-edit"
+                                    data-bs-toggle="modal" data-bs-target="#profilePictureModal"
+                                    title="Change profile picture"
+                                    aria-label="Change profile picture">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </div>
 
                         <div class="d-flex align-items-center justify-content-center mt-2">
                             <h4 class="mb-0" th:text="${user.username}">Username</h4>
 
                             <a th:if="${isOwnProfile}"
                                th:href="@{/profile/edit}"
-                               class="btn btn-sm btn-link text-muted ms-1"
+                               class="btn btn-sm btn-link gameon-edit-pencil ms-1"
                                title="Edit profile"
                                aria-label="Edit profile">
                                 <i class="bi bi-pencil-square"></i>
@@ -258,6 +274,55 @@
         </div>
     </div>
 
+    <!-- Profile Picture Upload / Replace Modal (own profile only) -->
+    <div th:if="${isOwnProfile}" class="modal fade" id="profilePictureModal" tabindex="-1"
+         aria-hidden="true" aria-labelledby="profilePictureModalTitle">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form th:action="@{/profile/picture}" method="post" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="profilePictureModalTitle"
+                            th:text="${user.profilePictureUrl != null} ? 'Replace profile picture' : 'Upload profile picture'">
+                            Profile picture
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img id="avatarPreview"
+                             th:src="${user.profilePictureUrl != null} ? @{${user.profilePictureUrl}} : ''"
+                             class="gameon-avatar gameon-avatar-xl mb-3"
+                             th:classappend="${user.profilePictureUrl == null} ? 'd-none'" alt="Preview">
+                        <div class="mb-2">
+                            <input type="file" class="form-control" id="pictureInput" name="picture"
+                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
+                        </div>
+                        <div class="form-text text-start">
+                            Allowed formats: JPG, JPEG, PNG, WEBP. Maximum size: 5 MB.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-gameon">Save picture</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script th:if="${isOwnProfile}">
+        // Live preview of the chosen image before upload (uses blob: URL, allowed by CSP img-src).
+        (function () {
+            var input = document.getElementById('pictureInput');
+            var preview = document.getElementById('avatarPreview');
+            if (!input || !preview) return;
+            input.addEventListener('change', function () {
+                var file = input.files && input.files[0];
+                if (!file) return;
+                preview.src = URL.createObjectURL(file);
+                preview.classList.remove('d-none');
+            });
+        })();
+    </script>
 </body>
 </html>

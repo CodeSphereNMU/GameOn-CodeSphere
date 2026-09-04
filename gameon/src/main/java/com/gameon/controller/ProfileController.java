@@ -15,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
@@ -88,6 +89,22 @@ public class ProfileController {
         try {
             userService.updateUsername(currentUser.getUserId(), username);
             redirectAttributes.addFlashAttribute("success", "Profile updated successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/profile";
+    }
+
+    // ===== Profile Picture: Upload / Replace =====
+
+    @PostMapping(value = "/profile/picture",
+            consumes = {"multipart/form-data", "application/x-www-form-urlencoded"})
+    public String updateProfilePicture(@AuthenticationPrincipal CustomUserDetails currentUser,
+                                       @RequestParam("picture") MultipartFile picture,
+                                       RedirectAttributes redirectAttributes) {
+        try {
+            profileService.updateProfilePicture(currentUser.getUserId(), picture);
+            redirectAttributes.addFlashAttribute("success", "Profile picture updated");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         }

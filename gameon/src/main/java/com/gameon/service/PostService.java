@@ -354,7 +354,34 @@ public class PostService {
                 break;
         }
         attachImages(page.getContent());
+        attachAuthorAvatars(page.getContent());
         return page;
+    }
+
+    /**
+     * Attaches each post author's profile-picture URL to a page of feed DTOs using a single
+     * batch query (one query for the whole page). Keeps the existing DTO/projection
+     * architecture intact and avoids per-post N+1 lookups. Authors without a picture simply
+     * keep a null URL, so the feed renders the default avatar icon.
+     */
+    private void attachAuthorAvatars(List<PostFeedDto> dtos) {
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+        List<Long> userIds = dtos.stream().map(PostFeedDto::userId).distinct().toList();
+        Map<Long, String> byUser = new LinkedHashMap<>();
+        for (Object[] row : userRepository.findProfilePictureUrlsByUserIds(userIds)) {
+            byUser.put((Long) row[0], (String) row[1]);
+        }
+        if (byUser.isEmpty()) {
+            return;
+        }
+        for (PostFeedDto dto : dtos) {
+            String url = byUser.get(dto.userId());
+            if (url != null) {
+                dto.setAuthorProfilePictureUrl(url);
+            }
+        }
     }
 
     /**

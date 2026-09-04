@@ -32,6 +32,13 @@ public class PostFeedDto {
     private List<String> imagePaths = new ArrayList<>();
 
     /**
+     * Author's profile picture URL, attached separately (like {@link #imagePaths}) so the JPQL
+     * projection constructor stays unchanged. {@code null} when the author has no picture; the
+     * feed then renders the default avatar icon.
+     */
+    private String authorProfilePictureUrl;
+
+    /**
      * Constructor used directly by the JPQL feed projections. The signature must stay
      * unchanged so existing repository queries keep compiling.
      */
@@ -86,6 +93,14 @@ public class PostFeedDto {
 
     public void setImagePaths(List<String> imagePaths) {
         this.imagePaths = (imagePaths != null) ? imagePaths : new ArrayList<>();
+    }
+
+    public String getAuthorProfilePictureUrl() {
+        return authorProfilePictureUrl;
+    }
+
+    public void setAuthorProfilePictureUrl(String authorProfilePictureUrl) {
+        this.authorProfilePictureUrl = authorProfilePictureUrl;
     }
 
     /** Convenience for templates: whether this post has any attached images. */

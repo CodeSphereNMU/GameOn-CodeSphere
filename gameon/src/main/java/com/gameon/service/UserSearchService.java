@@ -58,7 +58,7 @@ public class UserSearchService {
                 user.getUserId(),
                 user.getUsername(),
                 null,  // displayName - not yet available on User entity
-                null   // profilePictureUrl - not yet available on User entity
+                user.getProfilePictureUrl()  // null when no picture uploaded -> UI shows default avatar
         );
     }
 }

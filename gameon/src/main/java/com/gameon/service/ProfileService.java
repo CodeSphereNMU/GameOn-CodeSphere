@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -33,15 +34,18 @@ public class ProfileService {
     private final UserSportProfileRepository userSportProfileRepository;
     private final SportRepository sportRepository;
     private final FollowRepository followRepository;
+    private final AvatarStorageService avatarStorageService;
 
     public ProfileService(UserRepository userRepository,
                           UserSportProfileRepository userSportProfileRepository,
                           SportRepository sportRepository,
-                          FollowRepository followRepository) {
+                          FollowRepository followRepository,
+                          AvatarStorageService avatarStorageService) {
         this.userRepository = userRepository;
         this.userSportProfileRepository = userSportProfileRepository;
         this.sportRepository = sportRepository;
         this.followRepository = followRepository;
+        this.avatarStorageService = avatarStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -53,6 +57,37 @@ public class ProfileService {
     @Transactional(readOnly = true)
     public List<UserSportProfile> getUserSports(Long userId) {
         return userSportProfileRepository.findByIdUserId(userId);
+    }
+
+    /**
+     * Uploads (or replaces) the user's profile picture.
+     *
+     * <p>The uploaded file is validated and stored on the filesystem by
+     * {@link AvatarStorageService}; only the resulting public URL path is persisted on the
+     * {@code users} row. When replacing an existing picture, the previous file is removed
+     * on a best-effort basis after the new one is stored.</p>
+     *
+     * @return the new public URL path of the stored picture.
+     * @throws BusinessRuleException if the file is missing, too large or not a valid image.
+     */
+    @Transactional
+    public String updateProfilePicture(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        String previous = user.getProfilePictureUrl();
+        String newUrl = avatarStorageService.store(file);
+
+        user.setProfilePictureUrl(newUrl);
+        userRepository.save(user);
+
+        // Remove the old file only after the new one is safely stored and persisted.
+        if (previous != null && !previous.equals(newUrl)) {
+            avatarStorageService.delete(previous);
+        }
+
+        logger.info("User {} updated profile picture -> {}", user.getUsername(), newUrl);
+        return newUrl;
     }
 
     /**
