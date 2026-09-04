@@ -13,6 +13,10 @@ public class CreateListingDraft implements Serializable {
     private SkillLevel skillLevel;
     private LocalDateTime scheduledDate;
     private String location;
+    private String venueName;
+    private java.math.BigDecimal latitude;
+    private java.math.BigDecimal longitude;
+    private com.gameon.model.enums.VenueType venueType;
     private PrivacySetting privacySetting;
     private Integer durationMinutes;
     private List<Long> positionIds = new ArrayList<>();
@@ -26,6 +30,14 @@ public class CreateListingDraft implements Serializable {
     public void setScheduledDate(LocalDateTime scheduledDate) { this.scheduledDate = scheduledDate; }
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
+    public String getVenueName() { return venueName; }
+    public void setVenueName(String venueName) { this.venueName = venueName; }
+    public java.math.BigDecimal getLatitude() { return latitude; }
+    public void setLatitude(java.math.BigDecimal latitude) { this.latitude = latitude; }
+    public java.math.BigDecimal getLongitude() { return longitude; }
+    public void setLongitude(java.math.BigDecimal longitude) { this.longitude = longitude; }
+    public com.gameon.model.enums.VenueType getVenueType() { return venueType; }
+    public void setVenueType(com.gameon.model.enums.VenueType venueType) { this.venueType = venueType; }
     public PrivacySetting getPrivacySetting() { return privacySetting; }
     public void setPrivacySetting(PrivacySetting privacySetting) { this.privacySetting = privacySetting; }
     public Integer getDurationMinutes() { return durationMinutes; }

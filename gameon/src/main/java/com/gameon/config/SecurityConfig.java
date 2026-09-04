@@ -106,11 +106,15 @@ public class SecurityConfig {
                 .xssProtection(xss -> xss.disable())
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'; " +
-                                      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
-                                      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+                                      // unpkg.com hosts Leaflet (maps) JS/CSS.
+                                      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; " +
+                                      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; " +
                                       // img-src allows same-origin stored post images plus blob:/data:
-                                      // used by client-side upload previews (URL.createObjectURL).
-                                      "img-src 'self' data: blob:; " +
+                                      // used by client-side upload previews (URL.createObjectURL),
+                                      // plus OpenStreetMap map tiles and Leaflet marker images.
+                                      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; " +
+                                      // Map/weather API calls go to our own /api endpoints (same origin).
+                                      "connect-src 'self'; " +
                                       "font-src 'self' https://cdn.jsdelivr.net;")
                 )
             );

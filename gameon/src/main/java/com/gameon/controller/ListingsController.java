@@ -122,6 +122,10 @@ public class ListingsController {
                                 @RequestParam String scheduledDate,
                                 @RequestParam String location,
                                 @RequestParam String privacySetting,
+                                @RequestParam(required = false) String venueName,
+                                @RequestParam(required = false) java.math.BigDecimal latitude,
+                                @RequestParam(required = false) java.math.BigDecimal longitude,
+                                @RequestParam(required = false) String venueType,
                                 HttpSession session,
                                 Model model) {
         try {
@@ -144,6 +148,10 @@ public class ListingsController {
             draft.setSkillLevel(skill);
             draft.setScheduledDate(dateTime);
             draft.setLocation(location.trim());
+            draft.setVenueName(venueName != null && !venueName.isBlank() ? venueName.trim() : null);
+            draft.setLatitude(latitude);
+            draft.setLongitude(longitude);
+            draft.setVenueType(parseVenueType(venueType));
             draft.setPrivacySetting(privacy);
             draft.setDurationMinutes(durationMinutes);
             draft.setPositionIds(format.getHasPositions() ? null : new ArrayList<>());
@@ -159,6 +167,10 @@ public class ListingsController {
             model.addAttribute("submittedSkillLevel", skillLevel);
             model.addAttribute("submittedScheduledDate", scheduledDate);
             model.addAttribute("submittedLocation", location);
+            model.addAttribute("submittedVenueName", venueName);
+            model.addAttribute("submittedLatitude", latitude);
+            model.addAttribute("submittedLongitude", longitude);
+            model.addAttribute("submittedVenueType", venueType);
             model.addAttribute("submittedPrivacySetting", privacySetting);
             populateCreateForm(currentUser.getUserId(), session, model);
             return "listings/create";
@@ -255,7 +267,8 @@ public class ListingsController {
             gameListingService.createListing(
                     currentUser.getUserId(), draft.getFormatId(), draft.getSkillLevel(),
                     draft.getScheduledDate(), draft.getLocation(), draft.getPrivacySetting(),
-                    draft.getDurationMinutes(), draft.getPositionIds(), draft.getInvitedFriendIds());
+                    draft.getDurationMinutes(), draft.getPositionIds(), draft.getInvitedFriendIds(),
+                    draft.getVenueName(), draft.getLatitude(), draft.getLongitude(), draft.getVenueType());
 
             session.removeAttribute("listingDraft");
             redirectAttributes.addFlashAttribute("success", "Game listing created successfully!");
@@ -299,6 +312,18 @@ public class ListingsController {
     private CreateListingDraft getDraft(HttpSession session) {
         Object value = session.getAttribute("listingDraft");
         return value instanceof CreateListingDraft ? (CreateListingDraft) value : null;
+    }
+
+    /** Parse the optional INDOOR/OUTDOOR venue type; returns null when absent/invalid. */
+    private com.gameon.model.enums.VenueType parseVenueType(String venueType) {
+        if (venueType == null || venueType.isBlank()) {
+            return null;
+        }
+        try {
+            return com.gameon.model.enums.VenueType.valueOf(venueType.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     @GetMapping("/listings/create/cancel")

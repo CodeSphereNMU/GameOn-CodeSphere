@@ -8,6 +8,8 @@
     <title th:text="${title} + ' - GameOn'">GameOn</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Leaflet (open-source maps) -->
+    <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
     <style>
         :root { --gameon-red: #DC3545; --gameon-dark: #1a1a2e; }
         .navbar-brand { font-style: italic; font-weight: 800; color: var(--gameon-red) !important; font-size: 1.5rem; }
@@ -59,6 +61,73 @@
         /* Edit pencil (username): muted by default, red on hover to match the avatar pencil */
         .gameon-edit-pencil { color: #6c757d; }
         .gameon-edit-pencil:hover, .gameon-edit-pencil:focus { color: var(--gameon-red); }
+
+        /* ===== Map + Weather + Playability (Map/Weather upgrade) ===== */
+        .gameon-map { width: 100%; border-radius: 12px; border: 1px solid #e9ecef; z-index: 0; }
+        .gameon-map-sm { height: 260px; }
+        .gameon-map-lg { height: 460px; }
+        .leaflet-container { font: inherit; }
+
+        /* Venue search dropdown (reuses the user-search look & feel) */
+        .venue-search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff;
+            border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px; z-index: 1050;
+            max-height: 360px; overflow-y: auto; }
+        .venue-search-item { display: block; width: 100%; text-align: left; padding: 10px 14px;
+            border: none; background: none; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+        .venue-search-item:last-child { border-bottom: none; }
+        .venue-search-item:hover, .venue-search-item:focus { background-color: #fff0f1; }
+        .venue-search-name { font-weight: 600; font-size: 0.9rem; color: #212529; }
+        .venue-search-meta { font-size: 0.78rem; color: #6c757d; }
+        .venue-search-empty { padding: 16px; text-align: center; color: #6c757d; font-size: 0.9rem; }
+        .venue-type-pill { font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; }
+        .venue-type-INDOOR { background: #e7f1ff; color: #0d6efd; }
+        .venue-type-OUTDOOR { background: #e8f5e9; color: #198754; }
+
+        /* Weather card */
+        .weather-card { border-radius: 12px; border: 1px solid #e9ecef; background: #fff; }
+        .weather-card .weather-metric { font-size: 0.9rem; }
+        .weather-card .weather-metric i { width: 1.2rem; }
+        .weather-temp { font-size: 1.6rem; font-weight: 700; }
+
+        /* Playability status card + badges */
+        .playability-card { border-radius: 12px; border-width: 1px; border-style: solid; padding: 12px 16px; }
+        .playability-GREEN  { border-color: #198754; background: #e8f5e9; color: #14663f; }
+        .playability-ORANGE { border-color: #fd7e14; background: #fff4e6; color: #8a4b00; }
+        .playability-RED    { border-color: #dc3545; background: #fdecec; color: #8a1c26; }
+        .playability-GREY   { border-color: #adb5bd; background: #f1f3f5; color: #495057; }
+        .playability-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 10px; font-weight: 600; }
+        .pb-badge-GREEN  { background: #198754; color: #fff; }
+        .pb-badge-ORANGE { background: #fd7e14; color: #fff; }
+        .pb-badge-RED    { background: #dc3545; color: #fff; }
+        .pb-badge-GREY   { background: #adb5bd; color: #fff; }
+
+        /* Weather chip on listing cards */
+        .weather-chip { font-size: 0.78rem; color: #495057; }
+        .weather-chip i { color: var(--gameon-red); }
+
+        /* Alternative date suggestions */
+        .alt-date-card { border-radius: 10px; border: 1px solid #e9ecef; padding: 10px 12px; }
+
+        /* View toggle group */
+        .view-toggle .btn.active { background-color: var(--gameon-red); border-color: var(--gameon-red); color: #fff; }
+
+        /* Recommended venues panel (South Africa) */
+        .venue-reco-list { max-height: 420px; overflow-y: auto; }
+        .venue-reco-item { padding: 10px 12px; border: 1px solid #eef0f2; border-radius: 10px; margin-bottom: 8px; transition: background-color .15s, box-shadow .15s; }
+        .venue-reco-item:last-child { margin-bottom: 0; }
+        .venue-reco-item:hover { background-color: #fff7f7; }
+        .venue-reco-item.reco-active { box-shadow: 0 0 0 2px rgba(220,53,69,0.35); background-color: #fff0f1; }
+        .reco-name { font-weight: 600; font-size: 0.92rem; color: #212529; }
+        .reco-addr { font-size: 0.8rem; color: #6c757d; }
+        .reco-facilities { display: flex; flex-wrap: wrap; gap: 4px; }
+        .reco-facility { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #eef2f7; color: #495057; }
+        .reco-actions .btn { border-radius: 20px; }
+        .reco-phone { color: #495057; text-decoration: none; white-space: nowrap; }
+        .reco-phone:hover { color: var(--gameon-red); }
+        @media (max-width: 575.98px) {
+            .venue-reco-list { max-height: 360px; }
+            .reco-actions { flex-wrap: wrap; }
+        }
     </style>
 </head>
 
@@ -133,6 +202,74 @@
 <!-- ===== SCRIPTS FRAGMENT ===== -->
 <div th:fragment="scripts">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet (open-source maps) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    /*
+     * GameOnMap: small shared helper for the Map + Weather + Playability features.
+     * Wraps Leaflet + the server-side JSON API (/api/venues, /api/weather, /api/listings/map)
+     * so individual pages stay concise. Purely presentational; no business logic here.
+     */
+    window.GameOnMap = (function () {
+        const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const OSM_ATTR = '&copy; OpenStreetMap contributors';
+        // Default centre: Gqeberha / Port Elizabeth (matches the sample venues).
+        const DEFAULT_CENTER = [-33.9608, 25.6022];
+
+        function createMap(elId, opts) {
+            opts = opts || {};
+            const map = L.map(elId, { scrollWheelZoom: !!opts.scroll });
+            map.setView(opts.center || DEFAULT_CENTER, opts.zoom || 12);
+            L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(map);
+            // Leaflet needs a size recalculation once its container is laid out/visible.
+            setTimeout(function () { map.invalidateSize(); }, 200);
+            return map;
+        }
+
+        // Coloured circle marker by listing status (OPEN=green, CONFIRMED=blue, FULL=red).
+        function statusColor(status, full) {
+            if (full) return '#dc3545';
+            if (status === 'OPEN') return '#198754';
+            if (status === 'CONFIRMED' || status === 'IN_PROGRESS' || status === 'AWAITING_RESULT') return '#0d6efd';
+            return '#6c757d';
+        }
+
+        function coloredMarker(lat, lng, color) {
+            return L.circleMarker([lat, lng], {
+                radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95
+            });
+        }
+
+        // Try to get the user's location (best-effort; resolves null on denial/timeout).
+        function getUserLocation() {
+            return new Promise(function (resolve) {
+                if (!navigator.geolocation) { resolve(null); return; }
+                navigator.geolocation.getCurrentPosition(
+                    function (pos) { resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+                    function () { resolve(null); },
+                    { timeout: 5000, maximumAge: 600000 }
+                );
+            });
+        }
+
+        function fmtDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d)) return iso;
+            return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+                + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        }
+
+        return {
+            createMap: createMap,
+            coloredMarker: coloredMarker,
+            statusColor: statusColor,
+            getUserLocation: getUserLocation,
+            fmtDate: fmtDate,
+            DEFAULT_CENTER: DEFAULT_CENTER
+        };
+    })();
+    </script>
 
     <!-- Reusable in-app confirmation modal (replaces window.confirm) -->
     <div class="modal fade" id="gameonConfirmModal" tabindex="-1" aria-hidden="true"

@@ -42,6 +42,27 @@ public class GameListing extends Auditable {
     @Column(name = "location", nullable = false, length = 200)
     private String location;
 
+    // ===== Venue intelligence (Map + Weather + Playability upgrade) =====
+    // All nullable so legacy listings created before this feature remain valid.
+
+    @Size(max = 200, message = "Venue name must be at most 200 characters")
+    @Column(name = "venue_name", length = 200)
+    private String venueName;
+
+    @DecimalMin(value = "-90.0", message = "Latitude must be >= -90")
+    @DecimalMax(value = "90.0", message = "Latitude must be <= 90")
+    @Column(name = "latitude", precision = 9, scale = 6)
+    private java.math.BigDecimal latitude;
+
+    @DecimalMin(value = "-180.0", message = "Longitude must be >= -180")
+    @DecimalMax(value = "180.0", message = "Longitude must be <= 180")
+    @Column(name = "longitude", precision = 9, scale = 6)
+    private java.math.BigDecimal longitude;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "venue_type", length = 10)
+    private com.gameon.model.enums.VenueType venueType;
+
     @NotNull(message = "Duration is required")
     @Min(value = 1, message = "Duration must be at least 1 minute")
     @Max(value = 480, message = "Duration must not exceed 480 minutes")
@@ -126,6 +147,44 @@ public class GameListing extends Auditable {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public String getVenueName() {
+        return venueName;
+    }
+
+    public void setVenueName(String venueName) {
+        this.venueName = venueName;
+    }
+
+    public java.math.BigDecimal getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(java.math.BigDecimal latitude) {
+        this.latitude = latitude;
+    }
+
+    public java.math.BigDecimal getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(java.math.BigDecimal longitude) {
+        this.longitude = longitude;
+    }
+
+    public com.gameon.model.enums.VenueType getVenueType() {
+        return venueType;
+    }
+
+    public void setVenueType(com.gameon.model.enums.VenueType venueType) {
+        this.venueType = venueType;
+    }
+
+    /** True when this listing has usable map coordinates. */
+    @Transient
+    public boolean hasCoordinates() {
+        return latitude != null && longitude != null;
     }
 
     public PrivacySetting getPrivacySetting() {

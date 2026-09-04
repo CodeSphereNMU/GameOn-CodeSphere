@@ -6,12 +6,22 @@
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
     <div class="container mt-4">
-        <!-- Header + Create Button -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Available Game Listings</h4>
-            <a th:href="@{/listings/create}" class="btn btn-gameon">
-                <i class="bi bi-plus-lg me-1"></i>Create Listing
-            </a>
+        <!-- Header + View Toggle + Create Button -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h4 class="mb-0">Available Game Listings</h4>
+            <div class="d-flex gap-2 align-items-center">
+                <div class="btn-group view-toggle" role="group" aria-label="View toggle">
+                    <button type="button" class="btn btn-outline-gameon btn-sm active" id="listViewBtn">
+                        <i class="bi bi-list-ul me-1"></i>List View
+                    </button>
+                    <button type="button" class="btn btn-outline-gameon btn-sm" id="mapViewBtn">
+                        <i class="bi bi-map me-1"></i>Map View
+                    </button>
+                </div>
+                <a th:href="@{/listings/create}" class="btn btn-gameon">
+                    <i class="bi bi-plus-lg me-1"></i>Create Listing
+                </a>
+            </div>
         </div>
 
         <!-- Flash Messages -->
@@ -61,10 +71,33 @@
             </form>
         </div>
 
+        <!-- ===== Map View ===== -->
+        <div id="mapViewContainer" class="mb-3 d-none">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div id="listingsMap" class="gameon-map gameon-map-lg"></div>
+                    <div class="d-flex flex-wrap gap-3 mt-2 small text-muted">
+                        <span><span class="d-inline-block rounded-circle" style="width:10px;height:10px;background:#198754;"></span> Open</span>
+                        <span><span class="d-inline-block rounded-circle" style="width:10px;height:10px;background:#0d6efd;"></span> Confirmed</span>
+                        <span><span class="d-inline-block rounded-circle" style="width:10px;height:10px;background:#dc3545;"></span> Full</span>
+                    </div>
+                    <div id="mapEmptyHint" class="text-muted small mt-2 d-none">
+                        No active listings have a pinned venue location yet.
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Listings Grid -->
-        <div th:if="${listings != null && !listings.isEmpty()}" class="row g-3">
+        <div th:if="${listings != null && !listings.isEmpty()}" id="listViewContainer" class="row g-3">
             <div th:each="listing : ${listings}" class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm">
+                <div class="card h-100 shadow-sm listing-card"
+                     th:attr="data-listing-id=${listing.gameListingId},
+                              data-lat=${listing.latitude},
+                              data-lng=${listing.longitude},
+                              data-time=${#temporals.format(listing.scheduledDate, 'yyyy-MM-dd''T''HH:mm')},
+                              data-sport=${listing.format.sport.sportName},
+                              data-venue-type=${listing.venueType != null ? listing.venueType.name() : ''}">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h6 class="card-title mb-0" th:text="${listing.format.sport.sportName}">Sport</h6>
@@ -83,10 +116,26 @@
                             <i class="bi bi-calendar me-1"></i>
                             <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
                         </p>
-                        <p class="text-muted small mb-2">
+                        <p class="text-muted small mb-1">
                             <i class="bi bi-geo-alt me-1"></i>
-                            <span th:text="${listing.location}">Location</span>
+                            <span th:text="${listing.venueName != null ? listing.venueName : listing.location}">Location</span>
+                            <span class="venue-type-pill ms-1"
+                                  th:if="${listing.venueType != null}"
+                                  th:classappend="'venue-type-' + ${listing.venueType.name()}"
+                                  th:text="${listing.venueType.name() == 'INDOOR' ? 'Indoor' : 'Outdoor'}">Type</span>
                         </p>
+                        <p class="small mb-2 card-distance text-muted d-none">
+                            <i class="bi bi-signpost-2 me-1"></i><span class="distance-value"></span>
+                        </p>
+                        <!-- Weather + playability (populated client-side) -->
+                        <div class="d-flex align-items-center gap-2 mb-2 card-weather-row d-none">
+                            <span class="weather-chip">
+                                <i class="bi bi-cloud weather-chip-icon"></i>
+                                <span class="weather-chip-temp"></span>
+                                <span class="weather-chip-cond text-muted"></span>
+                            </span>
+                            <span class="playability-badge pb-badge-GREY playability-badge-el d-none"></span>
+                        </div>
                         <p class="small mb-2">
                             <i class="bi bi-person me-1"></i>
                             Created by <strong th:text="${listing.creator.username}">User</strong>
@@ -126,5 +175,167 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+
+    <!-- ===== Listings: view toggle + map + per-card weather/playability/distance ===== -->
+    <script>
+    (function () {
+        if (!window.GameOnMap || typeof L === 'undefined') { return; }
+
+        const listBtn = document.getElementById('listViewBtn');
+        const mapBtn = document.getElementById('mapViewBtn');
+        const listContainer = document.getElementById('listViewContainer');
+        const mapContainer = document.getElementById('mapViewContainer');
+        const pagination = document.querySelector('nav .pagination');
+        const emptyHint = document.getElementById('mapEmptyHint');
+
+        let map = null;
+        let mapLoaded = false;
+        let userLoc = null;
+
+        GameOnMap.getUserLocation().then(function (loc) {
+            userLoc = loc;
+            enrichCards();
+        });
+
+        // ----- View toggle -----
+        function showList() {
+            listBtn.classList.add('active');
+            mapBtn.classList.remove('active');
+            if (listContainer) { listContainer.classList.remove('d-none'); }
+            mapContainer.classList.add('d-none');
+            if (pagination && pagination.parentElement) { pagination.parentElement.classList.remove('d-none'); }
+        }
+        function showMap() {
+            mapBtn.classList.add('active');
+            listBtn.classList.remove('active');
+            if (listContainer) { listContainer.classList.add('d-none'); }
+            mapContainer.classList.remove('d-none');
+            if (pagination && pagination.parentElement) { pagination.parentElement.classList.add('d-none'); }
+            initMap();
+        }
+        listBtn.addEventListener('click', showList);
+        mapBtn.addEventListener('click', showMap);
+
+        // ----- Map of all listings -----
+        function initMap() {
+            if (mapLoaded) { if (map) { setTimeout(function () { map.invalidateSize(); }, 100); } return; }
+            mapLoaded = true;
+            map = GameOnMap.createMap('listingsMap', { zoom: 11, scroll: true });
+            fetch('/api/listings/map')
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (items) {
+                    if (!items || items.length === 0) {
+                        emptyHint.classList.remove('d-none');
+                        return;
+                    }
+                    const bounds = [];
+                    items.forEach(function (it) {
+                        if (it.lat == null || it.lng == null) { return; }
+                        const color = GameOnMap.statusColor(it.status, it.full);
+                        const m = GameOnMap.coloredMarker(it.lat, it.lng, color).addTo(map);
+                        m.bindPopup(buildPopup(it));
+                        bounds.push([it.lat, it.lng]);
+                    });
+                    if (bounds.length > 0) { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 }); }
+                })
+                .catch(function () { emptyHint.classList.remove('d-none'); });
+        }
+
+        function buildPopup(it) {
+            const w = it.weather || {};
+            const p = it.playability || {};
+            const spots = it.remaining + ' Spot' + (it.remaining === 1 ? '' : 's') + ' Left';
+            const weatherLine = (w.available)
+                ? '<div class="weather-chip"><i class="bi ' + (w.icon || 'bi-cloud') + '"></i> ' +
+                  (w.temperatureC != null ? Math.round(w.temperatureC) + '\u00B0C ' : '') + (w.condition || '') + '</div>'
+                : '';
+            const pb = p.colour
+                ? '<span class="playability-badge pb-badge-' + p.colour + '">' + (p.heading || '') + '</span>'
+                : '';
+            const div = document.createElement('div');
+            div.innerHTML =
+                '<div class="fw-bold mb-1"></div>' +
+                '<div class="small text-muted venue-line"></div>' +
+                '<div class="small date-line"></div>' +
+                '<div class="mt-1 weather-slot"></div>' +
+                '<div class="mt-1 spots-line small fw-semibold"></div>' +
+                '<div class="mt-1 pb-slot"></div>' +
+                '<a class="btn btn-outline-gameon btn-sm w-100 mt-2" href="/listings/' + it.id + '">View Listing</a>';
+            div.querySelector('.fw-bold').textContent = (it.sport || '') + (it.format ? ' \u2022 ' + it.format : '');
+            div.querySelector('.venue-line').textContent = it.venue || it.address || '';
+            div.querySelector('.date-line').textContent = GameOnMap.fmtDate(it.scheduledDate);
+            div.querySelector('.weather-slot').innerHTML = weatherLine;
+            div.querySelector('.spots-line').textContent = it.full ? 'Full' : spots;
+            div.querySelector('.pb-slot').innerHTML = pb;
+            return div;
+        }
+
+        // ----- Per-card weather + playability + distance -----
+        function enrichCards() {
+            const cards = document.querySelectorAll('.listing-card');
+            cards.forEach(function (card) {
+                const lat = card.getAttribute('data-lat');
+                const lng = card.getAttribute('data-lng');
+
+                // Distance
+                if (userLoc && lat && lng) {
+                    const d = haversine(userLoc.lat, userLoc.lng, parseFloat(lat), parseFloat(lng));
+                    const distEl = card.querySelector('.card-distance');
+                    if (distEl) {
+                        card.querySelector('.distance-value').textContent = (Math.round(d * 10) / 10) + ' km away';
+                        distEl.classList.remove('d-none');
+                    }
+                }
+
+                // Weather + playability (only when coordinates exist)
+                if (!lat || !lng || lat === 'null' || lng === 'null') { return; }
+                const params = new URLSearchParams({
+                    lat: lat, lng: lng, time: card.getAttribute('data-time'),
+                    sport: card.getAttribute('data-sport') || '',
+                    venueType: card.getAttribute('data-venue-type') || ''
+                });
+                fetch('/api/weather?' + params.toString())
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (data) {
+                        if (!data) { return; }
+                        applyCardWeather(card, data.weather, data.playability);
+                    })
+                    .catch(function () {});
+            });
+        }
+
+        function applyCardWeather(card, w, p) {
+            const row = card.querySelector('.card-weather-row');
+            if (!row) { return; }
+            if (w && w.available) {
+                card.querySelector('.weather-chip-icon').className = 'bi ' + (w.icon || 'bi-cloud') + ' weather-chip-icon';
+                card.querySelector('.weather-chip-temp').textContent =
+                    (w.temperatureC != null ? Math.round(w.temperatureC) + '\u00B0C ' : '');
+                card.querySelector('.weather-chip-cond').textContent = w.condition || '';
+            }
+            if (p && p.colour) {
+                const badge = card.querySelector('.playability-badge-el');
+                badge.className = 'playability-badge pb-badge-' + p.colour + ' playability-badge-el';
+                badge.textContent = p.heading || '';
+                badge.classList.remove('d-none');
+            }
+            row.classList.remove('d-none');
+        }
+
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // Cards without coordinates still get weather skipped; run once at load (distance runs
+        // again after geolocation resolves).
+        enrichCards();
+    })();
+    </script>
 </body>
 </html>

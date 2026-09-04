@@ -6,8 +6,8 @@
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
     <div class="container mt-4">
-        <div class="row justify-content-center">
-            <div class="col-md-7">
+        <div class="row justify-content-center g-4">
+            <div class="col-lg-6">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white">
                         <h5 class="mb-0"><i class="bi bi-plus-circle me-2 text-danger"></i>Create Game Listing</h5>
@@ -21,7 +21,7 @@
                             <a th:href="@{/profile/add-sport}" class="alert-link">Add Sport</a>
                         </div>
 
-                        <form th:unless="${formats.isEmpty()}" th:action="@{/listings/create}" method="post">
+                        <form th:unless="${formats.isEmpty()}" th:action="@{/listings/create}" method="post" id="createListingForm">
                             <div class="mb-3">
                                 <label for="sportId" class="form-label">Sport</label>
                                 <select class="form-select" id="sportId" name="sportId" required>
@@ -56,11 +56,74 @@
                                        name="scheduledDate" required
                                        th:value="${submittedScheduledDate != null ? submittedScheduledDate : (draft != null && draft.scheduledDate != null ? #temporals.format(draft.scheduledDate, 'yyyy-MM-dd''T''HH:mm') : '')}">
                             </div>
-                            <div class="mb-3">
-                                <label for="location" class="form-label">Location</label>
-                                <input type="text" class="form-control" id="location" name="location"
-                                       placeholder="e.g. City Sports Centre, Court 3" required maxlength="200"
+                            <!-- ===== Intelligent venue selection (South Africa only) ===== -->
+                            <div class="mb-2">
+                                <label for="areaInput" class="form-label">
+                                    City / suburb / area <span class="text-muted small">(South Africa)</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bi bi-buildings"></i></span>
+                                    <input type="text" class="form-control" id="areaInput"
+                                           placeholder="e.g. Summerstrand, Cape Town, Sandton"
+                                           autocomplete="off">
+                                    <button class="btn btn-outline-secondary" type="button" id="areaSearchBtn">
+                                        Set area
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    <i class="bi bi-geo me-1"></i>Recommendations are limited to South Africa and prioritised near this area.
+                                </div>
+                            </div>
+
+                            <div class="mb-3 position-relative" id="venueSearchContainer">
+                                <label for="venueSearchInput" class="form-label">Venue</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bi bi-geo-alt"></i></span>
+                                    <input type="text" class="form-control" id="venueSearchInput"
+                                           placeholder="Search SA sports venues, e.g. 'Boardwalk Padel'"
+                                           autocomplete="off">
+                                    <button class="btn btn-outline-secondary" type="button" id="venueSearchBtn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <div id="venueSearchResults" class="venue-search-dropdown d-none"></div>
+                                <div class="form-text">Pick a recommended venue to auto-fill the address, map location and forecast.</div>
+
+                                <!-- The free-text location string is still required by the backend.
+                                     It is set from the chosen venue, or can be typed manually as a fallback. -->
+                                <input type="text" class="form-control mt-2" id="location" name="location"
+                                       placeholder="Or type an address manually" required maxlength="200"
                                        th:value="${submittedLocation != null ? submittedLocation : (draft != null ? draft.location : '')}">
+
+                                <!-- Hidden venue intelligence carried through to the backend -->
+                                <input type="hidden" id="venueName" name="venueName"
+                                       th:value="${submittedVenueName != null ? submittedVenueName : (draft != null ? draft.venueName : '')}">
+                                <input type="hidden" id="latitude" name="latitude"
+                                       th:value="${submittedLatitude != null ? submittedLatitude : (draft != null ? draft.latitude : '')}">
+                                <input type="hidden" id="longitude" name="longitude"
+                                       th:value="${submittedLongitude != null ? submittedLongitude : (draft != null ? draft.longitude : '')}">
+                                <input type="hidden" id="venueType" name="venueType"
+                                       th:value="${submittedVenueType != null ? submittedVenueType : (draft != null && draft.venueType != null ? draft.venueType.name() : '')}">
+
+                                <!-- Selected venue summary -->
+                                <div id="selectedVenueCard" class="alt-date-card mt-2 d-none">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="fw-semibold" id="selectedVenueName">Venue</div>
+                                            <div class="small text-muted" id="selectedVenueAddress">Address</div>
+                                            <div class="small mt-1">
+                                                <span id="selectedVenueDistance" class="text-muted me-2"></span>
+                                                <span id="selectedVenueTypePill" class="venue-type-pill"></span>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn-close" id="clearVenueBtn" aria-label="Clear venue"></button>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-gameon btn-sm" id="getDirectionsBtn">
+                                            <i class="bi bi-signpost-split me-1"></i>Get Directions
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label for="privacySetting" class="form-label">Privacy</label>
@@ -77,6 +140,136 @@
                             </div>
                         </form>
                     </div>
+                </div>
+            </div>
+
+            <!-- ===== Map + Weather + Playability column ===== -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0"><i class="bi bi-map me-2 text-danger"></i>Venue Location</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="createMap" class="gameon-map gameon-map-sm"></div>
+                        <p class="text-muted small mb-0 mt-2" id="mapHint">
+                            Search a South African venue or set an area to see recommendations on the map.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Recommended venues for [Sport] -->
+                <div class="card shadow-sm mb-3" id="recommendationsCard">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-stars me-2 text-danger"></i>
+                            <span id="recommendationsTitle">Recommended Venues</span>
+                        </h6>
+                        <span class="spinner-border spinner-border-sm text-secondary d-none" id="recommendationsSpinner"></span>
+                    </div>
+                    <div class="card-body p-2">
+                        <div id="recommendationsList" class="venue-reco-list">
+                            <div class="text-muted small p-2" id="recommendationsHint">
+                                Select a sport and set an area to see recommended South African venues.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather card -->
+                <div class="weather-card mb-3 d-none" id="weatherCard">
+                    <div class="card-header bg-white border-bottom">
+                        <h6 class="mb-0 p-2"><i class="bi bi-cloud-sun me-2 text-danger"></i>Weather at Match Time</h6>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center mb-3">
+                            <i id="weatherIcon" class="bi bi-cloud fs-1 text-secondary me-3"></i>
+                            <div>
+                                <div class="weather-temp" id="weatherTemp">--&deg;C</div>
+                                <div class="text-muted small" id="weatherCondition">--</div>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6 weather-metric"><i class="bi bi-droplet me-1 text-primary"></i>Humidity: <span id="weatherHumidity">--</span></div>
+                            <div class="col-6 weather-metric"><i class="bi bi-cloud-rain me-1 text-primary"></i>Rain: <span id="weatherRain">--</span></div>
+                            <div class="col-6 weather-metric"><i class="bi bi-wind me-1 text-primary"></i>Wind: <span id="weatherWind">--</span></div>
+                            <div class="col-6 weather-metric"><i class="bi bi-clock me-1 text-primary"></i><span id="weatherTime">--</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playability card -->
+                <div class="playability-card mb-3 d-none" id="playabilityCard">
+                    <div class="d-flex align-items-center">
+                        <i id="playabilityIcon" class="bi fs-4 me-2"></i>
+                        <div>
+                            <div class="fw-bold" id="playabilityHeading">Playing Conditions</div>
+                            <div class="small" id="playabilityMessage"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alternative date suggestions -->
+                <div class="card shadow-sm mb-3 d-none" id="altDatesCard">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0"><i class="bi bi-calendar-check me-2 text-danger"></i>Suggested Alternative Dates</h6>
+                    </div>
+                    <div class="card-body" id="altDatesBody">
+                        <div class="text-muted small">Checking the next 7 days for better conditions...</div>
+                    </div>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="weatherLoading" class="text-muted small d-none">
+                    <span class="spinner-border spinner-border-sm me-1"></span>Loading forecast...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Directions modal ===== -->
+    <div class="modal fade" id="directionsModal" tabindex="-1" aria-hidden="true" aria-labelledby="directionsTitle">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="directionsTitle"><i class="bi bi-signpost-split me-2 text-danger"></i>Directions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2 small text-muted">Directions to
+                        <strong id="dirDestName">the venue</strong>.</p>
+
+                    <!-- Status / permission prompt -->
+                    <div id="dirLocating" class="d-none">
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        <span>Requesting your current location...</span>
+                    </div>
+
+                    <!-- Manual start-address fallback -->
+                    <div id="dirManual" class="d-none">
+                        <label for="dirStartInput" class="form-label small mb-1">Enter a starting address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-geo-alt"></i></span>
+                            <input type="text" class="form-control" id="dirStartInput"
+                                   placeholder="e.g. 15 Main Rd, Newton Park" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="dirStartBtn">Use</button>
+                        </div>
+                        <div class="form-text" id="dirManualHint">
+                            We couldn't access your location. Enter where you're starting from (South Africa).
+                        </div>
+                    </div>
+
+                    <!-- Route summary (distance + travel time) -->
+                    <div id="dirSummary" class="alt-date-card mt-2 d-none">
+                        <div class="d-flex gap-3">
+                            <div><i class="bi bi-signpost-2 me-1 text-danger"></i><span id="dirDistance">--</span></div>
+                            <div><i class="bi bi-clock me-1 text-danger"></i><span id="dirDuration">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <a href="#" target="_blank" rel="noopener" class="btn btn-gameon d-none" id="dirOpenMapsBtn">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Open in Maps
+                    </a>
                 </div>
             </div>
         </div>
@@ -117,6 +310,626 @@
                 filterFormats();
             }
         })();
+    </script>
+
+    <!-- ===== Venue search + map + weather + playability ===== -->
+    <script>
+    (function () {
+        if (!window.GameOnMap || typeof L === 'undefined') { return; }
+
+        const sportSelect   = document.getElementById('sportId');
+        const dateInput      = document.getElementById('scheduledDate');
+        const searchInput    = document.getElementById('venueSearchInput');
+        const searchBtn      = document.getElementById('venueSearchBtn');
+        const resultsBox     = document.getElementById('venueSearchResults');
+        const locationInput  = document.getElementById('location');
+        const venueNameInput = document.getElementById('venueName');
+        const latInput       = document.getElementById('latitude');
+        const lngInput       = document.getElementById('longitude');
+        const typeInput      = document.getElementById('venueType');
+
+        const selectedCard   = document.getElementById('selectedVenueCard');
+        const selNameEl      = document.getElementById('selectedVenueName');
+        const selAddrEl      = document.getElementById('selectedVenueAddress');
+        const selDistEl      = document.getElementById('selectedVenueDistance');
+        const selTypeEl      = document.getElementById('selectedVenueTypePill');
+        const clearBtn       = document.getElementById('clearVenueBtn');
+        const mapHint        = document.getElementById('mapHint');
+
+        const areaInput      = document.getElementById('areaInput');
+        const areaBtn        = document.getElementById('areaSearchBtn');
+        const recoTitle      = document.getElementById('recommendationsTitle');
+        const recoList       = document.getElementById('recommendationsList');
+        const recoSpinner    = document.getElementById('recommendationsSpinner');
+        const recoHint       = document.getElementById('recommendationsHint');
+
+        // South Africa bounding box: [ [south, west], [north, east] ].
+        const ZA_BOUNDS = L.latLngBounds([-35.5, 16.0], [-22.0, 33.5]);
+        const ZA_CENTER = [-30.0, 25.0];
+
+        const map = GameOnMap.createMap('createMap', { center: ZA_CENTER, zoom: 6 });
+        // Lock the map to South Africa: users cannot pan/select outside the country.
+        map.setMaxBounds(ZA_BOUNDS.pad(0.05));
+        map.on('drag', function () { map.panInsideBounds(ZA_BOUNDS, { animate: false }); });
+        map.setMinZoom(5);
+
+        let marker = null;               // selected venue marker
+        let recoMarkers = [];            // recommendation pins
+        let biasLoc = null;              // {lat,lng} used to prioritise nearby venues
+        let userLoc = null;
+        let debounce = null, recoDebounce = null;
+
+        // Prefer the user's location only if it falls inside South Africa.
+        GameOnMap.getUserLocation().then(function (loc) {
+            if (loc && ZA_BOUNDS.contains([loc.lat, loc.lng])) {
+                userLoc = loc;
+                if (!biasLoc) { biasLoc = loc; }
+                refreshRecommendations();
+            }
+        });
+
+        function sportName() {
+            if (!sportSelect || !sportSelect.value) return '';
+            const opt = sportSelect.options[sportSelect.selectedIndex];
+            return opt ? opt.text.trim() : '';
+        }
+        function inZA(lat, lng) { return ZA_BOUNDS.contains([lat, lng]); }
+
+        // ----- Restore a previously chosen venue (validation bounce / draft) -----
+        if (latInput.value && lngInput.value && inZA(parseFloat(latInput.value), parseFloat(lngInput.value))) {
+            placeMarker(parseFloat(latInput.value), parseFloat(lngInput.value), true);
+            showSelected(venueNameInput.value || locationInput.value, locationInput.value, null, typeInput.value);
+            biasLoc = { lat: parseFloat(latInput.value), lng: parseFloat(lngInput.value) };
+            loadWeather();
+            refreshRecommendations();
+        }
+
+        // ===== Area (city/suburb) geocoding — South Africa only =====
+        function setArea() {
+            const q = areaInput.value.trim();
+            if (q.length < 2) { return; }
+            recoSpinner.classList.remove('d-none');
+            fetch('/api/geocode?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    recoSpinner.classList.add('d-none');
+                    if (!d || !d.found || !inZA(d.lat, d.lng)) {
+                        recoHint.textContent = 'That place could not be found in South Africa. Try another SA city or suburb.';
+                        recoHint.classList.remove('d-none');
+                        return;
+                    }
+                    biasLoc = { lat: d.lat, lng: d.lng };
+                    map.setView([d.lat, d.lng], 12);
+                    refreshRecommendations();
+                })
+                .catch(function () { recoSpinner.classList.add('d-none'); });
+        }
+        areaBtn.addEventListener('click', setArea);
+        areaInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); setArea(); }
+        });
+
+        // ===== Venue text search (dropdown) — South Africa only =====
+        function runSearch() {
+            const q = searchInput.value.trim();
+            if (q.length < 2) { hideResults(); return; }
+            let url = '/api/venues/search?q=' + encodeURIComponent(q) + '&sport=' + encodeURIComponent(sportName());
+            if (biasLoc) { url += '&lat=' + biasLoc.lat + '&lng=' + biasLoc.lng; }
+            fetch(url)
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (venues) { renderDropdown(venues); })
+                .catch(function () { hideResults(); });
+        }
+
+        function renderDropdown(venues) {
+            resultsBox.innerHTML = '';
+            if (!venues || venues.length === 0) {
+                resultsBox.innerHTML = '<div class="venue-search-empty">No South African venues found. Try a broader search or type an address manually.</div>';
+                resultsBox.classList.remove('d-none');
+                return;
+            }
+            venues.slice(0, 10).forEach(function (v) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'venue-search-item';
+                const dist = (v.distanceKm != null) ? (v.distanceKm + ' km away') : '';
+                const type = v.venueType || 'OUTDOOR';
+                btn.innerHTML =
+                    '<div class="venue-search-name"></div>' +
+                    '<div class="venue-search-meta"></div>' +
+                    '<div class="venue-search-meta mt-1">' +
+                        '<span class="me-2"></span>' +
+                        '<span class="venue-type-pill venue-type-' + type + '">' + (type === 'INDOOR' ? 'Indoor' : 'Outdoor') + '</span>' +
+                    '</div>';
+                btn.querySelector('.venue-search-name').textContent = v.name || 'Venue';
+                btn.querySelector('.venue-search-meta').textContent = v.address || '';
+                btn.querySelectorAll('.venue-search-meta')[1].querySelector('span').textContent =
+                    (dist ? dist + '  ' : '') + (v.sport ? '\u2022 ' + v.sport : '');
+                btn.addEventListener('click', function () { selectVenue(v); });
+                resultsBox.appendChild(btn);
+            });
+            resultsBox.classList.remove('d-none');
+        }
+
+        function hideResults() { resultsBox.classList.add('d-none'); resultsBox.innerHTML = ''; }
+
+        // ===== Recommended venues for [Sport] (list + map pins) =====
+        function refreshRecommendations() {
+            const sport = sportName();
+            recoTitle.textContent = sport ? ('Recommended Venues for ' + sport) : 'Recommended Venues';
+            // Need at least a sport or a bias location to recommend.
+            if (!sport && !biasLoc) {
+                recoHint.textContent = 'Select a sport and set an area to see recommended South African venues.';
+                recoHint.classList.remove('d-none');
+                return;
+            }
+            recoSpinner.classList.remove('d-none');
+            let url = '/api/venues/search?sport=' + encodeURIComponent(sport);
+            if (searchInput.value.trim().length >= 2) { url += '&q=' + encodeURIComponent(searchInput.value.trim()); }
+            if (biasLoc) { url += '&lat=' + biasLoc.lat + '&lng=' + biasLoc.lng; }
+            fetch(url)
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (venues) {
+                    recoSpinner.classList.add('d-none');
+                    renderRecommendations(venues);
+                })
+                .catch(function () { recoSpinner.classList.add('d-none'); });
+        }
+
+        function clearRecoMarkers() {
+            recoMarkers.forEach(function (m) { map.removeLayer(m); });
+            recoMarkers = [];
+        }
+
+        function renderRecommendations(venues) {
+            clearRecoMarkers();
+            recoList.innerHTML = '';
+            if (!venues || venues.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'text-muted small p-2';
+                empty.textContent = 'No recommended venues found in this South African area. Try a nearby city or a broader search.';
+                recoList.appendChild(empty);
+                return;
+            }
+            const top = venues.slice(0, 8);
+            const bounds = [];
+            top.forEach(function (v, idx) {
+                if (v.latitude == null || v.longitude == null || !inZA(v.latitude, v.longitude)) { return; }
+                // Map pin
+                const color = v.matchesSport ? '#198754' : '#6c757d';
+                const pin = GameOnMap.coloredMarker(v.latitude, v.longitude, color).addTo(map);
+                pin.bindPopup('<strong>' + escapeHtml(v.name || 'Venue') + '</strong><br>' +
+                    escapeHtml(v.suitability || ''));
+                pin.on('click', function () { highlightRow(idx); });
+                recoMarkers.push(pin);
+                bounds.push([v.latitude, v.longitude]);
+
+                // List row
+                recoList.appendChild(buildRecoRow(v, idx));
+            });
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+                if (mapHint) { mapHint.classList.add('d-none'); }
+            }
+        }
+
+        function buildRecoRow(v, idx) {
+            const type = v.venueType || 'OUTDOOR';
+            const row = document.createElement('div');
+            row.className = 'venue-reco-item';
+            row.id = 'reco-' + idx;
+
+            const facilities = (v.facilities && v.facilities.length)
+                ? v.facilities.map(function (f) { return '<span class="reco-facility">' + escapeHtml(f) + '</span>'; }).join('')
+                : '<span class="text-muted small">Facilities not listed</span>';
+
+            const link = v.bookingUrl || v.website;
+            const linkHtml = link
+                ? '<a class="btn btn-outline-gameon btn-sm reco-book" target="_blank" rel="noopener" href="' + escapeAttr(link) + '"><i class="bi bi-box-arrow-up-right me-1"></i>' + (v.bookingUrl ? 'Book' : 'Website') + '</a>'
+                : '';
+            const phoneHtml = v.phone
+                ? '<a class="reco-phone small" href="tel:' + escapeAttr(v.phone) + '"><i class="bi bi-telephone me-1"></i>' + escapeHtml(v.phone) + '</a>'
+                : '';
+
+            row.innerHTML =
+                '<div class="d-flex justify-content-between align-items-start">' +
+                    '<div class="reco-main">' +
+                        '<div class="venue-search-name reco-name"></div>' +
+                        '<div class="venue-search-meta reco-addr"></div>' +
+                        '<div class="mt-1">' +
+                            '<span class="venue-type-pill venue-type-' + type + '">' + (type === 'INDOOR' ? 'Indoor' : 'Outdoor') + '</span> ' +
+                            '<span class="reco-dist text-muted small"></span>' +
+                        '</div>' +
+                        '<div class="reco-suit small mt-1"></div>' +
+                        '<div class="reco-facilities mt-1">' + facilities + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="d-flex gap-2 align-items-center mt-2 reco-actions">' +
+                    '<button type="button" class="btn btn-gameon btn-sm reco-select">Use this venue</button>' +
+                    linkHtml + phoneHtml +
+                '</div>';
+
+            row.querySelector('.reco-name').textContent = v.name || 'Venue';
+            row.querySelector('.reco-addr').textContent = v.address || '';
+            row.querySelector('.reco-dist').textContent = (v.distanceKm != null) ? (v.distanceKm + ' km away') : '';
+            const suit = row.querySelector('.reco-suit');
+            suit.textContent = (v.matchesSport ? '\u2713 ' : '') + (v.suitability || '');
+            suit.className = 'reco-suit small mt-1 ' + (v.matchesSport ? 'text-success' : 'text-muted');
+
+            row.querySelector('.reco-select').addEventListener('click', function () { selectVenue(v); });
+            row.addEventListener('mouseenter', function () {
+                if (recoMarkers[idx]) { recoMarkers[idx].openPopup(); }
+            });
+            return row;
+        }
+
+        function highlightRow(idx) {
+            const el = document.getElementById('reco-' + idx);
+            if (!el) { return; }
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            el.classList.add('reco-active');
+            setTimeout(function () { el.classList.remove('reco-active'); }, 1500);
+        }
+
+        // ===== Selecting a venue =====
+        let selectedVenue = null; // { name, address, lat, lng } used by the directions flow
+
+        function selectVenue(v) {
+            if (v.latitude == null || v.longitude == null || !inZA(v.latitude, v.longitude)) { return; }
+            let name = v.name || 'Venue';
+            let addr = v.address || name;
+
+            // Apply immediately for responsiveness, then enrich via reverse-geocode.
+            applyVenue(name, addr, v.latitude, v.longitude, v.venueType, v.distanceKm);
+
+            // Overpass pitches often only have "South Africa"/generic names. Resolve a real
+            // name + full street address so the location field is meaningful.
+            const genericAddr = !addr || addr.trim().toLowerCase() === 'south africa';
+            const genericName = !v.name || /venue$/i.test(v.name);
+            if (genericAddr || genericName) {
+                const params = new URLSearchParams({ lat: v.latitude, lng: v.longitude, name: v.name || '' });
+                fetch('/api/reverse-geocode?' + params.toString())
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (d) {
+                        if (d && d.found) {
+                            applyVenue(d.name || name, d.address || addr, v.latitude, v.longitude, v.venueType, v.distanceKm);
+                        }
+                    })
+                    .catch(function () {});
+            }
+        }
+
+        function applyVenue(name, addr, lat, lng, venueType, distKm) {
+            venueNameInput.value = name;
+            locationInput.value = (addr && addr.length > 200) ? addr.substring(0, 200) : (addr || name);
+            latInput.value = lat;
+            lngInput.value = lng;
+            typeInput.value = venueType || 'OUTDOOR';
+            searchInput.value = name;
+            biasLoc = { lat: lat, lng: lng };
+            selectedVenue = { name: name, address: addr, lat: lat, lng: lng };
+            hideResults();
+            placeMarker(lat, lng, true);
+            showSelected(name, addr, distKm, typeInput.value);
+            loadWeather();
+        }
+
+        function showSelected(name, addr, distKm, type) {
+            selNameEl.textContent = name || 'Venue';
+            selAddrEl.textContent = addr || '';
+            selDistEl.textContent = (distKm != null) ? (distKm + ' km away') : '';
+            const t = (type === 'INDOOR') ? 'INDOOR' : 'OUTDOOR';
+            selTypeEl.textContent = (t === 'INDOOR' ? 'Indoor' : 'Outdoor') + ' Venue';
+            selTypeEl.className = 'venue-type-pill venue-type-' + t;
+            selectedCard.classList.remove('d-none');
+        }
+
+        function placeMarker(lat, lng, zoom) {
+            if (marker) { map.removeLayer(marker); }
+            marker = L.marker([lat, lng]).addTo(map);
+            map.setView([lat, lng], zoom ? 15 : map.getZoom());
+            if (mapHint) { mapHint.classList.add('d-none'); }
+        }
+
+        clearBtn.addEventListener('click', function () {
+            venueNameInput.value = ''; latInput.value = ''; lngInput.value = ''; typeInput.value = '';
+            selectedVenue = null;
+            selectedCard.classList.add('d-none');
+            if (marker) { map.removeLayer(marker); marker = null; }
+            hideWeather();
+        });
+
+        // ===== Get Directions =====
+        const dirBtn        = document.getElementById('getDirectionsBtn');
+        const dirModalEl    = document.getElementById('directionsModal');
+        const dirModal      = (window.bootstrap && dirModalEl) ? new bootstrap.Modal(dirModalEl) : null;
+        const dirDestName   = document.getElementById('dirDestName');
+        const dirLocating   = document.getElementById('dirLocating');
+        const dirManual     = document.getElementById('dirManual');
+        const dirManualHint = document.getElementById('dirManualHint');
+        const dirStartInput = document.getElementById('dirStartInput');
+        const dirStartBtn   = document.getElementById('dirStartBtn');
+        const dirSummary    = document.getElementById('dirSummary');
+        const dirDistanceEl = document.getElementById('dirDistance');
+        const dirDurationEl = document.getElementById('dirDuration');
+        const dirOpenMaps   = document.getElementById('dirOpenMapsBtn');
+
+        // Detect a mobile device so we can open the platform's preferred maps app.
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+        const isApple = /iPhone|iPad|iPod|Macintosh/i.test(navigator.userAgent || '');
+
+        function mapsUrl(originLat, originLng, dest) {
+            // Google Maps universal directions URL works on web, Android and (via app) iOS.
+            const destParam = encodeURIComponent(dest.lat + ',' + dest.lng);
+            let url = 'https://www.google.com/maps/dir/?api=1&destination=' + destParam + '&travelmode=driving';
+            if (originLat != null && originLng != null) {
+                url += '&origin=' + encodeURIComponent(originLat + ',' + originLng);
+            }
+            return url;
+        }
+
+        function appleMapsUrl(originLat, originLng, dest) {
+            let url = 'https://maps.apple.com/?daddr=' + encodeURIComponent(dest.lat + ',' + dest.lng) + '&dirflg=d';
+            if (originLat != null && originLng != null) {
+                url += '&saddr=' + encodeURIComponent(originLat + ',' + originLng);
+            }
+            return url;
+        }
+
+        function resetDirModal() {
+            dirLocating.classList.add('d-none');
+            dirManual.classList.add('d-none');
+            dirSummary.classList.add('d-none');
+            dirOpenMaps.classList.add('d-none');
+            dirDistanceEl.textContent = '--';
+            dirDurationEl.textContent = '--';
+        }
+
+        function setOpenMapsLink(originLat, originLng) {
+            if (!selectedVenue) { return; }
+            const href = isApple ? appleMapsUrl(originLat, originLng, selectedVenue)
+                                 : mapsUrl(originLat, originLng, selectedVenue);
+            dirOpenMaps.setAttribute('href', href);
+            dirOpenMaps.classList.remove('d-none');
+        }
+
+        function showRoute(originLat, originLng) {
+            if (!selectedVenue) { return; }
+            setOpenMapsLink(originLat, originLng);
+            // Fetch distance + travel time estimate.
+            const params = new URLSearchParams({
+                fromLat: originLat, fromLng: originLng,
+                toLat: selectedVenue.lat, toLng: selectedVenue.lng
+            });
+            fetch('/api/route?' + params.toString())
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    if (d && d.available) {
+                        dirDistanceEl.textContent = d.distanceKm + ' km';
+                        dirDurationEl.textContent = formatDuration(d.durationMinutes);
+                        dirSummary.classList.remove('d-none');
+                    }
+                })
+                .catch(function () {});
+        }
+
+        function formatDuration(mins) {
+            if (mins == null) { return '--'; }
+            if (mins < 60) { return mins + ' min'; }
+            const h = Math.floor(mins / 60), m = mins % 60;
+            return h + ' h ' + (m > 0 ? m + ' min' : '');
+        }
+
+        function startDirections() {
+            if (!selectedVenue) { return; }
+            resetDirModal();
+            dirDestName.textContent = selectedVenue.name || 'the venue';
+            if (dirModal) { dirModal.show(); }
+
+            // On mobile, the simplest reliable route is to hand off to the maps app, which
+            // handles the user's current location and turn-by-turn natively.
+            if (navigator.geolocation) {
+                dirLocating.classList.remove('d-none');
+                navigator.geolocation.getCurrentPosition(
+                    function (pos) {
+                        dirLocating.classList.add('d-none');
+                        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                        showRoute(lat, lng);
+                        // On mobile, immediately hand off to the preferred maps app for turn-by-turn.
+                        if (isMobile) {
+                            window.location.href = dirOpenMaps.getAttribute('href');
+                        }
+                    },
+                    function () {
+                        // Permission denied or unavailable -> manual start address.
+                        dirLocating.classList.add('d-none');
+                        dirManual.classList.remove('d-none');
+                        // Still offer directions with destination only (maps app will use current location).
+                        setOpenMapsLink(null, null);
+                    },
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
+                );
+            } else {
+                dirManual.classList.remove('d-none');
+                setOpenMapsLink(null, null);
+            }
+        }
+
+        // Manual start address: geocode it (ZA) then compute the route from there.
+        function useManualStart() {
+            const q = dirStartInput.value.trim();
+            if (q.length < 2 || !selectedVenue) { return; }
+            dirManualHint.textContent = 'Looking up that address...';
+            fetch('/api/geocode?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    if (d && d.found) {
+                        dirManualHint.textContent = 'Starting from: ' + (d.address || q);
+                        showRoute(d.lat, d.lng);
+                    } else {
+                        dirManualHint.textContent = 'Could not find that address in South Africa. Try again.';
+                    }
+                })
+                .catch(function () {
+                    dirManualHint.textContent = 'Lookup failed. Please try again.';
+                });
+        }
+
+        if (dirBtn) { dirBtn.addEventListener('click', startDirections); }
+        if (dirStartBtn) { dirStartBtn.addEventListener('click', useManualStart); }
+        if (dirStartInput) {
+            dirStartInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); useManualStart(); }
+            });
+        }
+
+        searchInput.addEventListener('input', function () {
+            clearTimeout(debounce);
+            debounce = setTimeout(runSearch, 350);
+        });
+        searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); clearTimeout(debounce); runSearch(); }
+            if (e.key === 'Escape') { hideResults(); }
+        });
+        searchBtn.addEventListener('click', function () { clearTimeout(debounce); runSearch(); });
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#venueSearchContainer')) { hideResults(); }
+        });
+
+        // Auto-refresh recommendations when the sport changes.
+        if (sportSelect) {
+            sportSelect.addEventListener('change', function () {
+                clearTimeout(recoDebounce);
+                recoDebounce = setTimeout(refreshRecommendations, 150);
+            });
+        }
+
+        function escapeHtml(s) {
+            return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function escapeAttr(s) { return escapeHtml(s); }
+
+        // ----- Weather + playability -----
+        if (dateInput) { dateInput.addEventListener('change', loadWeather); }
+
+        const wCard = document.getElementById('weatherCard');
+        const pCard = document.getElementById('playabilityCard');
+        const altCard = document.getElementById('altDatesCard');
+        const altBody = document.getElementById('altDatesBody');
+        const loading = document.getElementById('weatherLoading');
+
+        function hideWeather() {
+            wCard.classList.add('d-none');
+            pCard.classList.add('d-none');
+            altCard.classList.add('d-none');
+        }
+
+        function loadWeather() {
+            if (!latInput.value || !lngInput.value || !dateInput || !dateInput.value) { return; }
+            loading.classList.remove('d-none');
+            const params = new URLSearchParams({
+                lat: latInput.value, lng: lngInput.value, time: dateInput.value,
+                sport: sportName(), venueType: typeInput.value || ''
+            });
+            fetch('/api/weather?' + params.toString())
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    loading.classList.add('d-none');
+                    if (!data) { return; }
+                    renderWeather(data.weather);
+                    renderPlayability(data.playability);
+                    if (data.playability && data.playability.rating === 'POOR') {
+                        loadAlternatives();
+                    } else {
+                        altCard.classList.add('d-none');
+                    }
+                })
+                .catch(function () { loading.classList.add('d-none'); });
+        }
+
+        function renderWeather(w) {
+            if (!w || !w.available) {
+                wCard.classList.remove('d-none');
+                document.getElementById('weatherIcon').className = 'bi bi-cloud-slash fs-1 text-secondary me-3';
+                document.getElementById('weatherTemp').textContent = '--';
+                document.getElementById('weatherCondition').textContent = 'Forecast unavailable';
+                document.getElementById('weatherHumidity').textContent = '--';
+                document.getElementById('weatherRain').textContent = '--';
+                document.getElementById('weatherWind').textContent = '--';
+                document.getElementById('weatherTime').textContent = '--';
+                return;
+            }
+            document.getElementById('weatherIcon').className = 'bi ' + (w.icon || 'bi-cloud') + ' fs-1 text-secondary me-3';
+            document.getElementById('weatherTemp').textContent = (w.temperatureC != null ? Math.round(w.temperatureC) : '--') + '\u00B0C';
+            document.getElementById('weatherCondition').textContent = w.condition || '';
+            document.getElementById('weatherHumidity').textContent = (w.humidityPercent != null ? w.humidityPercent + '%' : '--');
+            document.getElementById('weatherRain').textContent = (w.rainChancePercent != null ? w.rainChancePercent + '%' : '--');
+            document.getElementById('weatherWind').textContent = (w.windSpeedKmh != null ? Math.round(w.windSpeedKmh) + ' km/h' : '--');
+            document.getElementById('weatherTime').textContent = w.time ? GameOnMap.fmtDate(w.time) : '';
+            wCard.classList.remove('d-none');
+        }
+
+        function renderPlayability(p) {
+            if (!p) { pCard.classList.add('d-none'); return; }
+            pCard.className = 'playability-card mb-3 playability-' + (p.colour || 'GREY');
+            document.getElementById('playabilityIcon').className = 'bi ' + (p.icon || 'bi-question-circle-fill') + ' fs-4 me-2';
+            document.getElementById('playabilityHeading').textContent = p.heading || 'Playing Conditions';
+            document.getElementById('playabilityMessage').textContent = p.message || '';
+        }
+
+        function loadAlternatives() {
+            const params = new URLSearchParams({
+                lat: latInput.value, lng: lngInput.value, time: dateInput.value,
+                sport: sportName(), venueType: typeInput.value || ''
+            });
+            altCard.classList.remove('d-none');
+            altBody.innerHTML = '<div class="text-muted small">Checking the next 7 days for better conditions...</div>';
+            fetch('/api/weather/alternatives?' + params.toString())
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (list) {
+                    if (!list || list.length === 0) {
+                        altBody.innerHTML = '<div class="text-muted small">No noticeably better dates found in the next 7 days.</div>';
+                        return;
+                    }
+                    altBody.innerHTML = '';
+                    list.forEach(function (item) {
+                        const w = item.weather || {};
+                        const row = document.createElement('div');
+                        row.className = 'alt-date-card mb-2 d-flex justify-content-between align-items-center';
+                        const left = document.createElement('div');
+                        left.innerHTML =
+                            '<div class="fw-semibold small"><i class="bi bi-check-circle-fill text-success me-1"></i>' +
+                            GameOnMap.fmtDate(item.dateTime) + '</div>' +
+                            '<div class="weather-chip"><i class="bi ' + (w.icon || 'bi-cloud') + '"></i> ' +
+                            (w.condition || '') + '  ' + (w.temperatureC != null ? Math.round(w.temperatureC) + '\u00B0C' : '') + '</div>';
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-outline-gameon btn-sm';
+                        btn.textContent = 'Use This Date';
+                        btn.addEventListener('click', function () {
+                            // Datetime-local expects 'yyyy-MM-ddTHH:mm'
+                            const iso = item.dateTime.length >= 16 ? item.dateTime.substring(0, 16) : item.dateTime;
+                            dateInput.value = iso;
+                            loadWeather();
+                        });
+                        row.appendChild(left);
+                        row.appendChild(btn);
+                        altBody.appendChild(row);
+                    });
+                })
+                .catch(function () {
+                    altBody.innerHTML = '<div class="text-muted small">Could not load suggestions.</div>';
+                });
+        }
+
+        // Initial load: if a sport is already selected, show recommendations right away
+        // (they'll re-prioritise once geolocation or an area is set).
+        if (sportName()) {
+            refreshRecommendations();
+        }
+    })();
     </script>
 </body>
 </html>

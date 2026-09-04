@@ -97,6 +97,24 @@ public class GameListingService {
                                      LocalDateTime scheduledDate, String location,
                                      PrivacySetting privacySetting, Integer durationMinutes,
                                      List<Long> positionIds, List<Long> invitedFriendIds) {
+        return createListing(creatorId, formatId, skillLevel, scheduledDate, location,
+                privacySetting, durationMinutes, positionIds, invitedFriendIds,
+                null, null, null, null);
+    }
+
+    /**
+     * Create a listing with optional venue intelligence (venue name, coordinates, indoor/outdoor).
+     * The extra venue fields are additive and nullable; when omitted this behaves exactly like
+     * the original create flow.
+     */
+    @Transactional
+    public GameListing createListing(Long creatorId, Long formatId, SkillLevel skillLevel,
+                                     LocalDateTime scheduledDate, String location,
+                                     PrivacySetting privacySetting, Integer durationMinutes,
+                                     List<Long> positionIds, List<Long> invitedFriendIds,
+                                     String venueName, java.math.BigDecimal latitude,
+                                     java.math.BigDecimal longitude,
+                                     com.gameon.model.enums.VenueType venueType) {
         User creator = userRepository.findById(creatorId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", creatorId));
         SportFormat format = validateListingDetails(
@@ -105,6 +123,10 @@ public class GameListingService {
 
         GameListing listing = new GameListing(creator, format, skillLevel, scheduledDate,
                 location, privacySetting, durationMinutes);
+        listing.setVenueName(venueName);
+        listing.setLatitude(latitude);
+        listing.setLongitude(longitude);
+        listing.setVenueType(venueType);
         GameListing saved = gameListingRepository.save(listing);
 
         // Rule 8: Creator automatically becomes a participant (Team A, ACCEPTED)
