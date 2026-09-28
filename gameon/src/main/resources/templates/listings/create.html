@@ -355,16 +355,66 @@
 
         let marker = null;               // selected venue marker
         let recoMarkers = [];            // recommendation pins
-        let biasLoc = null;              // {lat,lng} used to prioritise nearby venues
-        let userLoc = null;
+        // Distinct location state (kept separate on purpose - see requirement 14):
+        let userLoc = null;              // {lat,lng} the browser's current location (initial hint only)
+        let areaLoc = null;              // {lat,lng,name} the explicitly selected area/city/suburb
+        let selectedVenueLoc = null;     // {lat,lng} the currently selected venue
         let debounce = null, recoDebounce = null;
 
-        // Prefer the user's location only if it falls inside South Africa.
+        // H3: in-flight guards to prevent duplicate/rapid clicks on Set area + Search.
+        let areaInFlight = false;
+        let searchInFlight = false;
+        // H1: request-sequence tokens so stale responses are ignored (latest wins).
+        let areaToken = 0, searchToken = 0, recoToken = 0;
+        // M2: weather + alternatives request-sequence tokens.
+        let weatherToken = 0, altToken = 0;
+
+        // Toggle a button's disabled + inline spinner state (Bootstrap 5 .spinner-border).
+        function setBtnBusy(btn, busy) {
+            if (!btn) return;
+            btn.disabled = busy;
+            btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+            let sp = btn.querySelector('.gn-btn-spin');
+            if (busy && !sp) {
+                sp = document.createElement('span');
+                sp.className = 'spinner-border spinner-border-sm gn-btn-spin ms-1';
+                sp.setAttribute('role', 'status');
+                sp.setAttribute('aria-hidden', 'true');
+                btn.appendChild(sp);
+            } else if (!busy && sp) {
+                sp.remove();
+            }
+        }
+
+        // H2/M3: map a venue-search response status to a user-facing retry message.
+        function venueErrorMessage(status) {
+            switch (status) {
+                case 'RATE_LIMITED': return 'Venue lookups are busy right now (rate limited). Please wait a moment and try again.';
+                case 'TIMEOUT':      return 'The venue service took too long to respond. Please try again.';
+                case 'UNAVAILABLE':  return 'The venue service is temporarily unavailable. Please try again shortly.';
+                default:             return 'Could not load venues. Please try again.';
+            }
+        }
+
+        // Resolve the coordinates that should bias venue searches, in strict priority order:
+        //   1. an explicitly selected area   (highest — once the user sets an area it wins)
+        //   2. a selected venue              (when searching around a chosen venue)
+        //   3. the user's current location   (initial default only)
+        // Returns null when none are known (search then falls back to country-wide).
+        function searchBias() {
+            if (areaLoc) { return { lat: areaLoc.lat, lng: areaLoc.lng }; }
+            if (selectedVenueLoc) { return selectedVenueLoc; }
+            if (userLoc) { return userLoc; }
+            return null;
+        }
+
+        // Prefer the user's location only if it falls inside South Africa. This is only an
+        // initial hint: as soon as the user sets an area it is superseded by areaLoc.
         GameOnMap.getUserLocation().then(function (loc) {
             if (loc && ZA_BOUNDS.contains([loc.lat, loc.lng])) {
                 userLoc = loc;
-                if (!biasLoc) { biasLoc = loc; }
-                refreshRecommendations();
+                // Only refresh from the user's location if no area/venue has been chosen yet.
+                if (!areaLoc && !selectedVenueLoc) { refreshRecommendations(); }
             }
         });
 
@@ -377,32 +427,68 @@
 
         // ----- Restore a previously chosen venue (validation bounce / draft) -----
         if (latInput.value && lngInput.value && inZA(parseFloat(latInput.value), parseFloat(lngInput.value))) {
-            placeMarker(parseFloat(latInput.value), parseFloat(lngInput.value), true);
+            const rLat = parseFloat(latInput.value), rLng = parseFloat(lngInput.value);
+            placeMarker(rLat, rLng, true);
             showSelected(venueNameInput.value || locationInput.value, locationInput.value, null, typeInput.value);
-            biasLoc = { lat: parseFloat(latInput.value), lng: parseFloat(lngInput.value) };
+            selectedVenueLoc = { lat: rLat, lng: rLng };
             loadWeather();
             refreshRecommendations();
         }
 
         // ===== Area (city/suburb) geocoding — South Africa only =====
+        // Setting an area makes it the authoritative search context: the previous
+        // area/venue/user-location bias is dropped, old markers are cleared, and venues are
+        // searched around the new area.
         function setArea() {
+            // H3: ignore rapid/duplicate clicks while a geocode is already running.
+            if (areaInFlight) { return; }
             const q = areaInput.value.trim();
             if (q.length < 2) { return; }
+            console.log('[GameOn] Selected area:', q);
+            recoHint.classList.add('d-none');
             recoSpinner.classList.remove('d-none');
+            // Clear the previous area's discovered venues immediately so nothing stale lingers.
+            clearRecoMarkers();
+            recoList.innerHTML = '';
+            // H1: only the latest area request is allowed to mutate state.
+            const myToken = ++areaToken;
+            areaInFlight = true;
+            setBtnBusy(areaBtn, true);
             fetch('/api/geocode?q=' + encodeURIComponent(q))
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (d) {
+                    // A newer setArea owns the flag/button now; bail without touching them.
+                    if (myToken !== areaToken) { return; }
+                    areaInFlight = false;
+                    setBtnBusy(areaBtn, false);
                     recoSpinner.classList.add('d-none');
                     if (!d || !d.found || !inZA(d.lat, d.lng)) {
                         recoHint.textContent = 'That place could not be found in South Africa. Try another SA city or suburb.';
                         recoHint.classList.remove('d-none');
                         return;
                     }
-                    biasLoc = { lat: d.lat, lng: d.lng };
+                    // The selected area becomes the active search context. Drop any stale venue
+                    // bias so an old city (e.g. Gqeberha) can no longer influence this search.
+                    areaLoc = { lat: d.lat, lng: d.lng, name: q };
+                    selectedVenueLoc = null;
+                    console.log('[GameOn] Geocoded area:', (d.address || q));
+                    console.log('[GameOn] Area latitude:', d.lat);
+                    console.log('[GameOn] Area longitude:', d.lng);
+                    // Centre the map on the new area. Suburbs warrant a tighter zoom than cities;
+                    // the geocoder does not tell us which, so 12 is a sensible city/suburb zoom.
                     map.setView([d.lat, d.lng], 12);
                     refreshRecommendations();
                 })
-                .catch(function () { recoSpinner.classList.add('d-none'); });
+                .catch(function (err) {
+                    // A newer setArea owns the flag/button now; bail without touching them.
+                    if (myToken !== areaToken) { return; }
+                    areaInFlight = false;
+                    setBtnBusy(areaBtn, false);
+                    recoSpinner.classList.add('d-none');
+                    recoHint.textContent = 'Could not look up that area right now. Please try again.';
+                    recoHint.classList.remove('d-none');
+                    console.error('[GameOn] Area geocode failed', err);
+                });
         }
         areaBtn.addEventListener('click', setArea);
         areaInput.addEventListener('keydown', function (e) {
@@ -410,15 +496,50 @@
         });
 
         // ===== Venue text search (dropdown) — South Africa only =====
+        // Searches for a named venue independently. The venue name is sent as-is; the selected
+        // area (if any) is passed separately so the backend can prioritise it without the query
+        // text being duplicated. The bias comes from the active area (or selected venue/user).
         function runSearch() {
+            // H3: ignore rapid/duplicate clicks while a search is already running.
+            if (searchInFlight) { return; }
             const q = searchInput.value.trim();
             if (q.length < 2) { hideResults(); return; }
+            const area = areaLoc ? areaLoc.name : areaInput.value.trim();
+            const bias = searchBias();
+            console.log('[GameOn] Venue search query:', q, '| area:', area || '(none)',
+                '| search centre:', bias ? (bias.lat + ',' + bias.lng) : '(country-wide)');
             let url = '/api/venues/search?q=' + encodeURIComponent(q) + '&sport=' + encodeURIComponent(sportName());
-            if (biasLoc) { url += '&lat=' + biasLoc.lat + '&lng=' + biasLoc.lng; }
+            if (area) { url += '&area=' + encodeURIComponent(area); }
+            if (bias) { url += '&lat=' + bias.lat + '&lng=' + bias.lng; }
+            // H1: only the latest search response is allowed to render.
+            const myToken = ++searchToken;
+            searchInFlight = true;
+            setBtnBusy(searchBtn, true);
             fetch(url)
-                .then(function (r) { return r.ok ? r.json() : []; })
-                .then(function (venues) { renderDropdown(venues); })
-                .catch(function () { hideResults(); });
+                // Parse the body regardless of HTTP status (429/503 carry a JSON body too).
+                .then(function (r) { return r.json().catch(function () { return { status: 'UNAVAILABLE', venues: [] }; }); })
+                .then(function (data) {
+                    // A newer search owns the flag/button now; bail without touching them.
+                    if (myToken !== searchToken) { return; }
+                    searchInFlight = false;
+                    setBtnBusy(searchBtn, false);
+                    if (data.status === 'OK' || data.status === 'EMPTY') {
+                        renderDropdown(data.venues || []);
+                    } else {
+                        resultsBox.innerHTML = '<div class="venue-search-empty text-danger"></div>';
+                        resultsBox.querySelector('.venue-search-empty').textContent = venueErrorMessage(data.status);
+                        resultsBox.classList.remove('d-none');
+                    }
+                })
+                .catch(function (err) {
+                    if (myToken !== searchToken) { return; }
+                    searchInFlight = false;
+                    setBtnBusy(searchBtn, false);
+                    resultsBox.innerHTML = '<div class="venue-search-empty text-danger"></div>';
+                    resultsBox.querySelector('.venue-search-empty').textContent = venueErrorMessage(undefined);
+                    resultsBox.classList.remove('d-none');
+                    console.error('[GameOn] Venue search failed', err);
+                });
         }
 
         function renderDropdown(venues) {
@@ -457,23 +578,45 @@
         function refreshRecommendations() {
             const sport = sportName();
             recoTitle.textContent = sport ? ('Recommended Venues for ' + sport) : 'Recommended Venues';
-            // Need at least a sport or a bias location to recommend.
-            if (!sport && !biasLoc) {
+            // Need at least a sport or a known location (area/venue/user) to recommend.
+            if (!sport && !searchBias()) {
                 recoHint.textContent = 'Select a sport and set an area to see recommended South African venues.';
                 recoHint.classList.remove('d-none');
                 return;
             }
             recoSpinner.classList.remove('d-none');
+            // Use the selected area name (authoritative) rather than the raw input box, and the
+            // priority-ordered bias so a stale location can never leak into the search.
+            const area = areaLoc ? areaLoc.name : '';
+            const bias = searchBias();
             let url = '/api/venues/search?sport=' + encodeURIComponent(sport);
-            if (searchInput.value.trim().length >= 2) { url += '&q=' + encodeURIComponent(searchInput.value.trim()); }
-            if (biasLoc) { url += '&lat=' + biasLoc.lat + '&lng=' + biasLoc.lng; }
+            if (area) { url += '&area=' + encodeURIComponent(area); }
+            if (bias) { url += '&lat=' + bias.lat + '&lng=' + bias.lng; }
+            console.log('[GameOn] Recommendations -> sport:', sport || '(none)', '| area:', area || '(none)',
+                '| search centre:', bias ? (bias.lat + ',' + bias.lng) : '(country-wide)');
+            // H1: only the latest recommendations response updates the list + map pins.
+            const myToken = ++recoToken;
             fetch(url)
-                .then(function (r) { return r.ok ? r.json() : []; })
-                .then(function (venues) {
+                // Parse the body regardless of HTTP status (429/503 carry a JSON body too).
+                .then(function (r) { return r.json().catch(function () { return { status: 'UNAVAILABLE', venues: [] }; }); })
+                .then(function (data) {
+                    if (myToken !== recoToken) { return; }
                     recoSpinner.classList.add('d-none');
-                    renderRecommendations(venues);
+                    if (data.status === 'OK' || data.status === 'EMPTY') {
+                        renderRecommendations(data.venues || [], sport);
+                    } else {
+                        // Leave the map/area intact; surface a retry message only.
+                        recoHint.textContent = venueErrorMessage(data.status);
+                        recoHint.classList.remove('d-none');
+                    }
                 })
-                .catch(function () { recoSpinner.classList.add('d-none'); });
+                .catch(function (err) {
+                    if (myToken !== recoToken) { return; }
+                    recoSpinner.classList.add('d-none');
+                    recoHint.textContent = venueErrorMessage(undefined);
+                    recoHint.classList.remove('d-none');
+                    console.error('[GameOn] Recommendations failed', err);
+                });
         }
 
         function clearRecoMarkers() {
@@ -481,13 +624,16 @@
             recoMarkers = [];
         }
 
-        function renderRecommendations(venues) {
+        function renderRecommendations(venues, sport) {
             clearRecoMarkers();
             recoList.innerHTML = '';
             if (!venues || venues.length === 0) {
+                // Keep the selected area visible on the map; only the venue pins are absent.
                 const empty = document.createElement('div');
                 empty.className = 'text-muted small p-2';
-                empty.textContent = 'No recommended venues found in this South African area. Try a nearby city or a broader search.';
+                const sportLabel = sport ? (sport + ' ') : '';
+                empty.textContent = 'No ' + sportLabel + 'venues found in this area. ' +
+                    'Try expanding the area or search for a specific venue.';
                 recoList.appendChild(empty);
                 return;
             }
@@ -595,7 +741,7 @@
                             applyVenue(d.name || name, d.address || addr, v.latitude, v.longitude, v.venueType, v.distanceKm);
                         }
                     })
-                    .catch(function () {});
+                    .catch(function (err) { console.error('[GameOn] Reverse-geocode failed', err); });
             }
         }
 
@@ -606,11 +752,18 @@
             lngInput.value = lng;
             typeInput.value = venueType || 'OUTDOOR';
             searchInput.value = name;
-            biasLoc = { lat: lat, lng: lng };
+            // Track the selected venue coordinates separately; do NOT overwrite the selected
+            // area context. Weather uses these venue coordinates (below).
+            selectedVenueLoc = { lat: lat, lng: lng };
             selectedVenue = { name: name, address: addr, lat: lat, lng: lng };
             hideResults();
-            placeMarker(lat, lng, true);
+            // Debug logging (venue selection lifecycle).
+            console.log('[GameOn] Venue Selected:', name);
+            console.log('[GameOn] Latitude:', lat);
+            console.log('[GameOn] Longitude:', lng);
+            placeMarker(lat, lng, true, name, addr);
             showSelected(name, addr, distKm, typeInput.value);
+            console.log('[GameOn] Weather Coordinates:', lat, lng);
             loadWeather();
         }
 
@@ -624,16 +777,25 @@
             selectedCard.classList.remove('d-none');
         }
 
-        function placeMarker(lat, lng, zoom) {
+        function placeMarker(lat, lng, zoom, name, addr) {
+            // Remove the previous marker before adding a new one.
             if (marker) { map.removeLayer(marker); }
             marker = L.marker([lat, lng]).addTo(map);
-            map.setView([lat, lng], zoom ? 15 : map.getZoom());
+            // Popup shows the venue name and full address.
+            if (name || addr) {
+                marker.bindPopup('<strong>' + escapeHtml(name || 'Venue') + '</strong>' +
+                    (addr ? '<br>' + escapeHtml(addr) : '')).openPopup();
+            }
+            // Center the map on the venue and zoom in to street level.
+            map.setView([lat, lng], zoom ? 16 : map.getZoom());
+            console.log('[GameOn] Marker Added:', lat, lng);
             if (mapHint) { mapHint.classList.add('d-none'); }
         }
 
         clearBtn.addEventListener('click', function () {
             venueNameInput.value = ''; latInput.value = ''; lngInput.value = ''; typeInput.value = '';
             selectedVenue = null;
+            selectedVenueLoc = null;
             selectedCard.classList.add('d-none');
             if (marker) { map.removeLayer(marker); marker = null; }
             hideWeather();
@@ -710,7 +872,7 @@
                         dirSummary.classList.remove('d-none');
                     }
                 })
-                .catch(function () {});
+                .catch(function (err) { console.error('[GameOn] Route lookup failed', err); });
         }
 
         function formatDuration(mins) {
@@ -770,8 +932,9 @@
                         dirManualHint.textContent = 'Could not find that address in South Africa. Try again.';
                     }
                 })
-                .catch(function () {
+                .catch(function (err) {
                     dirManualHint.textContent = 'Lookup failed. Please try again.';
+                    console.error('[GameOn] Manual start geocode failed', err);
                 });
         }
 
@@ -833,9 +996,13 @@
                 lat: latInput.value, lng: lngInput.value, time: dateInput.value,
                 sport: sportName(), venueType: typeInput.value || ''
             });
+            // M2: only the latest weather response is allowed to update the DOM.
+            const myToken = ++weatherToken;
             fetch('/api/weather?' + params.toString())
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (data) {
+                    // A newer weather request owns the spinner now; skip stale responses.
+                    if (myToken !== weatherToken) { return; }
                     loading.classList.add('d-none');
                     if (!data) { return; }
                     renderWeather(data.weather);
@@ -846,7 +1013,12 @@
                         altCard.classList.add('d-none');
                     }
                 })
-                .catch(function () { loading.classList.add('d-none'); });
+                .catch(function (err) {
+                    if (myToken !== weatherToken) { return; }
+                    loading.classList.add('d-none');
+                    document.getElementById('weatherCondition').textContent = 'Could not load the forecast. Please try again.';
+                    console.error('[GameOn] Weather load failed', err);
+                });
         }
 
         function renderWeather(w) {
@@ -886,9 +1058,12 @@
             });
             altCard.classList.remove('d-none');
             altBody.innerHTML = '<div class="text-muted small">Checking the next 7 days for better conditions...</div>';
+            // M2: only the latest alternatives response is allowed to mutate altBody.
+            const myToken = ++altToken;
             fetch('/api/weather/alternatives?' + params.toString())
                 .then(function (r) { return r.ok ? r.json() : []; })
                 .then(function (list) {
+                    if (myToken !== altToken) { return; }
                     if (!list || list.length === 0) {
                         altBody.innerHTML = '<div class="text-muted small">No noticeably better dates found in the next 7 days.</div>';
                         return;
@@ -919,8 +1094,10 @@
                         altBody.appendChild(row);
                     });
                 })
-                .catch(function () {
+                .catch(function (err) {
+                    if (myToken !== altToken) { return; }
                     altBody.innerHTML = '<div class="text-muted small">Could not load suggestions.</div>';
+                    console.error('[GameOn] Alternatives failed', err);
                 });
         }
 

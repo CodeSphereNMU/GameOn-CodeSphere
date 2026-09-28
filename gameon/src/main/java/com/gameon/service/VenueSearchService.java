@@ -2,6 +2,7 @@ package com.gameon.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.gameon.model.dto.VenueResult;
+import com.gameon.model.dto.VenueSearchOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -9,6 +10,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -43,10 +47,21 @@ public class VenueSearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(VenueSearchService.class);
     private static final String SEARCH_URL = "https://nominatim.openstreetmap.org/search";
-    // Overpass is OSM's query API and is designed for automated feature lookups by tag;
-    // it is used to find actual sports facilities (pitches, courts, pools) near a location.
+    // Overpass is OSM's POI/feature query API: it is the right tool for discovering sports
+    // facilities near a coordinate by tag (leisure/sport/amenity), which Nominatim free-text
+    // search does poorly. A public mirror with generous limits is used.
     private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
     private static final Duration CACHE_TTL = Duration.ofMinutes(15);
+    // Maximum number of live Nominatim query variants attempted per search (rate-limit friendly).
+    private static final int MAX_SEARCH_ATTEMPTS = 4;
+    // Default and expanded discovery radius (metres) for Overpass venue searches around an area.
+    private static final int DEFAULT_RADIUS_M = 20000;   // ~20 km covers a city + near suburbs
+    private static final int EXPANDED_RADIUS_M = 45000;   // fallback when nothing found nearby
+    // Nominatim's usage policy requires a valid, identifiable User-Agent with contact details;
+    // a generic UA can be throttled/blocked (returning empty results). Keep this descriptive.
+    private static final String USER_AGENT =
+            "GameOn/1.0 (Sports venue finder; South Africa; contact: support@gameon.co.za)";
+    private static final String REFERER = "https://gameon.co.za";
 
     // South Africa bounding box (lon/lat): west, south, east, north.
     // Used both to bias/bound Nominatim and to reject any stray out-of-country result.
@@ -57,9 +72,48 @@ public class VenueSearchService {
 
     private final RestTemplate restTemplate;
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    // Per-cacheKey locks so concurrent identical requests share a single external lookup
+    // (H3), mirroring WeatherService's de-dup pattern.
+    private final Map<String, Object> inFlightLocks = new ConcurrentHashMap<>();
 
     public VenueSearchService(RestTemplate externalApiRestTemplate) {
         this.restTemplate = externalApiRestTemplate;
+    }
+
+    /** Signals that an upstream OSM provider failed (vs. genuinely returning no venues). */
+    private static class ProviderException extends RuntimeException {
+        final VenueSearchOutcome.Status status;
+        ProviderException(VenueSearchOutcome.Status status, String message) {
+            super(message);
+            this.status = status;
+        }
+    }
+
+    /**
+     * Classify a caught exception into a {@link VenueSearchOutcome.Status} so callers can tell
+     * a rate-limit / timeout / outage apart from a genuinely empty area.
+     */
+    private VenueSearchOutcome.Status classifyProviderError(Exception e) {
+        // Rate limited (HTTP 429).
+        if (e instanceof HttpClientErrorException hce && hce.getStatusCode().value() == 429) {
+            return VenueSearchOutcome.Status.RATE_LIMITED;
+        }
+        // Timeouts surface as ResourceAccessException wrapping a SocketTimeoutException.
+        if (e instanceof ResourceAccessException) {
+            Throwable cause = e.getCause();
+            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
+            if (cause instanceof java.net.SocketTimeoutException
+                    || msg.contains("timed out") || msg.contains("timeout")) {
+                return VenueSearchOutcome.Status.TIMEOUT;
+            }
+            // Connection refused / unknown host / other transport failure -> unavailable.
+            return VenueSearchOutcome.Status.UNAVAILABLE;
+        }
+        // Any 5xx server error from the provider.
+        if (e instanceof HttpServerErrorException) {
+            return VenueSearchOutcome.Status.UNAVAILABLE;
+        }
+        return VenueSearchOutcome.Status.UNAVAILABLE;
     }
 
     /**
@@ -71,7 +125,7 @@ public class VenueSearchService {
      * @param biasLat  latitude to prioritise nearby venues (selected location or user); nullable
      * @param biasLng  longitude to prioritise nearby venues; nullable
      */
-    public List<VenueResult> search(String query, String sport, Double biasLat, Double biasLng) {
+    public List<VenueResult> search(String query, String sport, String area, Double biasLat, Double biasLng) {
         SportProfile profile = SportProfile.forSport(sport);
         // Allow an empty free-text query as long as we have a sport and/or a location bias:
         // that powers "recommended venues for <sport> near me".
@@ -81,26 +135,43 @@ public class VenueSearchService {
             return List.of();
         }
 
-        String expanded = buildQuery(query, profile);
-        String cacheKey = (expanded + "|" + (hasBias ? round2(biasLat) + "," + round2(biasLng) : "za"))
-                .toLowerCase(Locale.ROOT);
+        String expanded = buildQuery(query, area, profile);
+        logger.info("[VenueSearch] Area: {}", (area == null || area.isBlank()) ? "(none)" : area);
+        logger.info("[VenueSearch] Sport: {}", profile.displayName() == null ? "(any)" : profile.displayName());
+        logger.info("[VenueSearch] Search centre latitude: {}", hasBias ? biasLat : "(none)");
+        logger.info("[VenueSearch] Search centre longitude: {}", hasBias ? biasLng : "(none)");
+
+        String cacheKey = ((hasQuery ? "q:" + query.trim() : "reco") + "|" + profile.name() + "|"
+                + (hasBias ? round2(biasLat) + "," + round2(biasLng) : "za")
+                + "|" + (area == null ? "" : area.trim())).toLowerCase(Locale.ROOT);
 
         CacheEntry cached = cache.get(cacheKey);
         List<VenueResult> results;
         if (cached != null && !cached.isExpired()) {
             results = cached.results;
+            logger.info("[VenueSearch] Provider: cache | Results: {}", results.size());
         } else {
-            results = fetch(expanded, profile, biasLat, biasLng);
-            // Fallback: if a location-biased search returns nothing (sparse OSM area or a
-            // transient empty response), retry once as a country-wide South Africa search so
-            // the user still gets relevant recommendations.
-            if (results.isEmpty() && hasBias) {
-                results = fetch(expanded, profile, null, null);
-            }
-            if (!results.isEmpty()) {
-                cache.put(cacheKey, new CacheEntry(results));
+            // De-duplicate concurrent identical lookups (same cacheKey) so they don't each hit
+            // the external APIs; the first thread discovers, the rest read the freshly cached result.
+            Object lock = inFlightLocks.computeIfAbsent(cacheKey, k -> new Object());
+            synchronized (lock) {
+                try {
+                    CacheEntry recheck = cache.get(cacheKey);
+                    if (recheck != null && !recheck.isExpired()) {
+                        results = recheck.results;
+                        logger.info("[VenueSearch] Provider: cache | Results: {}", results.size());
+                    } else {
+                        results = discoverVenues(query, area, profile, biasLat, biasLng);
+                        if (!results.isEmpty()) {
+                            cache.put(cacheKey, new CacheEntry(results));
+                        }
+                    }
+                } finally {
+                    inFlightLocks.remove(cacheKey);
+                }
             }
         }
+        logger.info("[VenueSearch] Query: '{}' -> {} venue(s) found", expanded, results.size());
 
         // Compute distance + score + sort (per-request since the bias location varies).
         List<VenueResult> out = new ArrayList<>(results.size());
@@ -118,6 +189,21 @@ public class VenueSearchService {
                 .thenComparing(v -> v.getDistanceKm() == null ? Double.MAX_VALUE : v.getDistanceKm())
                 .thenComparing(v -> -v.getScore()));
         return out;
+    }
+
+    /**
+     * Like {@link #search}, but returns a {@link VenueSearchOutcome} that distinguishes a
+     * genuinely empty area from an upstream provider failure (rate-limit / timeout / outage).
+     * The client uses the status to show an honest message and to retry (H2).
+     */
+    public VenueSearchOutcome searchDetailed(String query, String sport, String area, Double biasLat, Double biasLng) {
+        try {
+            List<VenueResult> results = search(query, sport, area, biasLat, biasLng);
+            return VenueSearchOutcome.ok(results);
+        } catch (ProviderException pe) {
+            logger.warn("[VenueSearch] provider failure ({}): {}", pe.status, pe.getMessage());
+            return VenueSearchOutcome.failure(pe.status);
+        }
     }
 
     /**
@@ -144,12 +230,8 @@ public class VenueSearchService {
                     .queryParam("limit", 1)
                     .build().encode().toUriString();
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.USER_AGENT, "GameOn/1.0 (South Africa sports venue finder)");
-            headers.set(HttpHeaders.ACCEPT_LANGUAGE, "en");
-
             ResponseEntity<JsonNode> resp = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
+                    url, HttpMethod.GET, new HttpEntity<>(osmHeaders()), JsonNode.class);
             JsonNode arr = resp.getBody();
             if (arr == null || !arr.isArray() || arr.isEmpty()) {
                 return null;
@@ -202,12 +284,8 @@ public class VenueSearchService {
                         .queryParam("zoom", 18)
                         .build().encode().toUriString();
 
-                HttpHeaders headers = new HttpHeaders();
-                headers.set(HttpHeaders.USER_AGENT, "GameOn/1.0 (South Africa sports venue finder)");
-                headers.set(HttpHeaders.ACCEPT_LANGUAGE, "en");
-
                 ResponseEntity<JsonNode> resp = restTemplate.exchange(
-                        url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
+                        url, HttpMethod.GET, new HttpEntity<>(osmHeaders()), JsonNode.class);
                 JsonNode node = resp.getBody();
                 if (node != null && !node.has("error")) {
                     base = new VenueResult();
@@ -265,10 +343,8 @@ public class VenueSearchService {
             String coords = fromLng + "," + fromLat + ";" + toLng + "," + toLat;
             String url = "https://router.project-osrm.org/route/v1/driving/" + coords
                     + "?overview=false&alternatives=false&steps=false";
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.USER_AGENT, "GameOn/1.0 (South Africa sports venue finder)");
             ResponseEntity<JsonNode> resp = restTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class);
+                    url, HttpMethod.GET, new HttpEntity<>(osmHeaders()), JsonNode.class);
             JsonNode body = resp.getBody();
             if (body == null || !"Ok".equals(body.path("code").asText(""))) {
                 return null;
@@ -291,61 +367,172 @@ public class VenueSearchService {
     }
 
     /**
-     * Find actual South African sports facilities via the Overpass API. Overpass is the OSM
-     * query service intended for automated, tag-based feature lookups (unlike Nominatim, whose
-     * usage policy discourages automated free-text search from servers), so it reliably returns
-     * pitches/courts/pools/grounds tagged for the requested sport near the bias location.
+     * Discover venues using the best provider for the request:
+     *
+     * <ol>
+     *   <li><b>Named venue search</b> (user typed a venue name): use Nominatim free-text search,
+     *       biased to the selected area, since Overpass cannot match arbitrary commercial names.</li>
+     *   <li><b>Area/sport discovery</b> (no venue name, but an area is selected): use the
+     *       <b>Overpass API</b> around the area coordinates - this is the reliable way to find
+     *       sports facilities by tag. Expand the radius once if nothing is found nearby, then
+     *       fall back to a Nominatim category search only if Overpass yields nothing.</li>
+     *   <li><b>No location at all</b>: fall back to a country-wide Nominatim category search.</li>
+     * </ol>
+     *
+     * Results are always distance-filtered/sorted by the caller. No venues are ever hardcoded.
      */
-    private List<VenueResult> fetch(String query, SportProfile profile, Double biasLat, Double biasLng) {
+    private List<VenueResult> discoverVenues(String query, String area, SportProfile profile,
+                                             Double biasLat, Double biasLng) {
+        boolean hasQuery = query != null && !query.isBlank();
+        boolean hasBias = biasLat != null && biasLng != null;
+
+        // 1) Named-venue search -> Nominatim (Overpass can't match arbitrary names).
+        if (hasQuery) {
+            List<VenueResult> named = searchWithFallbacks(query, area, profile, biasLat, biasLng);
+            logger.info("[VenueSearch] Provider: Nominatim (named venue) | Results: {}", named.size());
+            return named;
+        }
+
+        // 2) Area/sport discovery -> Overpass first.
+        if (hasBias) {
+            List<VenueResult> venues = overpassSearch(profile, biasLat, biasLng, DEFAULT_RADIUS_M);
+            if (venues.isEmpty()) {
+                // Expand once before giving up on the local area.
+                venues = overpassSearch(profile, biasLat, biasLng, EXPANDED_RADIUS_M);
+            }
+            if (!venues.isEmpty()) {
+                // Keep only venues within a sensible distance of the selected area so results
+                // from a broad match never belong to another city.
+                double maxKm = EXPANDED_RADIUS_M / 1000.0;
+                List<VenueResult> near = new ArrayList<>();
+                for (VenueResult v : venues) {
+                    if (haversineKm(biasLat, biasLng, v.getLatitude(), v.getLongitude()) <= maxKm) {
+                        near.add(v);
+                    }
+                }
+                if (!near.isEmpty()) {
+                    logger.info("[VenueSearch] Provider: Overpass | Results: {}", near.size());
+                    logVenueNames(near);
+                    return near;
+                }
+            }
+            // 3) Overpass found nothing usable -> Nominatim category fallback (still area-biased).
+            List<VenueResult> fallback = searchWithFallbacks(null, area, profile, biasLat, biasLng);
+            logger.info("[VenueSearch] Provider: Nominatim (fallback) | Results: {}", fallback.size());
+            return fallback;
+        }
+
+        // 4) No location -> country-wide Nominatim category search.
+        List<VenueResult> country = searchWithFallbacks(null, area, profile, null, null);
+        logger.info("[VenueSearch] Provider: Nominatim (country-wide) | Results: {}", country.size());
+        return country;
+    }
+
+    private void logVenueNames(List<VenueResult> venues) {
+        if (!logger.isInfoEnabled()) { return; }
+        StringBuilder sb = new StringBuilder();
+        int n = Math.min(venues.size(), 10);
+        for (int i = 0; i < n; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(venues.get(i).getName());
+        }
+        logger.info("[VenueSearch] Venue names returned: {}", sb);
+    }
+
+    /**
+     * Discover sports facilities near a coordinate via the Overpass API.
+     *
+     * <p>Queries OSM nodes, ways and relations (<code>nwr</code>) around the point for the
+     * sport's tags (e.g. <code>sport=padel</code>) plus generic sports-facility feature classes
+     * (<code>leisure=pitch/sports_centre/stadium/track/fitness_centre</code>). This finds real
+     * venues by their OSM metadata rather than by name, so it works for arbitrary SA areas.</p>
+     *
+     * @param radiusMeters search radius around the coordinate
+     */
+    private List<VenueResult> overpassSearch(SportProfile profile, double lat, double lng, int radiusMeters) {
+        String ql = buildOverpassQuery(profile, lat, lng, radiusMeters);
+        logger.info("[VenueSearch] Radius: {}m", radiusMeters);
+        logger.info("[VenueSearch] Provider: Overpass | Query: {}",
+                ql.replaceAll("\\s+", " ").trim());
+
         List<VenueResult> out = new ArrayList<>();
         try {
-            String area = overpassArea(biasLat, biasLng);
-            String filter = profile.overpassFilter();
-            // Search nodes, ways and relations that are sports facilities for this sport.
-            String ql = "[out:json][timeout:20];(" + filter.replace("{{A}}", area) + ");out center tags 40;";
+            HttpHeaders headers = osmHeaders();
+            headers.set(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded");
+            HttpEntity<String> req = new HttpEntity<>("data=" + java.net.URLEncoder.encode(
+                    ql, java.nio.charset.StandardCharsets.UTF_8), headers);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
-            headers.set(HttpHeaders.USER_AGENT, "GameOn/1.0 (South Africa sports venue finder)");
-            HttpEntity<String> entity = new HttpEntity<>("data=" + java.net.URLEncoder.encode(ql, java.nio.charset.StandardCharsets.UTF_8), headers);
-
-            ResponseEntity<JsonNode> resp =
-                    restTemplate.exchange(OVERPASS_URL, HttpMethod.POST, entity, JsonNode.class);
-            JsonNode root = resp.getBody();
-            JsonNode elements = root == null ? null : root.path("elements");
+            ResponseEntity<JsonNode> resp = restTemplate.exchange(
+                    OVERPASS_URL, HttpMethod.POST, req, JsonNode.class);
+            JsonNode elements = resp.getBody() == null ? null : resp.getBody().path("elements");
             if (elements == null || !elements.isArray()) {
                 return out;
             }
+            Set<String> seen = new LinkedHashSet<>();
             for (JsonNode el : elements) {
-                VenueResult v = toVenue(el, profile);
-                if (v != null && inSouthAfrica(v.getLatitude(), v.getLongitude())) {
+                VenueResult v = toVenueFromOverpass(el, profile);
+                if (v == null || !inSouthAfrica(v.getLatitude(), v.getLongitude())) {
+                    continue;
+                }
+                String key = round2(v.getLatitude()) + "," + round2(v.getLongitude());
+                if (seen.add(key)) {
                     out.add(v);
                 }
             }
-            logger.debug("ZA venue search '{}' (Overpass) -> raw={} kept={}", profile.displayName(),
-                    elements.size(), out.size());
         } catch (Exception e) {
-            logger.warn("ZA venue search failed for '{}': {}", query, e.getMessage());
+            logger.warn("[VenueSearch] Overpass search failed ({}m around {},{}): {}",
+                    radiusMeters, lat, lng, e.getMessage());
+            // Surface the failure so callers can distinguish it from a genuinely empty area (H2).
+            throw new ProviderException(classifyProviderError(e), e.getMessage());
         }
         return out;
     }
 
     /**
-     * Build the Overpass area clause. When a bias location is supplied, search a radius around
-     * it; otherwise search a bounding box covering all of South Africa.
+     * Build the Overpass QL for a sport around a point. Uses the sport's OSM sport tags plus
+     * generic sports-facility feature classes so venues are found even when they lack an explicit
+     * sport tag. Searches nodes, ways and relations, returning a centre point for ways/relations.
      */
-    private String overpassArea(Double biasLat, Double biasLng) {
-        if (biasLat != null && biasLng != null) {
-            // 30 km radius around the selected location.
-            return "around:30000," + biasLat + "," + biasLng;
+    private String buildOverpassQuery(SportProfile profile, double lat, double lng, int radiusMeters) {
+        String around = "(around:" + radiusMeters + "," + lat + "," + lng + ")";
+        StringBuilder sb = new StringBuilder();
+        sb.append("[out:json][timeout:25];(");
+
+        // Sport-specific tag matches (sport=<tag>) across nwr, e.g. sport~"padel".
+        String[] tags = profile.overpassSportTags();
+        if (tags.length > 0) {
+            String regex = String.join("|", tags);
+            sb.append("nwr[\"sport\"~\"").append(regex).append("\",i]").append(around).append(";");
         }
-        // South Africa bounding box: (south, west, north, east).
-        return ZA_SOUTH + "," + ZA_WEST + "," + ZA_NORTH + "," + ZA_EAST;
+
+        if (profile == SportProfile.SWIMMING) {
+            // Pools are usually leisure=swimming_pool rather than sport=swimming.
+            sb.append("nwr[\"leisure\"=\"swimming_pool\"]").append(around).append(";");
+            sb.append("nwr[\"leisure\"=\"water_park\"]").append(around).append(";");
+        }
+
+        // Generic sports facilities (help when the specific sport tag is missing). For a specific
+        // sport we still include these so sports centres/pitches that host the sport surface;
+        // the caller marks whether each result actually matches the sport.
+        sb.append("nwr[\"leisure\"=\"sports_centre\"]").append(around).append(";");
+        sb.append("nwr[\"leisure\"=\"fitness_centre\"]").append(around).append(";");
+        if (tags.length > 0) {
+            // Pitches/stadia/tracks tagged with this sport.
+            String regex = String.join("|", tags);
+            sb.append("nwr[\"leisure\"~\"pitch|stadium|track\"][\"sport\"~\"")
+              .append(regex).append("\",i]").append(around).append(";");
+        } else {
+            // Generic profile: any pitch/stadium/track/sports facility.
+            sb.append("nwr[\"leisure\"~\"pitch|stadium|track|sports_centre\"]").append(around).append(";");
+        }
+
+        sb.append(");out center tags 60;");
+        return sb.toString();
     }
 
-    private VenueResult toVenue(JsonNode el, SportProfile profile) {
+    /** Convert an Overpass element (node/way/relation with center) into a {@link VenueResult}. */
+    private VenueResult toVenueFromOverpass(JsonNode el, SportProfile profile) {
         try {
-            JsonNode tags = el.path("tags");
             double lat, lng;
             if (el.has("lat") && el.has("lon")) {
                 lat = el.path("lat").asDouble();
@@ -356,23 +543,30 @@ public class VenueSearchService {
             } else {
                 return null;
             }
+            if (lat == 0.0 && lng == 0.0) {
+                return null;
+            }
+
+            JsonNode tags = el.path("tags");
+            String osmSport = tags.path("sport").asText("").toLowerCase(Locale.ROOT);
+            String leisure = tags.path("leisure").asText("");
+            String name = firstNonBlank(
+                    tags.path("name").asText(""),
+                    tags.path("official_name").asText(""),
+                    tags.path("operator").asText(""));
+            if (name == null || name.isBlank()) {
+                // Derive a readable label from the feature type / sport so the pin is meaningful.
+                String label = profile.displayName() != null ? profile.displayName()
+                        : (leisure.isBlank() ? "Sports" : capitalizeWords(leisure.replace("_", " ")));
+                name = label + " venue";
+            }
 
             VenueResult v = new VenueResult();
             v.setLatitude(lat);
             v.setLongitude(lng);
-
-            String osmSport = tags.path("sport").asText("").toLowerCase(Locale.ROOT);
-            String leisure = tags.path("leisure").asText("");
-            String name = firstNonBlank(tags.path("name").asText(""), tags.path("official_name").asText(""));
-            if (name == null || name.isBlank()) {
-                // Derive a readable name from the sport + feature type.
-                String label = profile.displayName() != null ? profile.displayName() : capitalizeWords(osmSport);
-                name = (label == null || label.isBlank() ? "Sports" : label) + " venue";
-            }
             v.setName(name);
-            v.setAddress(buildAddress(tags));
-
-            v.setVenueType(inferVenueType(tags, leisure));
+            v.setAddress(buildOsmAddress(tags));
+            v.setVenueType(inferVenueType(tags, leisure, name));
             v.setSport(inferSport(tags, name, profile));
             v.setFacilities(extractFacilities(tags, leisure));
             v.setWebsite(firstNonBlank(
@@ -381,8 +575,7 @@ public class VenueSearchService {
                     tags.path("url").asText("")));
             v.setBookingUrl(firstNonBlank(
                     tags.path("reservation").asText(""),
-                    tags.path("contact:booking").asText(""),
-                    tags.path("booking").asText("")));
+                    tags.path("contact:booking").asText("")));
             v.setPhone(firstNonBlank(
                     tags.path("phone").asText(""),
                     tags.path("contact:phone").asText("")));
@@ -396,8 +589,8 @@ public class VenueSearchService {
         }
     }
 
-    /** Compose a readable address from OSM address tags. */
-    private String buildAddress(JsonNode tags) {
+    /** Compose a readable address from OSM address tags; falls back to "South Africa". */
+    private String buildOsmAddress(JsonNode tags) {
         StringBuilder sb = new StringBuilder();
         appendPart(sb, tags.path("addr:housenumber").asText(""));
         appendPart(sb, tags.path("addr:street").asText(""));
@@ -418,30 +611,367 @@ public class VenueSearchService {
         }
     }
 
-    /** Bias the free-text query toward the correct venue type for the sport, within South Africa. */
-    private String buildQuery(String query, SportProfile profile) {
+    /**
+     * Run the venue search with a series of progressively looser query variants, returning the
+     * results of the first variant that yields any venues.
+     *
+     * <p>Real-world OSM data rarely contains venues under their exact commercial name (e.g.
+     * "Boardwalk Padel" returns nothing, but "Boardwalk Summerstrand" resolves correctly), so a
+     * single strict query is unreliable. Each pass is a genuine live Nominatim search - no
+     * hardcoded venues are ever substituted; the fallbacks only reshape the free-text query.</p>
+     */
+    private List<VenueResult> searchWithFallbacks(String query, String area, SportProfile profile,
+                                                  Double biasLat, Double biasLng) {
+        List<String> candidates = candidateQueries(query, area, profile);
+        // Cap the number of live calls to stay well within Nominatim's usage policy (max ~1
+        // request/second). Since bounded=1 is not used, a single biased call already returns
+        // country-wide matches as a soft preference, so no separate country-wide retry is needed.
+        int attempts = 0;
+        for (String candidate : candidates) {
+            if (attempts >= MAX_SEARCH_ATTEMPTS) {
+                break;
+            }
+            if (attempts > 0) {
+                pause();   // be polite: space out consecutive Nominatim requests
+            }
+            attempts++;
+            List<VenueResult> results = fetch(candidate, profile, biasLat, biasLng);
+            if (!results.isEmpty()) {
+                logger.debug("[VenueSearch] variant '{}' matched {} venue(s)", candidate, results.size());
+                return results;
+            }
+        }
+        return List.of();
+    }
+
+    /** Standard headers for OSM/Nominatim requests (policy-compliant identification). */
+    private static HttpHeaders osmHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+        headers.set(HttpHeaders.ACCEPT_LANGUAGE, "en");
+        headers.set(HttpHeaders.REFERER, REFERER);
+        return headers;
+    }
+
+    /** Space out consecutive external calls to respect Nominatim's ~1 req/sec policy. */
+    private void pause() {
+        try {
+            Thread.sleep(1100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Build the ordered list of query variants to try, from most specific to broadest.
+     * De-duplicated while preserving order.
+     */
+    private List<String> candidateQueries(String query, String area, SportProfile profile) {
         String q = query == null ? "" : query.trim();
-        String kw = profile.primaryKeyword();
+        String a = area == null ? "" : area.trim();
+        boolean hasQuery = !q.isBlank();
+        boolean hasArea = !a.isBlank();
+        String sportKw = profile.recommendationKeyword();
+
+        // The "core" venue name has sport/type words (padel, tennis, courts, ...) stripped, so a
+        // commercial name like "Boardwalk Padel" degrades to "Boardwalk" - which OSM often knows
+        // even when the full branded name is absent.
+        String core = stripSportWords(q);
+
+        List<String> variants = new ArrayList<>();
+        if (hasQuery) {
+            // Ordered by real-world hit-rate against OSM (the attempt count is capped, so the
+            // most likely matches come first). Commercial names ("Boardwalk Padel") are rarely
+            // in OSM verbatim, whereas loose place-based queries ("Boardwalk Summerstrand")
+            // usually resolve.
+            if (hasArea) {
+                // 1) Loose "venue area" (skips the area if the venue text already contains it,
+                //    so we never build e.g. "Cape Town Cape Town").
+                variants.add(joinPlace(q, a));
+                // 2) Core venue name + area, sport words dropped ("Boardwalk Summerstrand").
+                if (!core.equalsIgnoreCase(q)) {
+                    variants.add(joinPlace(core, a));
+                }
+            }
+            // 3) Venue name alone within South Africa.
+            variants.add(q + " South Africa");
+            // 4) Core venue name within South Africa.
+            if (!core.equalsIgnoreCase(q)) {
+                variants.add(core + " South Africa");
+            }
+            // 5) Sport category in the area, so the user still gets relevant venues even when
+            //    the exact named venue is absent from OSM.
+            if (hasArea) {
+                variants.add(sportKw + " near " + a + " South Africa");
+            }
+            // 6) Venue name alone (unqualified) - last resort.
+            variants.add(q);
+        } else {
+            // Recommendation searches: category near the area, then broaden.
+            if (hasArea) {
+                variants.add(sportKw + " near " + a + " South Africa");
+                variants.add(sportKw + " " + a);
+                variants.add(sportKw + " " + a + " South Africa");
+            }
+            variants.add(sportKw + " South Africa");
+        }
+
+        // De-duplicate (case-insensitive) while keeping order.
+        List<String> ordered = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String v : variants) {
+            String key = v.trim().toLowerCase(Locale.ROOT);
+            if (!key.isBlank() && seen.add(key)) {
+                ordered.add(v.trim());
+            }
+        }
+        return ordered;
+    }
+
+    /**
+     * Find real South African sports venues via the OpenStreetMap Nominatim free-text search.
+     *
+     * <p>This is a live location search: the user's typed venue/area query (already expanded
+     * with the sport keyword and the selected suburb by {@link #buildQuery}) is sent to
+     * Nominatim, restricted to South Africa. When a bias location is supplied, a viewbox
+     * around it is used so the selected suburb/city is prioritised before the rest of the
+     * country. No hardcoded venues or coordinates are involved.</p>
+     */
+    private List<VenueResult> fetch(String query, SportProfile profile, Double biasLat, Double biasLng) {
+        List<VenueResult> out = new ArrayList<>();
+        try {
+            UriComponentsBuilder ub = UriComponentsBuilder.fromHttpUrl(SEARCH_URL)
+                    .queryParam("q", query)
+                    .queryParam("format", "jsonv2")
+                    .queryParam("addressdetails", 1)
+                    .queryParam("extratags", 1)
+                    .queryParam("namedetails", 1)
+                    .queryParam("countrycodes", "za")
+                    .queryParam("limit", 25);
+
+            if (biasLat != null && biasLng != null) {
+                // Prioritise the selected area with a ~0.35 deg (~35 km) preferred box centred
+                // on the supplied bias coordinates. This box is generated dynamically from the
+                // *current* bias (the selected area), so different cities get different bounds;
+                // there is no fixed city viewbox. bounded=0 keeps it a soft preference so a named
+                // venue just outside the box still returns; countrycodes=za keeps it in-country.
+                double d = 0.35;
+                double west = clampLng(biasLng - d), east = clampLng(biasLng + d);
+                double north = clampLat(biasLat + d), south = clampLat(biasLat - d);
+                ub.queryParam("viewbox", west + "," + north + "," + east + "," + south);
+                logger.info("[VenueSearch] Search centre: {}, {} | bounds(W,N,E,S): {}, {}, {}, {}",
+                        biasLat, biasLng, west, north, east, south);
+            } else {
+                logger.info("[VenueSearch] Search centre: (none - country-wide South Africa)");
+            }
+            // No hard bounding: countrycodes=za already restricts results to South Africa, and a
+            // strict viewbox (bounded=1) was found to suppress valid named-venue matches.
+
+            String url = ub.build().encode().toUriString();
+            logger.info("[VenueSearch] Nominatim URL: {}", url);
+
+            ResponseEntity<JsonNode> resp = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(osmHeaders()), JsonNode.class);
+            JsonNode arr = resp.getBody();
+            if (arr == null || !arr.isArray()) {
+                return out;
+            }
+            Set<String> seen = new LinkedHashSet<>();
+            for (JsonNode node : arr) {
+                VenueResult v = toVenueFromNominatim(node, profile);
+                if (v == null || !inSouthAfrica(v.getLatitude(), v.getLongitude())) {
+                    continue;
+                }
+                // De-duplicate venues that resolve to the same rounded coordinate.
+                String key = round2(v.getLatitude()) + "," + round2(v.getLongitude());
+                if (seen.add(key)) {
+                    out.add(v);
+                }
+            }
+            logger.debug("[VenueSearch] '{}' (Nominatim) -> raw={} kept={}", query, arr.size(), out.size());
+        } catch (Exception e) {
+            logger.warn("[VenueSearch] ZA venue search failed for '{}': {}", query, e.getMessage());
+            // Surface the failure so callers can distinguish it from a genuinely empty area (H2/M3).
+            throw new ProviderException(classifyProviderError(e), e.getMessage());
+        }
+        return out;
+    }
+
+    /** Convert a Nominatim jsonv2 result into a {@link VenueResult}. */
+    private VenueResult toVenueFromNominatim(JsonNode node, SportProfile profile) {
+        try {
+            double lat = node.path("lat").asDouble();
+            double lng = node.path("lon").asDouble();
+            if (lat == 0.0 && lng == 0.0) {
+                return null;
+            }
+
+            JsonNode address = node.path("address");
+            JsonNode nameDetails = node.path("namedetails");
+            JsonNode extra = node.path("extratags");
+            String display = node.path("display_name").asText("");
+
+            // Prefer an explicit place name; otherwise fall back to the first segment of the
+            // display address so the venue always has a readable label.
+            String name = firstNonBlank(
+                    nameDetails.path("name").asText(""),
+                    node.path("name").asText(""),
+                    address.path("leisure").asText(""),
+                    address.path("sports_centre").asText(""),
+                    address.path("amenity").asText(""),
+                    display.contains(",") ? display.substring(0, display.indexOf(',')) : display);
+            if (name == null || name.isBlank()) {
+                String label = profile.displayName() != null ? profile.displayName() : "Sports";
+                name = label + " venue";
+            }
+
+            VenueResult v = new VenueResult();
+            v.setLatitude(lat);
+            v.setLongitude(lng);
+            v.setName(name);
+            v.setAddress(display.isBlank() ? "South Africa" : display);
+
+            String osmSport = firstNonBlankLower(
+                    extra.path("sport").asText(""),
+                    node.path("type").asText(""));
+            String leisure = firstNonBlank(
+                    extra.path("leisure").asText(""),
+                    node.path("category").asText(""),
+                    node.path("type").asText(""));
+            leisure = leisure == null ? "" : leisure;
+
+            v.setVenueType(inferVenueType(extra, leisure, name));
+            v.setSport(inferSport(extra, name, profile));
+            v.setFacilities(extractFacilities(extra, leisure));
+            v.setWebsite(firstNonBlank(
+                    extra.path("website").asText(""),
+                    extra.path("contact:website").asText(""),
+                    extra.path("url").asText("")));
+            v.setBookingUrl(firstNonBlank(
+                    extra.path("reservation").asText(""),
+                    extra.path("contact:booking").asText(""),
+                    extra.path("booking").asText("")));
+            v.setPhone(firstNonBlank(
+                    extra.path("phone").asText(""),
+                    extra.path("contact:phone").asText("")));
+
+            boolean matches = profile.matches(osmSport, leisure, name);
+            v.setMatchesSport(matches);
+            v.setSuitability(profile.suitabilityText(matches, v.getVenueType()));
+            return v;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Build the free-text search query, prioritising the selected suburb/area.
+     *
+     * <p>Examples produced (matching the product requirements):</p>
+     * <ul>
+     *   <li>venue "Boardwalk Padel" + area "Summerstrand" -&gt; "Boardwalk Padel, Summerstrand, South Africa"</li>
+     *   <li>no venue + Padel + area "Summerstrand" -&gt; "Padel courts near Summerstrand South Africa"</li>
+     *   <li>no venue + Tennis, no area -&gt; "Tennis courts South Africa"</li>
+     * </ul>
+     */
+    private String buildQuery(String query, String area, SportProfile profile) {
+        String q = query == null ? "" : query.trim();
+        String a = area == null ? "" : area.trim();
+        boolean hasQuery = !q.isBlank();
+        boolean hasArea = !a.isBlank();
         String lower = q.toLowerCase(Locale.ROOT);
 
         StringBuilder sb = new StringBuilder();
-        if (!kw.isBlank() && !lower.contains(kw.toLowerCase(Locale.ROOT))) {
-            sb.append(kw).append(' ');
-        }
-        sb.append(q);
-        // Anchor to the country so free-text-only searches stay in South Africa.
-        if (!lower.contains("south africa")) {
+        if (hasQuery) {
+            // Named venue / free text search: keep the user's text first so Nominatim matches
+            // the venue by name, then the selected suburb, then anchor to the country. e.g.
+            // "Boardwalk Padel, Summerstrand, South Africa".
+            sb.append(q);
+            if (hasArea && !lower.contains(a.toLowerCase(Locale.ROOT))) {
+                sb.append(", ").append(a);
+            }
+            if (!lower.contains("south africa") && !a.toLowerCase(Locale.ROOT).contains("south africa")) {
+                sb.append(", South Africa");
+            }
+        } else {
+            // Recommendation search: "<Sport> courts near <area> South Africa". e.g.
+            // "Padel courts near Summerstrand South Africa".
+            sb.append(profile.recommendationKeyword());
+            if (hasArea) {
+                sb.append(" near ").append(a);
+            }
             sb.append(" South Africa");
         }
         return sb.toString().trim();
     }
 
-    private String inferVenueType(JsonNode tags, String leisure) {
+    // Sport / facility words removed from a venue name to obtain its "core" (place) name.
+    private static final Set<String> SPORT_WORDS = Set.of(
+            "padel", "tennis", "squash", "basketball", "netball", "hockey", "cricket",
+            "rugby", "soccer", "football", "swimming", "pool", "pools", "golf",
+            "court", "courts", "field", "fields", "ground", "grounds", "centre", "center",
+            "club", "sports", "sport");
+
+    /**
+     * Strip sport/facility words from a venue name to derive its core place name, e.g.
+     * "Boardwalk Padel" -&gt; "Boardwalk", "Crusaders Sports Club" -&gt; "Crusaders".
+     * Falls back to the original text if stripping would leave nothing.
+     */
+    private static String stripSportWords(String name) {
+        if (name == null || name.isBlank()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String word : name.trim().split("\\s+")) {
+            String bare = word.replaceAll("[^\\p{L}\\p{Nd}]", "").toLowerCase(Locale.ROOT);
+            if (bare.isEmpty() || SPORT_WORDS.contains(bare)) {
+                continue;
+            }
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(word);
+        }
+        String core = sb.toString().trim();
+        return core.isEmpty() ? name.trim() : core;
+    }
+
+    /**
+     * Join a venue/place term with an area, avoiding duplication: if the term already contains
+     * the area (case-insensitive), the term is returned unchanged. Prevents malformed queries
+     * such as "Cape Town Cape Town".
+     */
+    private static String joinPlace(String term, String area) {
+        String t = term == null ? "" : term.trim();
+        String a = area == null ? "" : area.trim();
+        if (a.isBlank()) {
+            return t;
+        }
+        if (t.toLowerCase(Locale.ROOT).contains(a.toLowerCase(Locale.ROOT))) {
+            return t;
+        }
+        return (t.isBlank() ? a : t + " " + a);
+    }
+
+    private static String firstNonBlankLower(String... vals) {
+        String v = firstNonBlank(vals);
+        return v == null ? "" : v.toLowerCase(Locale.ROOT);
+    }
+
+    private static double clampLat(double lat) {
+        return Math.max(-90.0, Math.min(90.0, lat));
+    }
+
+    private static double clampLng(double lng) {
+        return Math.max(-180.0, Math.min(180.0, lng));
+    }
+
+    private String inferVenueType(JsonNode tags, String leisure, String name) {
         String building = tags.path("building").asText("");
         String indoorTag = tags.path("indoor").asText("");
         String sport = tags.path("sport").asText("").toLowerCase(Locale.ROOT);
+        String n = name == null ? "" : name.toLowerCase(Locale.ROOT);
         boolean indoorSport = sport.contains("squash") || sport.contains("swimming")
-                || sport.contains("gym") || sport.contains("fitness");
+                || sport.contains("gym") || sport.contains("fitness")
+                || n.contains("squash") || n.contains("gym") || n.contains("virgin active");
         if ("sports_centre".equals(leisure) || "sports_hall".equals(leisure)
                 || "yes".equalsIgnoreCase(indoorTag) || !building.isBlank() || indoorSport) {
             return "INDOOR";
@@ -621,32 +1151,38 @@ public class VenueSearchService {
         String primaryKeyword() { return primaryKeyword; }
 
         /**
-         * Overpass QL fragment (node/way/relation clauses) selecting sports facilities for this
-         * sport. {@code {{A}}} is replaced with the area filter (around:radius,lat,lng or a bbox).
+         * OSM {@code sport=*} tag values used to discover this sport via Overpass, including
+         * common synonyms/spellings (e.g. padel is sometimes tagged "paddle"/"padel_tennis").
+         * The values form a case-insensitive regex alternation.
          */
-        String overpassFilter() {
-            StringBuilder sb = new StringBuilder();
-            if (this == SWIMMING) {
-                // Swimming pools are tagged leisure=swimming_pool / sport=swimming.
-                for (String s : tags) {
-                    sb.append("nwr[\"sport\"=\"").append(s).append("\"]({{A}});");
-                }
-                sb.append("nwr[\"leisure\"=\"swimming_pool\"]({{A}});");
-                sb.append("nwr[\"leisure\"=\"sports_centre\"][\"sport\"~\"swim\"]({{A}});");
-                return sb.toString();
-            }
-            if (this == GENERIC) {
-                // Any recognised sports facility.
-                sb.append("nwr[\"leisure\"=\"pitch\"][\"sport\"]({{A}});");
-                sb.append("nwr[\"leisure\"=\"sports_centre\"]({{A}});");
-                sb.append("nwr[\"leisure\"=\"stadium\"]({{A}});");
-                return sb.toString();
-            }
-            // Sport-specific: match the sport tag on any facility, plus sports centres for it.
-            for (String s : tags) {
-                sb.append("nwr[\"sport\"~\"").append(s).append("\"]({{A}});");
-            }
-            return sb.toString();
+        String[] overpassSportTags() {
+            return switch (this) {
+                case FOOTBALL -> new String[]{"soccer", "football"};
+                case RUGBY -> new String[]{"rugby", "rugby_union", "rugby_league"};
+                case TENNIS -> new String[]{"tennis"};
+                case PADEL -> new String[]{"padel", "paddle", "padel_tennis"};
+                case SQUASH -> new String[]{"squash"};
+                case BASKETBALL -> new String[]{"basketball"};
+                case CRICKET -> new String[]{"cricket"};
+                case SWIMMING -> new String[]{"swimming"};
+                case HOCKEY -> new String[]{"hockey", "field_hockey"};
+                case NETBALL -> new String[]{"netball"};
+                case GENERIC -> new String[]{};
+            };
+        }
+
+        /**
+         * Free-text keyword used for the "recommended venues" search when the user has not typed
+         * a specific venue name, e.g. "Padel courts", "Tennis courts", "Swimming pools".
+         * The facility noun follows how the venue type is commonly named/tagged in OSM.
+         */
+        String recommendationKeyword() {
+            return switch (this) {
+                case GENERIC -> "sports venues";
+                case SWIMMING -> "swimming pools";
+                case FOOTBALL, RUGBY, CRICKET, HOCKEY -> displayName + " fields";
+                default -> displayName + " courts"; // TENNIS, PADEL, SQUASH, BASKETBALL, NETBALL
+            };
         }
 
         boolean matches(String osmSport, String type, String name) {

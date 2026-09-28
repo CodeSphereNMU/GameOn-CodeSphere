@@ -218,11 +218,29 @@
 
         function createMap(elId, opts) {
             opts = opts || {};
+            const el = document.getElementById(elId);
+            if (!el) {
+                console.error('[GameOnMap] Container #' + elId + ' not found; map not created.');
+                return null;
+            }
             const map = L.map(elId, { scrollWheelZoom: !!opts.scroll });
             map.setView(opts.center || DEFAULT_CENTER, opts.zoom || 12);
-            L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(map);
+
+            const tiles = L.tileLayer(OSM_TILES, { attribution: OSM_ATTR, maxZoom: 19 });
+            // Surface tile failures (CSP blocks, network/CORS errors) in the console.
+            tiles.on('tileerror', function (e) {
+                console.error('[GameOnMap] Tile failed to load:', e.tile && e.tile.src);
+            });
+            tiles.addTo(map);
+
+            console.log('[GameOnMap] Map initialized on #' + elId);
+            console.log('[GameOnMap] center=', map.getCenter(), 'zoom=', map.getZoom());
+
             // Leaflet needs a size recalculation once its container is laid out/visible.
-            setTimeout(function () { map.invalidateSize(); }, 200);
+            // whenReady covers the first paint; the timeout covers containers that only
+            // gain their real size slightly later (Bootstrap tabs/cards/accordions).
+            map.whenReady(function () { map.invalidateSize(); });
+            setTimeout(function () { map.invalidateSize(); }, 300);
             return map;
         }
 

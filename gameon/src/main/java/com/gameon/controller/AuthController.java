@@ -2,6 +2,8 @@ package com.gameon.controller;
 
 import com.gameon.dto.auth.RegisterStep1Dto;
 import com.gameon.dto.auth.RegisterStep2Dto;
+import com.gameon.dto.auth.ResetPasswordDto;
+import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.Sport;
 import com.gameon.model.enums.SkillLevel;
 import com.gameon.security.CustomUserDetails;
@@ -67,6 +69,51 @@ public class AuthController {
             model.addAttribute("error", "Your session is invalid. Please login again");
         }
         return "auth/login";
+    }
+
+    // ===== FORGOT / RESET PASSWORD =====
+
+    @GetMapping("/forgot-password")
+    public String showForgotPassword(Model model) {
+        if (!model.containsAttribute("resetPasswordDto")) {
+            model.addAttribute("resetPasswordDto", new ResetPasswordDto());
+        }
+        return "auth/forgot-password";
+    }
+
+    @PostMapping("/forgot-password")
+    public String processForgotPassword(@Valid @ModelAttribute("resetPasswordDto") ResetPasswordDto dto,
+                                        BindingResult result,
+                                        Model model) {
+        // Server-side password match check (mirrors client-side validation)
+        if (!dto.passwordsMatch()) {
+            result.rejectValue("confirmPassword", "error.confirmPassword", "Passwords do not match");
+        }
+
+        // Do not allow reset for a username that does not exist
+        if (dto.getUsername() != null && !authService.usernameExists(dto.getUsername())) {
+            result.rejectValue("username", "error.username", "Username not found.");
+        }
+
+        if (result.hasErrors()) {
+            return "auth/forgot-password";
+        }
+
+        try {
+            authService.resetPassword(dto);
+            model.addAttribute("resetSuccess", true);
+            logger.info("Password reset completed via forgot-password page for user: {}", dto.getUsername());
+            return "auth/forgot-password";
+        } catch (ResourceNotFoundException e) {
+            // Username disappeared between the check and the update (rare race)
+            result.rejectValue("username", "error.username", "Username not found.");
+            return "auth/forgot-password";
+        } catch (Exception e) {
+            // Never expose internal/database errors to the user
+            logger.error("Password reset failed for user: {}", dto.getUsername(), e);
+            model.addAttribute("error", "We couldn't reset your password. Please try again.");
+            return "auth/forgot-password";
+        }
     }
 
     // ===== REGISTRATION STEP 1 =====

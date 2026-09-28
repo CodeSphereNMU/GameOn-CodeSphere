@@ -23,7 +23,9 @@ public class HttpClientConfig {
     public RestTemplate externalApiRestTemplate(RestTemplateBuilder builder) {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(12))
+                // Overpass POI queries can take longer than Nominatim/Open-Meteo; allow a little
+                // more headroom so a valid (but slower) venue-discovery response is not cut off.
+                .setReadTimeout(Duration.ofSeconds(20))
                 .build();
     }
 }

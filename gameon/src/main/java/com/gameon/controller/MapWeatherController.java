@@ -2,6 +2,7 @@ package com.gameon.controller;
 
 import com.gameon.model.dto.PlayabilityResult;
 import com.gameon.model.dto.VenueResult;
+import com.gameon.model.dto.VenueSearchOutcome;
 import com.gameon.model.dto.WeatherForecast;
 import com.gameon.model.entity.GameListing;
 import com.gameon.model.enums.VenueType;
@@ -13,6 +14,8 @@ import com.gameon.service.VenueSearchService;
 import com.gameon.service.WeatherService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,11 +63,26 @@ public class MapWeatherController {
      * The {@code q} query is optional when a bias location is supplied.
      */
     @GetMapping("/venues/search")
-    public List<VenueResult> searchVenues(@RequestParam(required = false, defaultValue = "") String q,
-                                          @RequestParam(required = false) String sport,
-                                          @RequestParam(required = false) Double lat,
-                                          @RequestParam(required = false) Double lng) {
-        return venueSearchService.search(q, sport, lat, lng);
+    public ResponseEntity<Map<String, Object>> searchVenues(
+            @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false) String sport,
+            @RequestParam(required = false) String area,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng) {
+        VenueSearchOutcome outcome = venueSearchService.searchDetailed(q, sport, area, lat, lng);
+
+        // Body always carries the status + venues so the client can react honestly to the reason
+        // (no venues found vs. provider busy/unavailable) rather than treating a failure as empty.
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", outcome.getStatus().name());
+        body.put("venues", outcome.getVenues());
+
+        HttpStatus httpStatus = switch (outcome.getStatus()) {
+            case OK, EMPTY -> HttpStatus.OK;
+            case RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
+            case TIMEOUT, UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return ResponseEntity.status(httpStatus).body(body);
     }
 
     /**

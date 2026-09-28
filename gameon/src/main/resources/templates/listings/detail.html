@@ -30,7 +30,46 @@
                         <p><i class="bi bi-controller me-2"></i><strong>Format:</strong> <span th:text="${listing.format.formatName}">Format</span></p>
                         <p><i class="bi bi-calendar me-2"></i><strong>Date:</strong> <span th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span></p>
                         <p><i class="bi bi-clock me-2"></i><strong>Duration:</strong> <span th:text="${listing.durationMinutes}">90</span> minutes</p>
-                        <p><i class="bi bi-geo-alt me-2"></i><strong>Location:</strong> <span th:text="${listing.location}">Location</span></p>
+
+                        <!-- ===== Venue section (name + address + directions) ===== -->
+                        <div class="venue-detail mb-3"
+                             th:with="venueDisplayName=${listing.venueName != null and !#strings.isEmpty(listing.venueName) ? listing.venueName : listing.location},
+                                      hasCoords=${listing.latitude != null and listing.longitude != null}">
+                            <div class="venue-detail-block">
+                                <div class="venue-detail-label">
+                                    <i class="bi bi-geo-alt-fill me-1 text-danger"></i>Venue Name
+                                </div>
+                                <div class="venue-detail-value fw-semibold" th:text="${venueDisplayName}">Venue Name</div>
+                            </div>
+
+                            <div class="venue-detail-block mt-2"
+                                 th:if="${listing.location != null and !#strings.isEmpty(listing.location)}">
+                                <div class="venue-detail-label">Venue Address</div>
+                                <div class="venue-detail-value text-muted" th:text="${listing.location}">Venue Address</div>
+                            </div>
+
+                            <!-- Optional: static (non-interactive) map preview when coordinates exist. -->
+                            <div th:if="${hasCoords}"
+                                 id="venuePreviewMap"
+                                 class="gameon-map venue-preview-map mt-3"
+                                 role="button" tabindex="0"
+                                 aria-label="Open directions to the venue in Google Maps"
+                                 th:attr="data-lat=${listing.latitude}, data-lng=${listing.longitude}"></div>
+
+                            <!-- Get Directions: coordinates when available, otherwise the address. -->
+                            <a id="getDirectionsBtn"
+                               class="btn btn-gameon w-100 w-md-auto mt-3"
+                               target="_blank" rel="noopener noreferrer"
+                               th:attr="data-lat=${hasCoords ? listing.latitude : ''},
+                                        data-lng=${hasCoords ? listing.longitude : ''},
+                                        data-address=${listing.location},
+                                        href=${hasCoords
+                                          ? 'https://www.google.com/maps/dir/?api=1&destination=' + listing.latitude + ',' + listing.longitude
+                                          : 'https://www.google.com/maps/dir/?api=1&destination=' + #uris.escapeQueryParam(listing.location)}">
+                                <i class="bi bi-signpost-2-fill me-1"></i>Get Directions
+                            </a>
+                        </div>
+
                         <p><i class="bi bi-person me-2"></i><strong>Created by:</strong>
                             <a th:href="@{'/profile/' + ${listing.creator.userId}}" th:text="${listing.creator.username}">User</a>
                         </p>
@@ -173,6 +212,90 @@
         </div>
     </div>
 
+    <style>
+        /* Venue section (Listing Detail) — uses the Game On red theme. */
+        .venue-detail-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6c757d;
+            font-weight: 600;
+        }
+        .venue-detail-value { font-size: 0.95rem; }
+        .venue-preview-map {
+            height: 180px;
+            cursor: pointer;
+            transition: box-shadow 0.15s ease, transform 0.15s ease;
+        }
+        .venue-preview-map:hover,
+        .venue-preview-map:focus {
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+            outline: none;
+        }
+        /* Full width on mobile; auto width from small breakpoint up. */
+        @media (min-width: 576px) {
+            .w-md-auto { width: auto !important; }
+        }
+    </style>
+
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+    (function () {
+        var btn = document.getElementById('getDirectionsBtn');
+
+        // Build a Google Maps directions URL: prefer coordinates, else the full address.
+        // Mirrors the server-rendered href so the button works with or without JS, on
+        // desktop and mobile (Google Maps universal URL handles both).
+        function directionsUrl() {
+            if (!btn) { return null; }
+            var lat = btn.getAttribute('data-lat');
+            var lng = btn.getAttribute('data-lng');
+            var address = btn.getAttribute('data-address') || '';
+            var base = 'https://www.google.com/maps/dir/?api=1&destination=';
+            if (lat && lng) {
+                return base + encodeURIComponent(lat + ',' + lng);
+            }
+            if (address) {
+                return base + encodeURIComponent(address);
+            }
+            return null;
+        }
+
+        // Normalise the button href client-side (ensures consistent encoding).
+        if (btn) {
+            var url = directionsUrl();
+            if (url) { btn.setAttribute('href', url); }
+        }
+
+        // Optional static preview: a small non-interactive map that also opens directions.
+        var preview = document.getElementById('venuePreviewMap');
+        if (preview && window.GameOnMap && typeof L !== 'undefined') {
+            var pLat = parseFloat(preview.getAttribute('data-lat'));
+            var pLng = parseFloat(preview.getAttribute('data-lng'));
+            if (!isNaN(pLat) && !isNaN(pLng)) {
+                var pMap = GameOnMap.createMap('venuePreviewMap', { center: [pLat, pLng], zoom: 15 });
+                if (pMap) {
+                    // Non-interactive preview: disable panning/zoom so it reads as a "preview".
+                    pMap.dragging.disable();
+                    pMap.scrollWheelZoom.disable();
+                    pMap.doubleClickZoom.disable();
+                    pMap.boxZoom.disable();
+                    pMap.keyboard.disable();
+                    if (pMap.tap) { pMap.tap.disable(); }
+                    if (pMap.zoomControl) { pMap.zoomControl.remove(); }
+                    L.marker([pLat, pLng]).addTo(pMap);
+                }
+                var openDirections = function () {
+                    var u = directionsUrl();
+                    if (u) { window.open(u, '_blank', 'noopener'); }
+                };
+                preview.addEventListener('click', openDirections);
+                preview.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDirections(); }
+                });
+            }
+        }
+    })();
+    </script>
 </body>
 </html>

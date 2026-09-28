@@ -52,7 +52,7 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/profile-pictures/**").permitAll()
 
                 // Authentication pages - accessible to anonymous users only
-                .requestMatchers("/login", "/register", "/register-sports").permitAll()
+                .requestMatchers("/login", "/register", "/register-sports", "/forgot-password").permitAll()
 
                 // Actuator health endpoint
                 .requestMatchers("/actuator/health").permitAll()
@@ -112,7 +112,10 @@ public class SecurityConfig {
                                       // img-src allows same-origin stored post images plus blob:/data:
                                       // used by client-side upload previews (URL.createObjectURL),
                                       // plus OpenStreetMap map tiles and Leaflet marker images.
-                                      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; " +
+                                      // Both the bare host (tile.openstreetmap.org, the current
+                                      // tile URL) and the subdomain form (a/b/c.tile.openstreetmap.org)
+                                      // are allowed; the wildcard does NOT cover the bare host.
+                                      "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://unpkg.com; " +
                                       // Map/weather API calls go to our own /api endpoints (same origin).
                                       "connect-src 'self'; " +
                                       "font-src 'self' https://cdn.jsdelivr.net;")

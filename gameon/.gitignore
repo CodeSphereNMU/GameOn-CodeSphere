@@ -39,6 +39,7 @@ desktop.ini
 # === Application Generated ===
 *.pid
 *.seed
+build-output.txt
 
 # === Uploaded Post Images (stored on filesystem, not tracked) ===
 uploads/

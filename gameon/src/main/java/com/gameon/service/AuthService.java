@@ -2,8 +2,10 @@ package com.gameon.service;
 
 import com.gameon.dto.auth.RegisterStep1Dto;
 import com.gameon.dto.auth.RegisterStep2Dto;
+import com.gameon.dto.auth.ResetPasswordDto;
 import com.gameon.exception.BusinessRuleException;
 import com.gameon.exception.DuplicateResourceException;
+import com.gameon.exception.ResourceNotFoundException;
 import com.gameon.model.entity.Sport;
 import com.gameon.model.entity.User;
 import com.gameon.model.entity.UserSportProfile;
@@ -150,5 +152,39 @@ public class AuthService {
         Long userId = registerStep1(step1);
         registerStep2(userId, step2);
         return userId;
+    }
+
+    /**
+     * Checks whether a username exists (used by the Forgot Password flow to
+     * verify an account before allowing a reset).
+     */
+    public boolean usernameExists(String username) {
+        return username != null && userRepository.existsByUsername(username);
+    }
+
+    /**
+     * Resets an existing user's password (simplified academic "Forgot Password" flow).
+     * <p>
+     * The new password is hashed with the same {@link PasswordEncoder} used during
+     * registration, so it is never stored as plain text (beyond the project's
+     * deliberate encoder choice). Only existing users may be reset.
+     *
+     * @throws BusinessRuleException     if the passwords do not match
+     * @throws ResourceNotFoundException if no user exists with the given username
+     */
+    @Transactional
+    public void resetPassword(ResetPasswordDto dto) {
+        if (!dto.passwordsMatch()) {
+            throw new BusinessRuleException("Passwords do not match");
+        }
+
+        User user = userRepository.findByUsername(dto.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("Username not found."));
+
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
+
+        logger.info("Password reset successfully for user: {} (ID: {})",
+                user.getUsername(), user.getUserId());
     }
 }
