@@ -167,6 +167,12 @@ public class ReportService {
         return reportRepository.countByStatus(ReportStatus.PENDING);
     }
 
+    /** Total number of reports ever created (moderation summary dashboard). */
+    @Transactional(readOnly = true)
+    public long getTotalReportCount() {
+        return reportRepository.count();
+    }
+
     /**
      * Gets all reports submitted by a user.
      */

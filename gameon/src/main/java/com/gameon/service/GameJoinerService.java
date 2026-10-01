@@ -40,6 +40,7 @@ public class GameJoinerService {
     private final SportService sportService;
     private final InvitationRepository invitationRepository;
     private final ListingLifecycleService listingLifecycleService;
+    private final BlockService blockService;
 
     public GameJoinerService(GameJoinerRepository gameJoinerRepository,
                              JoinRequestRepository joinRequestRepository,
@@ -50,7 +51,8 @@ public class GameJoinerService {
                              SchedulingConflictService schedulingConflictService,
                              SportService sportService,
                              InvitationRepository invitationRepository,
-                             ListingLifecycleService listingLifecycleService) {
+                             ListingLifecycleService listingLifecycleService,
+                             BlockService blockService) {
         this.gameJoinerRepository = gameJoinerRepository;
         this.joinRequestRepository = joinRequestRepository;
         this.gameListingRepository = gameListingRepository;
@@ -61,6 +63,7 @@ public class GameJoinerService {
         this.sportService = sportService;
         this.invitationRepository = invitationRepository;
         this.listingLifecycleService = listingLifecycleService;
+        this.blockService = blockService;
     }
 
     // ========== Join Request Flow ==========
@@ -76,6 +79,10 @@ public class GameJoinerService {
         validateRequestWindowOpen(listing);
         if (listing.getCreator().getUserId().equals(userId)) {
             throw new BusinessRuleException("You are already participating in this listing as the creator.");
+        }
+        // Mutual blocking: cannot join a listing whose creator you have blocked or who has blocked you.
+        if (blockService.isBlockedEitherWay(userId, listing.getCreator().getUserId())) {
+            throw new BusinessRuleException("You cannot join this listing.");
         }
         if (gameJoinerRepository.existsAcceptedOrLocked(userId, listingId)) {
             throw new BusinessRuleException("You are already participating in this listing.");

@@ -4,6 +4,7 @@ import com.gameon.dto.UserSearchDto;
 import com.gameon.model.entity.User;
 import com.gameon.model.enums.AccountStatus;
 import com.gameon.repository.UserRepository;
+import com.gameon.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -24,9 +25,11 @@ public class UserSearchService {
     private static final int MAX_RESULTS = 10;
 
     private final UserRepository userRepository;
+    private final BlockService blockService;
 
-    public UserSearchService(UserRepository userRepository) {
+    public UserSearchService(UserRepository userRepository, BlockService blockService) {
         this.userRepository = userRepository;
+        this.blockService = blockService;
     }
 
     /**
@@ -45,8 +48,15 @@ public class UserSearchService {
         String trimmedQuery = query.trim();
         logger.debug("Searching users with query: '{}'", trimmedQuery);
 
-        List<User> users = userRepository.searchActiveUsersByUsername(
-                trimmedQuery, AccountStatus.ACTIVE, PageRequest.of(0, MAX_RESULTS));
+        // Mutual blocking: neither user appears in the other's search results or suggestions.
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        List<Long> blockedIds = blockService.getBlockedUserIds(currentUserId);
+
+        List<User> users = blockedIds.isEmpty()
+                ? userRepository.searchActiveUsersByUsername(
+                        trimmedQuery, AccountStatus.ACTIVE, PageRequest.of(0, MAX_RESULTS))
+                : userRepository.searchActiveUsersByUsernameExcludingBlocked(
+                        trimmedQuery, AccountStatus.ACTIVE, blockedIds, PageRequest.of(0, MAX_RESULTS));
 
         return users.stream()
                 .map(this::mapToDto)

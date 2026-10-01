@@ -35,6 +35,7 @@ class GameJoinerServiceTest {
     @Mock SportService sportService;
     @Mock InvitationRepository invitationRepository;
     @Mock ListingLifecycleService listingLifecycleService;
+    @Mock BlockService blockService;
     @InjectMocks GameJoinerService service;
 
     private User creator;

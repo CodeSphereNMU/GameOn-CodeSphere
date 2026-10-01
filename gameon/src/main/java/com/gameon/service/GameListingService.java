@@ -60,6 +60,7 @@ public class GameListingService {
     private final NotificationService notificationService;
     private final SchedulingConflictService schedulingConflictService;
     private final InvitationService invitationService;
+    private final BlockService blockService;
 
     public GameListingService(GameListingRepository gameListingRepository,
                               GameJoinerRepository gameJoinerRepository,
@@ -70,7 +71,8 @@ public class GameListingService {
                               SportService sportService,
                               NotificationService notificationService,
                               SchedulingConflictService schedulingConflictService,
-                              InvitationService invitationService) {
+                              InvitationService invitationService,
+                              BlockService blockService) {
         this.gameListingRepository = gameListingRepository;
         this.gameJoinerRepository = gameJoinerRepository;
         this.joinRequestRepository = joinRequestRepository;
@@ -81,6 +83,7 @@ public class GameListingService {
         this.notificationService = notificationService;
         this.schedulingConflictService = schedulingConflictService;
         this.invitationService = invitationService;
+        this.blockService = blockService;
     }
 
     /**
@@ -249,6 +252,12 @@ public class GameListingService {
             return Page.empty(pageable);
         }
         LocalDateTime browseCutoff = LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START);
+        // Mutual blocking: hide listings created by users the viewer has blocked or been blocked by.
+        List<Long> blockedIds = blockService.getBlockedUserIds(userId);
+        if (!blockedIds.isEmpty()) {
+            return gameListingRepository.findAvailablePublicListingsExcludingBlocked(
+                    formatIds, browseCutoff, userId, blockedIds, pageable);
+        }
         return gameListingRepository.findAvailablePublicListings(formatIds, browseCutoff, userId, pageable);
     }
 
@@ -268,6 +277,11 @@ public class GameListingService {
             return Page.empty(pageable);
         }
         LocalDateTime browseCutoff = LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START);
+        List<Long> blockedIds = blockService.getBlockedUserIds(userId);
+        if (!blockedIds.isEmpty()) {
+            return gameListingRepository.findAvailablePublicListingsBySkillExcludingBlocked(
+                    formatIds, browseCutoff, userId, skillLevel, blockedIds, pageable);
+        }
         return gameListingRepository.findAvailablePublicListingsBySkill(formatIds, browseCutoff, userId, skillLevel, pageable);
     }
 
@@ -287,6 +301,12 @@ public class GameListingService {
         if (date != null) {
             fromDate = date.atStartOfDay();
             toDate = date.plusDays(1).atStartOfDay();
+        }
+        List<Long> blockedIds = blockService.getBlockedUserIds(userId);
+        if (!blockedIds.isEmpty()) {
+            return gameListingRepository.searchAvailablePublicListingsExcludingBlocked(
+                    formatIds, LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START), userId,
+                    sportId, skillLevel, fromDate, toDate, hideFull, blockedIds, pageable);
         }
         return gameListingRepository.searchAvailablePublicListings(
                 formatIds, LocalDateTime.now().plusHours(BROWSE_CUTOFF_HOURS_BEFORE_START), userId,

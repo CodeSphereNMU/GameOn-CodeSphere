@@ -183,4 +183,73 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
             @Param("toDate") LocalDateTime toDate,
             @Param("hideFull") boolean hideFull,
             Pageable pageable);
+
+    // ===== Mutual blocking: block-filtered browse variants =====
+    // Mirror the browse queries above but also exclude listings whose creator is on the
+    // viewer's block wall (blocked either way). Excluded at the database level via NOT IN.
+
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.format.formatId IN :formatIds " +
+           "AND gl.scheduledDate > :cutoff " +
+           "AND gl.listingStatus = 'OPEN' " +
+           "AND gl.creator.userId != :userId " +
+           "AND gl.creator.userId NOT IN :blockedUserIds " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "AND gl.gameListingId NOT IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
+           "     WHERE gj.id.userId = :userId AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')) " +
+           "ORDER BY gl.scheduledDate ASC")
+    Page<GameListing> findAvailablePublicListingsExcludingBlocked(
+            @Param("formatIds") List<Long> formatIds,
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("userId") Long userId,
+            @Param("blockedUserIds") List<Long> blockedUserIds,
+            Pageable pageable);
+
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.format.formatId IN :formatIds " +
+           "AND gl.scheduledDate > :cutoff " +
+           "AND gl.listingStatus = 'OPEN' " +
+           "AND gl.creator.userId != :userId " +
+           "AND gl.creator.userId NOT IN :blockedUserIds " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "AND gl.skillLevel = :skillLevel " +
+           "AND gl.gameListingId NOT IN (SELECT gj.id.gameListingId FROM GameJoiner gj " +
+           "     WHERE gj.id.userId = :userId AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')) " +
+           "ORDER BY gl.scheduledDate ASC")
+    Page<GameListing> findAvailablePublicListingsBySkillExcludingBlocked(
+            @Param("formatIds") List<Long> formatIds,
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("userId") Long userId,
+            @Param("skillLevel") SkillLevel skillLevel,
+            @Param("blockedUserIds") List<Long> blockedUserIds,
+            Pageable pageable);
+
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.format.formatId IN :formatIds " +
+           "AND gl.scheduledDate > :cutoff " +
+           "AND gl.listingStatus = 'OPEN' " +
+           "AND gl.creator.userId != :userId " +
+           "AND gl.creator.userId NOT IN :blockedUserIds " +
+           "AND gl.privacySetting = 'PUBLIC' " +
+           "AND (:sportId IS NULL OR gl.format.sport.sportId = :sportId) " +
+           "AND (:skillLevel IS NULL OR gl.skillLevel = :skillLevel) " +
+           "AND (:fromDate IS NULL OR gl.scheduledDate >= :fromDate) " +
+           "AND (:toDate IS NULL OR gl.scheduledDate < :toDate) " +
+           "AND (:hideFull = false OR " +
+           "     (SELECT COUNT(gj) FROM GameJoiner gj " +
+           "      WHERE gj.gameListing = gl AND gj.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')) < gl.format.noPlayers) " +
+           "AND gl.gameListingId NOT IN (SELECT gj2.id.gameListingId FROM GameJoiner gj2 " +
+           "     WHERE gj2.id.userId = :userId AND gj2.status IN ('ACCEPTED', 'CONFIRMED_ATTENDANCE', 'LOCKED')) " +
+           "ORDER BY gl.scheduledDate ASC")
+    Page<GameListing> searchAvailablePublicListingsExcludingBlocked(
+            @Param("formatIds") List<Long> formatIds,
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("userId") Long userId,
+            @Param("sportId") Long sportId,
+            @Param("skillLevel") SkillLevel skillLevel,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            @Param("hideFull") boolean hideFull,
+            @Param("blockedUserIds") List<Long> blockedUserIds,
+            Pageable pageable);
 }

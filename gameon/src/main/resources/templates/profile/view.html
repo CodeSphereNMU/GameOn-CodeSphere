@@ -159,6 +159,47 @@
                     </div>
                 </div>
 
+                <!-- Community Warnings (own profile only): strike history for this user -->
+                <div th:if="${isOwnProfile}" class="card shadow-sm mt-3">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>
+                            Community Warnings
+                        </h5>
+                        <span class="badge rounded-pill"
+                              th:classappend="${user.warningCount >= strikesForBan} ? 'bg-danger'
+                                            : (${user.warningCount > 0} ? 'bg-warning text-dark' : 'bg-success')"
+                              th:text="${user.warningCount} + ' / ' + ${strikesForBan}">0 / 3</span>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${warnings == null || warnings.isEmpty()}" class="text-center text-muted py-3">
+                            <i class="bi bi-emoji-smile" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">No community warnings. Keep it up!</p>
+                        </div>
+
+                        <div th:if="${user.accountStatus.name() == 'BANNED'}" class="alert alert-danger py-2">
+                            <i class="bi bi-slash-circle me-1"></i>
+                            Your account is <strong>banned</strong> after reaching
+                            <span th:text="${strikesForBan}">3</span> strikes.
+                        </div>
+
+                        <ul th:if="${warnings != null && !warnings.isEmpty()}" class="list-group list-group-flush">
+                            <li th:each="w : ${warnings}" class="list-group-item px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="badge bg-danger me-2"
+                                              th:text="'Strike ' + ${w.strikeNumber()} + ' of ' + ${w.strikesForBan()}">Strike 1 of 3</span>
+                                        <span class="badge bg-info text-dark" th:text="${w.contentType()}">POST</span>
+                                        <div class="mt-1"><strong>Reason:</strong> <span th:text="${w.reason()}">Reason</span></div>
+                                    </div>
+                                    <small class="text-muted text-nowrap ms-2"
+                                           th:text="${#temporals.format(w.warningDate(), 'dd MMM yyyy')}">24 Sep 2026</small>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
                 <!-- Friends Leaderboard -->
                 <div class="card shadow-sm mt-3">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">

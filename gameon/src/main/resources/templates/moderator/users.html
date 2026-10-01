@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('User Moderation')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="bi bi-people-fill me-2 text-primary"></i>User Moderation</h4>
+            <div class="d-flex gap-2">
+                <a th:href="@{/moderator/dashboard}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-speedometer2 me-1"></i>Summary
+                </a>
+                <a th:href="@{/moderator/warnings}" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-clipboard2-x me-1"></i>Strike History
+                </a>
+                <a th:href="@{/moderator/actions}" class="btn btn-outline-dark btn-sm">
+                    <i class="bi bi-journal-text me-1"></i>Action Log
+                </a>
+                <a th:href="@{/moderator/reports}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-flag me-1"></i>Pending Reports
+                </a>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>UserID</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Account Status</th>
+                            <th>Warnings</th>
+                            <th>Ban Date</th>
+                            <th>Last Moderation Action</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="u : ${users}">
+                            <td th:text="${u.userId}">0</td>
+                            <td><strong th:text="${u.username}">Username</strong></td>
+                            <td><small class="text-muted" th:text="${u.role}">USER</small></td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${u.accountStatus.name() == 'ACTIVE'} ? 'bg-success'
+                                                    : (${u.accountStatus.name() == 'SUSPENDED'} ? 'bg-warning text-dark' : 'bg-danger')"
+                                      th:text="${u.accountStatus}">STATUS</span>
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill"
+                                      th:classappend="${u.warningCount >= 3} ? 'bg-danger'
+                                                    : (${u.warningCount > 0} ? 'bg-warning text-dark' : 'bg-secondary')"
+                                      th:text="${u.warningCount} + ' / 3'">0 / 3</span>
+                            </td>
+                            <td>
+                                <small th:if="${u.bannedAt != null}" class="text-danger"
+                                       th:text="${#temporals.format(u.bannedAt, 'dd MMM yyyy HH:mm')}">Ban date</small>
+                                <small th:if="${u.bannedAt == null}" class="text-muted">—</small>
+                            </td>
+                            <td>
+                                <small th:if="${u.lastModerationAction != null}" class="text-muted d-block"
+                                       th:text="${u.lastModerationAction}">Action</small>
+                                <small th:if="${u.lastModerationAt != null}" class="text-muted"
+                                       th:text="${#temporals.format(u.lastModerationAt, 'dd MMM yyyy HH:mm')}">When</small>
+                                <small th:if="${u.lastModerationAction == null}" class="text-muted">—</small>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-1">
+                                    <a th:href="@{'/moderator/users/' + ${u.userId} + '/warnings'}"
+                                       class="btn btn-outline-info btn-sm" title="View strike history">
+                                        <i class="bi bi-clipboard2-x"></i>
+                                    </a>
+                                    <form th:action="@{'/moderator/users/' + ${u.userId} + '/strike'}" method="post"
+                                          th:if="${u.accountStatus.name() != 'BANNED'}">
+                                        <button type="submit" class="btn btn-outline-warning btn-sm" title="Issue a strike">
+                                            <i class="bi bi-exclamation-triangle"></i> Strike
+                                        </button>
+                                    </form>
+                                    <form th:action="@{'/moderator/users/' + ${u.userId} + '/suspend'}" method="post"
+                                          th:if="${u.accountStatus.name() == 'ACTIVE'}">
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm" title="Suspend">
+                                            <i class="bi bi-pause-circle"></i> Suspend
+                                        </button>
+                                    </form>
+                                    <form th:action="@{'/moderator/users/' + ${u.userId} + '/reinstate'}" method="post"
+                                          th:if="${u.accountStatus.name() != 'ACTIVE'}">
+                                        <button type="submit" class="btn btn-outline-success btn-sm"
+                                                title="Reinstate: set ACTIVE and reset strikes">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Reinstate
+                                        </button>
+                                    </form>
+                                    <form th:action="@{'/moderator/users/' + ${u.userId} + '/unban'}" method="post"
+                                          th:if="${u.accountStatus.name() == 'BANNED'}">
+                                        <button type="submit" class="btn btn-outline-success btn-sm"
+                                                title="Unban: set ACTIVE, keep strike count">
+                                            <i class="bi bi-unlock"></i> Unban
+                                        </button>
+                                    </form>
+                                    <form th:action="@{'/moderator/users/' + ${u.userId} + '/reset-warnings'}" method="post"
+                                          th:if="${u.warningCount > 0}">
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                title="Reset warning count to 0">
+                                            <i class="bi bi-arrow-repeat"></i> Reset
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <p class="text-muted small mt-2">
+            Three strikes result in an automatic ban. Banned users are never deleted; all reports,
+            listings, statistics and match history are preserved.
+        </p>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

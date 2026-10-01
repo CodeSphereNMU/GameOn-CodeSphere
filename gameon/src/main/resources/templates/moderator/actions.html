@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Moderation Action Log')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="bi bi-journal-text me-2 text-dark"></i>Moderation Action Log
+                <span class="badge bg-dark ms-2" th:text="${totalActions}">0</span>
+            </h4>
+            <a th:href="@{/moderator/dashboard}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Summary
+            </a>
+        </div>
+
+        <p class="text-muted small">
+            Complete, permanent record of every moderator action. Records are never deleted.
+        </p>
+
+        <div th:if="${actions.isEmpty()}" class="text-center text-muted py-5">
+            <i class="bi bi-check-circle" style="font-size: 3rem;"></i>
+            <p class="mt-2">No moderator actions recorded yet.</p>
+        </div>
+
+        <div th:unless="${actions.isEmpty()}" class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Action</th>
+                            <th>Moderator</th>
+                            <th>Target User</th>
+                            <th>Reason</th>
+                            <th>Content</th>
+                            <th>Report</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="a : ${actions}">
+                            <td th:text="${a.moderationActionId}">1</td>
+                            <td><span class="badge bg-secondary" th:text="${a.actionType}">ACTION</span></td>
+                            <td th:text="${a.moderator != null ? a.moderator.username : '—'}">Admin</td>
+                            <td>
+                                <a th:if="${a.targetUser != null}"
+                                   th:href="@{'/moderator/users/' + ${a.targetUser.userId} + '/warnings'}"
+                                   th:text="${a.targetUser.username}">User</a>
+                                <span th:if="${a.targetUser == null}" class="text-muted">—</span>
+                            </td>
+                            <td><small th:text="${a.reason}">reason</small></td>
+                            <td>
+                                <span th:if="${a.contentType != null}" class="badge bg-info text-dark"
+                                      th:text="${a.contentType} + (${a.contentId != null} ? ' #' + ${a.contentId} : '')">POST</span>
+                                <span th:if="${a.contentType == null}" class="text-muted">—</span>
+                            </td>
+                            <td>
+                                <a th:if="${a.report != null}"
+                                   th:href="@{'/moderator/reports/' + ${a.report.reportId}}"
+                                   th:text="'#' + ${a.report.reportId}">#22</a>
+                                <span th:if="${a.report == null}" class="text-muted">—</span>
+                            </td>
+                            <td><small th:text="${#temporals.format(a.createdAt, 'dd MMM yyyy HH:mm')}">date</small></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

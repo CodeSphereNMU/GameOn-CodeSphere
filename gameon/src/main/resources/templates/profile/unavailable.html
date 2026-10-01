@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Profile Unavailable')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+    <div th:replace="~{fragments/layout :: tabs('none')}"></div>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center py-5">
+                <i class="bi bi-slash-circle fs-1 text-muted mb-3 d-block"></i>
+                <h4 class="mb-3">This profile is unavailable.</h4>
+                <a th:href="@{/social}" class="btn btn-gameon mt-2">
+                    <i class="bi bi-arrow-left"></i> Back to Social
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

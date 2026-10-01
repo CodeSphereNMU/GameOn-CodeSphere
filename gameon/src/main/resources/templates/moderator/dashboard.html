@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Moderation Summary')}"></head>
+<body class="bg-light">
+    <nav th:replace="~{fragments/layout :: navbar('none')}"></nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="bi bi-speedometer2 me-2 text-primary"></i>Moderation Summary</h4>
+            <div class="d-flex gap-2">
+                <a th:href="@{/moderator/reports}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-flag me-1"></i>Reports
+                </a>
+                <a th:href="@{/moderator/users}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-people-fill me-1"></i>User Moderation
+                </a>
+                <a th:href="@{/moderator/warnings}" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-clipboard2-x me-1"></i>Strike History
+                </a>
+                <a th:href="@{/moderator/actions}" class="btn btn-outline-dark btn-sm">
+                    <i class="bi bi-journal-text me-1"></i>Action Log
+                </a>
+            </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4 col-lg-2">
+                <div class="card shadow-sm text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-flag fs-3 text-secondary"></i>
+                        <h3 class="mb-0 mt-2" th:text="${totalReports}">0</h3>
+                        <small class="text-muted">Total Reports</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="card shadow-sm text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-hourglass-split fs-3 text-warning"></i>
+                        <h3 class="mb-0 mt-2" th:text="${pendingReports}">0</h3>
+                        <small class="text-muted">Pending Reports</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="card shadow-sm text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-exclamation-triangle fs-3 text-warning"></i>
+                        <h3 class="mb-0 mt-2" th:text="${activeWarnings}">0</h3>
+                        <small class="text-muted">Warnings Issued</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="card shadow-sm text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-pause-circle fs-3 text-warning"></i>
+                        <h3 class="mb-0 mt-2" th:text="${suspendedUsers}">0</h3>
+                        <small class="text-muted">Suspended Users</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="card shadow-sm text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-slash-circle fs-3 text-danger"></i>
+                        <h3 class="mb-0 mt-2" th:text="${bannedUsers}">0</h3>
+                        <small class="text-muted">Banned Users</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="card shadow-sm text-center h-100">
+                    <div class="card-body">
+                        <i class="bi bi-journal-check fs-3 text-dark"></i>
+                        <h3 class="mb-0 mt-2" th:text="${totalModerationActions}">0</h3>
+                        <small class="text-muted">Moderator Actions</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent moderator actions -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Moderator Actions</h5>
+                <a th:href="@{/moderator/actions}" class="btn btn-link btn-sm">View all</a>
+            </div>
+            <div class="card-body p-0">
+                <div th:if="${recentActions.isEmpty()}" class="text-center text-muted py-4">
+                    <p class="mb-0">No moderator actions recorded yet.</p>
+                </div>
+                <div th:unless="${recentActions.isEmpty()}" class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Action</th>
+                                <th>Moderator</th>
+                                <th>Target</th>
+                                <th>Reason</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="a : ${recentActions}">
+                                <td><span class="badge bg-secondary" th:text="${a.actionType}">ACTION</span></td>
+                                <td th:text="${a.moderator != null ? a.moderator.username : '—'}">Admin</td>
+                                <td th:text="${a.targetUser != null ? a.targetUser.username : '—'}">User</td>
+                                <td><small th:text="${a.reason}">reason</small></td>
+                                <td><small th:text="${#temporals.format(a.createdAt, 'dd MMM yyyy HH:mm')}">date</small></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

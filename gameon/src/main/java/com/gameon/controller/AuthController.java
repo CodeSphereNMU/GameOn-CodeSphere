@@ -39,13 +39,16 @@ public class AuthController {
     private final AuthService authService;
     private final SportRepository sportRepository;
     private final AuthenticationManager authenticationManager;
+    private final com.gameon.repository.UserRepository userRepository;
 
     public AuthController(AuthService authService,
                           SportRepository sportRepository,
-                          AuthenticationManager authenticationManager) {
+                          AuthenticationManager authenticationManager,
+                          com.gameon.repository.UserRepository userRepository) {
         this.authService = authService;
         this.sportRepository = sportRepository;
         this.authenticationManager = authenticationManager;
+        this.userRepository = userRepository;
     }
 
     // ===== LOGIN =====
@@ -55,6 +58,9 @@ public class AuthController {
                             @RequestParam(value = "logout", required = false) String logout,
                             @RequestParam(value = "expired", required = false) String expired,
                             @RequestParam(value = "invalid", required = false) String invalid,
+                            @RequestParam(value = "banned", required = false) String banned,
+                            @RequestParam(value = "suspended", required = false) String suspended,
+                            @RequestParam(value = "u", required = false) String username,
                             Model model) {
         if (error != null) {
             model.addAttribute("error", "Invalid username or password");
@@ -68,7 +74,29 @@ public class AuthController {
         if (invalid != null) {
             model.addAttribute("error", "Your session is invalid. Please login again");
         }
+        // Banned / suspended login experience: show the specific status message with the
+        // stored reason, strikes and ban date, rather than a generic error.
+        if (banned != null) {
+            model.addAttribute("accountBanned", true);
+            populateModerationDetails(username, model);
+        } else if (suspended != null) {
+            model.addAttribute("accountSuspended", true);
+            populateModerationDetails(username, model);
+        }
         return "auth/login";
+    }
+
+    /** Loads the ban/suspension detail (reason, strikes, date) for the login status message. */
+    private void populateModerationDetails(String username, Model model) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        userRepository.findByUsername(username).ifPresent(user -> {
+            model.addAttribute("banReason", user.getBanReason());
+            model.addAttribute("warningCount", user.getWarningCount());
+            model.addAttribute("strikesForBan", com.gameon.model.entity.User.STRIKES_FOR_BAN);
+            model.addAttribute("bannedAt", user.getBannedAt());
+        });
     }
 
     // ===== FORGOT / RESET PASSWORD =====

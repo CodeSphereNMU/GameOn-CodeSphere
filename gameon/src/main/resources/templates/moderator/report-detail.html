@@ -38,8 +38,21 @@
                                 <div>
                                     <strong th:text="${reportedUser.username}">Username</strong>
                                     <br><small class="text-muted" th:text="${reportedUser.typeOfUser}">Type</small>
-                                    <br><small th:classappend="${reportedUser.accountStatus.name() == 'ACTIVE'} ? 'text-success' : 'text-danger'"
-                                              th:text="${reportedUser.accountStatus}">Status</small>
+                                    <br>
+                                    <span class="badge"
+                                          th:classappend="${reportedUser.accountStatus.name() == 'ACTIVE'} ? 'bg-success'
+                                                        : (${reportedUser.accountStatus.name() == 'SUSPENDED'} ? 'bg-warning text-dark' : 'bg-danger')"
+                                          th:text="${reportedUser.accountStatus}">Status</span>
+                                    <span class="badge rounded-pill ms-1"
+                                          th:classappend="${reportedUser.warningCount >= 3} ? 'bg-danger'
+                                                        : (${reportedUser.warningCount > 0} ? 'bg-warning text-dark' : 'bg-secondary')"
+                                          th:text="'Warnings: ' + ${reportedUser.warningCount} + ' / 3'">Warnings</span>
+                                    <br th:if="${reportedUser.bannedAt != null}">
+                                    <small th:if="${reportedUser.bannedAt != null}" class="text-danger"
+                                           th:text="'Banned: ' + ${#temporals.format(reportedUser.bannedAt, 'dd MMM yyyy HH:mm')}">Banned</small>
+                                    <br th:if="${reportedUser.lastModerationAction != null}">
+                                    <small th:if="${reportedUser.lastModerationAction != null}" class="text-muted"
+                                           th:text="'Last action: ' + ${reportedUser.lastModerationAction}">Last action</small>
                                 </div>
                             </div>
                         </div>
@@ -58,22 +71,117 @@
                     </div>
                 </div>
 
-                <!-- Actions -->
+                <!-- Prior report history for the reported user -->
+                <div class="card shadow-sm mb-3" th:if="${reportHistory != null && !reportHistory.isEmpty()}">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Report History for this User
+                            <span class="badge bg-secondary ms-1" th:text="${reportHistory.size()}">0</span>
+                        </h6>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li th:each="rh : ${reportHistory}" class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <span class="badge me-2"
+                                      th:classappend="${rh.status.name() == 'PENDING'} ? 'bg-warning text-dark'
+                                                    : (${rh.status.name() == 'RESOLVED'} ? 'bg-success' : 'bg-secondary')"
+                                      th:text="${rh.status}">STATUS</span>
+                                <span th:text="${rh.reportReason}">Reason</span>
+                            </span>
+                            <small class="text-muted" th:text="${#temporals.format(rh.createdAt, 'dd MMM yyyy')}">Date</small>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Moderator Actions -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-white"><h6 class="mb-0">Moderator Actions</h6></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <!-- 1. Dismiss -->
+                            <div class="col-12">
+                                <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/dismiss'}" method="post">
+                                    <button type="submit" class="btn btn-outline-secondary w-100">
+                                        <i class="bi bi-x-circle me-1"></i>Dismiss Report (no action)
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- 2. Issue Warning -->
+                            <div class="col-md-6">
+                                <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/warn'}" method="post">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" name="reason"
+                                               th:value="${report.reportReason}" placeholder="Warning reason">
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Issue Warning
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- 3. Remove Content + Warning (posts) -->
+                            <div class="col-md-6" th:if="${report.reportType.name() == 'POST'}">
+                                <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/remove'}" method="post"
+                                      data-confirm="This removes the post and issues a strike to its author."
+                                      data-confirm-title="Remove content + warn?" data-confirm-ok="Remove + Warn"
+                                      data-confirm-cancel="Cancel">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" name="reason"
+                                               th:value="${report.reportReason}" placeholder="Reason">
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-trash me-1"></i>Remove Content + Warning
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- 4. Suspend -->
+                            <div class="col-md-6">
+                                <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/suspend'}" method="post"
+                                      data-confirm="This suspends the user's account." data-confirm-title="Suspend user?"
+                                      data-confirm-ok="Suspend" data-confirm-cancel="Cancel">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" name="reason"
+                                               th:value="${report.reportReason}" placeholder="Suspension reason">
+                                        <button type="submit" class="btn btn-outline-warning">
+                                            <i class="bi bi-pause-circle me-1"></i>Suspend User
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- 5. Ban -->
+                            <div class="col-md-6">
+                                <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/ban'}" method="post"
+                                      data-confirm="This permanently bans the user's account." data-confirm-title="Ban user?"
+                                      data-confirm-ok="Ban" data-confirm-cancel="Cancel">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" name="reason"
+                                               th:value="${report.reportReason}" placeholder="Ban reason">
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-slash-circle me-1"></i>Ban User
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2">
-                    <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/dismiss'}" method="post">
-                        <button type="submit" class="btn btn-outline-secondary">
-                            <i class="bi bi-x-circle me-1"></i>Dismiss Report
-                        </button>
-                    </form>
-                    <form th:action="@{'/moderator/reports/' + ${report.reportId} + '/action'}" method="post"
-                          data-confirm="This will remove the reported content."
-                          data-confirm-title="Remove content?"
-                          data-confirm-ok="Remove"
-                          data-confirm-cancel="Cancel">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash me-1"></i>Remove <span th:text="${report.reportType.name() == 'USER'} ? 'User' : 'Post'">Item</span>
-                        </button>
-                    </form>
+                    <a th:if="${reportedUser != null}"
+                       th:href="@{'/moderator/users/' + ${reportedUser.userId} + '/warnings'}"
+                       class="btn btn-outline-danger">
+                        <i class="bi bi-clipboard2-x me-1"></i>Strike History
+                    </a>
+                    <a th:if="${reportedPost != null}"
+                       th:href="@{'/moderator/users/' + ${reportedPost.user.userId} + '/warnings'}"
+                       class="btn btn-outline-danger">
+                        <i class="bi bi-clipboard2-x me-1"></i>Author Strike History
+                    </a>
+                    <a th:href="@{/moderator/users}" class="btn btn-outline-primary">
+                        <i class="bi bi-people-fill me-1"></i>User Moderation
+                    </a>
                     <a th:href="@{/moderator/reports}" class="btn btn-outline-secondary ms-auto">Back to Reports</a>
                 </div>
             </div>

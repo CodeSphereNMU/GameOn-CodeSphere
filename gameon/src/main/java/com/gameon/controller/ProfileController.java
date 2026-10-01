@@ -35,6 +35,8 @@ public class ProfileController {
     private final PostService postService;
     private final MatchResultService matchResultService;
     private final FriendsLeaderboardService friendsLeaderboardService;
+    private final BlockService blockService;
+    private final WarningService warningService;
 
     public ProfileController(ProfileService profileService,
                              UserService userService,
@@ -42,7 +44,9 @@ public class ProfileController {
                              FollowService followService,
                              PostService postService,
                              MatchResultService matchResultService,
-                             FriendsLeaderboardService friendsLeaderboardService) {
+                             FriendsLeaderboardService friendsLeaderboardService,
+                             BlockService blockService,
+                             WarningService warningService) {
         this.profileService = profileService;
         this.userService = userService;
         this.sportService = sportService;
@@ -50,6 +54,8 @@ public class ProfileController {
         this.postService = postService;
         this.matchResultService = matchResultService;
         this.friendsLeaderboardService = friendsLeaderboardService;
+        this.blockService = blockService;
+        this.warningService = warningService;
     }
 
     // ===== D200: View Own Profile =====
@@ -64,6 +70,12 @@ public class ProfileController {
         model.addAttribute("followerCount", profileService.getFollowerCount(currentUser.getUserId()));
         model.addAttribute("followingCount", profileService.getFollowingCount(currentUser.getUserId()));
         model.addAttribute("isOwnProfile", true);
+
+        // Community Warnings: the user's own strike history (Strike n of 3, reason, date).
+        model.addAttribute("warnings", warningService.getWarningsForUser(currentUser.getUserId()).stream()
+                .map(com.gameon.model.dto.WarningView::from)
+                .toList());
+        model.addAttribute("strikesForBan", com.gameon.model.entity.User.STRIKES_FOR_BAN);
 
         // Friends Leaderboard
         List<FriendsLeaderboardEntry> leaderboard = friendsLeaderboardService.getFriendsLeaderboard(currentUser.getUserId());
@@ -160,6 +172,11 @@ public class ProfileController {
             return "redirect:/profile";
         }
 
+        // Mutual blocking: neither user can access the other's profile (direct URL access included).
+        if (blockService.isBlockedEitherWay(currentUser.getUserId(), userId)) {
+            return "profile/unavailable";
+        }
+
         User user = profileService.getProfile(userId);
         List<UserSportProfile> sports = profileService.getUserSports(userId);
 
@@ -194,6 +211,35 @@ public class ProfileController {
         return "redirect:/profile/" + userId;
     }
 
+    // ===== Mutual Blocking: Block / Unblock =====
+
+    @PostMapping("/profile/{userId}/block")
+    public String blockUser(@PathVariable Long userId,
+                            @AuthenticationPrincipal CustomUserDetails currentUser,
+                            RedirectAttributes redirectAttributes) {
+        try {
+            blockService.block(currentUser.getUserId(), userId);
+            redirectAttributes.addFlashAttribute("success", "You have blocked this user.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        // After blocking, the profile is no longer accessible, so return to the social hub.
+        return "redirect:/social";
+    }
+
+    @PostMapping("/profile/{userId}/unblock")
+    public String unblockUser(@PathVariable Long userId,
+                              @AuthenticationPrincipal CustomUserDetails currentUser,
+                              RedirectAttributes redirectAttributes) {
+        try {
+            blockService.unblock(currentUser.getUserId(), userId);
+            redirectAttributes.addFlashAttribute("success", "You have unblocked this user.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/profile/" + userId;
+    }
+
     // ===== User Search =====
 
     @GetMapping("/profile/search")
@@ -214,6 +260,10 @@ public class ProfileController {
                                 @RequestParam(defaultValue = "0") int page,
                                 @AuthenticationPrincipal CustomUserDetails currentUser,
                                 Model model) {
+        if (!userId.equals(currentUser.getUserId())
+                && blockService.isBlockedEitherWay(currentUser.getUserId(), userId)) {
+            return "profile/unavailable";
+        }
         User user = profileService.getProfile(userId);
         Pageable pageable = PageRequest.of(page, 10);
         Page<Post> posts = postService.getPostsByUser(userId, pageable);
@@ -237,6 +287,10 @@ public class ProfileController {
     public String viewUserResults(@PathVariable Long userId,
                                   @AuthenticationPrincipal CustomUserDetails currentUser,
                                   Model model) {
+        if (!userId.equals(currentUser.getUserId())
+                && blockService.isBlockedEitherWay(currentUser.getUserId(), userId)) {
+            return "profile/unavailable";
+        }
         User user = profileService.getProfile(userId);
         List<MatchResult> results = matchResultService.getMatchHistory(userId);
 

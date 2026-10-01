@@ -27,5 +27,7 @@ public enum NotificationType {
     /** Listing cancelled because the creator did not confirm attendance by T-1h. */
     LISTING_CANCELLED_CREATOR_UNCONFIRMED,
     /** Urgent reminder to creator: must confirm attendance before T-1h or listing will be cancelled. */
-    CREATOR_CONFIRMATION_URGENT
+    CREATOR_CONFIRMATION_URGENT,
+    /** A moderator issued a community strike/warning against the user. */
+    STRIKE_ISSUED
 }

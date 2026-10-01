@@ -46,6 +46,18 @@ public interface JoinRequestRepository extends JpaRepository<JoinRequest, Long> 
            "WHERE jr.gameListing.gameListingId = :listingId AND jr.status = 'PENDING'")
     int expirePendingForListing(@Param("listingId") Long listingId);
 
+    /**
+     * Mutual blocking: reject/expire pending join requests where {@code requesterId} asked to
+     * join a listing created by {@code creatorId}. Called in both directions by BlockService so
+     * all pending join requests between two now-blocked users are cleared. Historical
+     * (non-pending) requests are preserved.
+     */
+    @Modifying
+    @Query("UPDATE JoinRequest jr SET jr.status = 'EXPIRED', jr.updatedAt = CURRENT_TIMESTAMP " +
+           "WHERE jr.status = 'PENDING' AND jr.user.userId = :requesterId " +
+           "AND jr.gameListing.creator.userId = :creatorId")
+    int expirePendingBetweenUsers(@Param("requesterId") Long requesterId, @Param("creatorId") Long creatorId);
+
     /** Find pending requests that the creator has marked as last-call approved. */
     @Query("SELECT jr FROM JoinRequest jr " +
            "WHERE jr.gameListing.gameListingId = :listingId " +

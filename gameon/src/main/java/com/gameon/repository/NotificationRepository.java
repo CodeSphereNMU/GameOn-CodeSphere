@@ -32,4 +32,15 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP " +
            "WHERE n.notificationId = :notificationId")
     int markAsRead(@Param("notificationId") Long notificationId);
+
+    /**
+     * Mutual blocking: remove pending (unread) notifications between two users, where one is the
+     * recipient and the other is the actor (in either direction). Read notifications are left
+     * intact as history; only pending ones are cleared so no stale cross-notifications remain.
+     */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.isRead = false AND n.actor IS NOT NULL AND (" +
+           "(n.recipient.userId = :userId1 AND n.actor.userId = :userId2) OR " +
+           "(n.recipient.userId = :userId2 AND n.actor.userId = :userId1))")
+    int deleteBetweenUsers(@Param("userId1") Long userId1, @Param("userId2") Long userId2);
 }

@@ -28,6 +28,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByAccountStatus(AccountStatus accountStatus);
 
+    /** Count of users in a given account status (moderation summary dashboard). */
+    long countByAccountStatus(AccountStatus accountStatus);
+
+    /** All users ordered by username (admin moderation dashboard). */
+    List<User> findAllByOrderByUsernameAsc();
+
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.sportProfiles WHERE u.userId = :userId")
     Optional<User> findByIdWithSportProfiles(@Param("userId") Long userId);
 
@@ -42,6 +48,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> searchActiveUsersByUsername(@Param("query") String query,
                                            @Param("status") AccountStatus status,
                                            Pageable pageable);
+
+    /**
+     * Mutual blocking: search active users by username, excluding any user on the viewer's
+     * block wall (blocked either way). Excluded at the database level via NOT IN.
+     */
+    @Query("SELECT u FROM User u WHERE u.accountStatus = :status " +
+           "AND LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "AND u.userId NOT IN :blockedUserIds")
+    List<User> searchActiveUsersByUsernameExcludingBlocked(@Param("query") String query,
+                                                           @Param("status") AccountStatus status,
+                                                           @Param("blockedUserIds") List<Long> blockedUserIds,
+                                                           Pageable pageable);
+
+    List<User> findByUsernameContainingIgnoreCaseAndUserIdNotIn(String query, List<Long> excludedIds);
 
     /**
      * Batch projection of (userId, profilePictureUrl) for a set of users. Only rows with a

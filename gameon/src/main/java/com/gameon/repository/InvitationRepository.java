@@ -21,4 +21,15 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
     @Query("UPDATE Invitation i SET i.status = 'EXPIRED', i.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE i.gameListing.gameListingId = :listingId AND i.status = 'PENDING'")
     int expirePendingForListing(@Param("listingId") Long listingId);
+
+    /**
+     * Mutual blocking: expire pending invitations where {@code creatorId}'s listing invited
+     * {@code inviteeId}. Called in both directions by BlockService so all pending invitations
+     * between two now-blocked users are cleared.
+     */
+    @Modifying
+    @Query("UPDATE Invitation i SET i.status = 'EXPIRED', i.updatedAt = CURRENT_TIMESTAMP " +
+           "WHERE i.status = 'PENDING' AND i.invitee.userId = :inviteeId " +
+           "AND i.gameListing.creator.userId = :creatorId")
+    int expirePendingBetweenUsers(@Param("creatorId") Long creatorId, @Param("inviteeId") Long inviteeId);
 }

@@ -66,6 +66,9 @@ class GameListingServiceTest {
     @Mock
     private InvitationService invitationService;
 
+    @Mock
+    private BlockService blockService;
+
     @InjectMocks
     private GameListingService gameListingService;
 

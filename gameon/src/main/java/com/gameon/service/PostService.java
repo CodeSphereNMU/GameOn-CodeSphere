@@ -46,17 +46,20 @@ public class PostService {
     private final FollowRepository followRepository;
     private final PostImageRepository postImageRepository;
     private final ImageStorageService imageStorageService;
+    private final BlockService blockService;
 
     public PostService(PostRepository postRepository,
                        UserRepository userRepository,
                        FollowRepository followRepository,
                        PostImageRepository postImageRepository,
-                       ImageStorageService imageStorageService) {
+                       ImageStorageService imageStorageService,
+                       BlockService blockService) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postImageRepository = postImageRepository;
         this.imageStorageService = imageStorageService;
+        this.blockService = blockService;
     }
 
     /**
@@ -269,6 +272,21 @@ public class PostService {
         logger.info("Post {} reviewed for removal by moderator {}", postId, moderatorId);
     }
 
+    /**
+     * Restores a soft-removed post (admin control). Clears the removal timestamp and
+     * attribution so the post becomes visible again. The post row itself is never deleted.
+     */
+    @Transactional
+    public void restorePostAsModerator(Long postId, Long moderatorId) {
+        Post post = getPostForModeration(postId);
+        if (post.isRemoved()) {
+            post.setRemovedAt(null);
+            post.setRemovedBy(null);
+            postRepository.save(post);
+        }
+        logger.info("Post {} restored by moderator {}", postId, moderatorId);
+    }
+
     @Transactional(readOnly = true)
     public Post getPostById(Long postId) {
         return postRepository.findByPostIdAndRemovedAtIsNull(postId)
@@ -325,10 +343,17 @@ public class PostService {
      */
     @Transactional(readOnly = true)
     public Page<PostFeedDto> getFilteredFeed(Long userId, String filter, Pageable pageable) {
+        // Mutual blocking: hide posts (and their like/comment counts) from users the viewer has
+        // blocked or been blocked by, in either direction. Computed once and applied at the DB level.
+        List<Long> blockedIds = blockService.getBlockedUserIds(userId);
+        boolean hasBlocks = !blockedIds.isEmpty();
+
         Page<PostFeedDto> page;
         switch (filter.toUpperCase()) {
             case "PUBLIC":
-                page = postRepository.findPublicPostDtos(pageable);
+                page = hasBlocks
+                        ? postRepository.findPublicPostDtosExcludingBlocked(blockedIds, pageable)
+                        : postRepository.findPublicPostDtos(pageable);
                 break;
 
             case "FOLLOWERS":
@@ -337,19 +362,26 @@ public class PostService {
                 if (followedIdsForFilter.isEmpty()) {
                     return Page.empty(pageable);
                 }
-                page = postRepository.findFollowersOnlyPostDtos(followedIdsForFilter, pageable);
+                page = hasBlocks
+                        ? postRepository.findFollowersOnlyPostDtosExcludingBlocked(followedIdsForFilter, blockedIds, pageable)
+                        : postRepository.findFollowersOnlyPostDtos(followedIdsForFilter, pageable);
                 break;
 
             case "MY_POSTS":
+                // Own posts only; blocking never hides the user's own content.
                 page = postRepository.findMyPostDtos(userId, pageable);
                 break;
 
             default: // "ALL" - all visible posts
                 List<Long> followedIds = followRepository.findFollowingUserIds(userId);
                 if (followedIds.isEmpty()) {
-                    page = postRepository.findAllVisiblePostDtosNoFollows(userId, pageable);
+                    page = hasBlocks
+                            ? postRepository.findAllVisiblePostDtosNoFollowsExcludingBlocked(userId, blockedIds, pageable)
+                            : postRepository.findAllVisiblePostDtosNoFollows(userId, pageable);
                 } else {
-                    page = postRepository.findAllVisiblePostDtos(userId, followedIds, pageable);
+                    page = hasBlocks
+                            ? postRepository.findAllVisiblePostDtosExcludingBlocked(userId, followedIds, blockedIds, pageable)
+                            : postRepository.findAllVisiblePostDtos(userId, followedIds, pageable);
                 }
                 break;
         }

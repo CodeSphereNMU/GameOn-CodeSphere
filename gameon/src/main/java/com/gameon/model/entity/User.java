@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +39,38 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "account_status", nullable = false, length = 20)
     private AccountStatus accountStatus = AccountStatus.ACTIVE;
+
+    /**
+     * Number of moderation strikes (warnings) accrued by this user. Every user always has a
+     * concrete count starting at 0. When it reaches {@link #STRIKES_FOR_BAN}, the account is
+     * banned. Reinstating a user resets this to 0.
+     */
+    @Column(name = "warning_count", nullable = false)
+    private int warningCount = 0;
+
+    /** Timestamp the account was banned, or {@code null} if the user is not banned. */
+    @Column(name = "banned_at")
+    private LocalDateTime bannedAt;
+
+    /** Id of the moderator/administrator who banned this user, or {@code null} if not banned. */
+    @Column(name = "banned_by_user_id")
+    private Long bannedByUserId;
+
+    /** Reason the account was banned, or {@code null} if not banned. */
+    @Column(name = "ban_reason", length = 300)
+    private String banReason;
+
+    /** Human-readable label of the most recent moderation action taken on this user. */
+    @Column(name = "last_moderation_action", length = 100)
+    private String lastModerationAction;
+
+    /** Timestamp of the most recent moderation action taken on this user. */
+    @Column(name = "last_moderation_at")
+    private LocalDateTime lastModerationAt;
+
+    /** Number of strikes that results in an automatic ban. */
+    @Transient
+    public static final int STRIKES_FOR_BAN = 3;
 
     /**
      * Public URL path of the user's uploaded profile picture
@@ -127,6 +160,60 @@ public class User {
 
     public void setAccountStatus(AccountStatus accountStatus) {
         this.accountStatus = accountStatus;
+    }
+
+    public int getWarningCount() {
+        return warningCount;
+    }
+
+    public void setWarningCount(int warningCount) {
+        this.warningCount = warningCount;
+    }
+
+    public LocalDateTime getBannedAt() {
+        return bannedAt;
+    }
+
+    public void setBannedAt(LocalDateTime bannedAt) {
+        this.bannedAt = bannedAt;
+    }
+
+    public Long getBannedByUserId() {
+        return bannedByUserId;
+    }
+
+    public void setBannedByUserId(Long bannedByUserId) {
+        this.bannedByUserId = bannedByUserId;
+    }
+
+    public String getBanReason() {
+        return banReason;
+    }
+
+    public void setBanReason(String banReason) {
+        this.banReason = banReason;
+    }
+
+    public String getLastModerationAction() {
+        return lastModerationAction;
+    }
+
+    public void setLastModerationAction(String lastModerationAction) {
+        this.lastModerationAction = lastModerationAction;
+    }
+
+    public LocalDateTime getLastModerationAt() {
+        return lastModerationAt;
+    }
+
+    public void setLastModerationAt(LocalDateTime lastModerationAt) {
+        this.lastModerationAt = lastModerationAt;
+    }
+
+    /** Convenience: true when this user has reached the ban threshold or is banned. */
+    @Transient
+    public boolean isBanned() {
+        return accountStatus == AccountStatus.BANNED;
     }
 
     public String getProfilePictureUrl() {

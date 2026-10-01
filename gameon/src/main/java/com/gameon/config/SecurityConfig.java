@@ -1,6 +1,9 @@
 package com.gameon.config;
 
 import com.gameon.security.CustomUserDetailsService;
+import com.gameon.security.ModerationAwareAuthenticationFailureHandler;
+import com.gameon.repository.UserRepository;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,9 +28,12 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
-    public SecurityConfig(CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(CustomUserDetailsService userDetailsService,
+                          UserRepository userRepository) {
         this.userDetailsService = userDetailsService;
+        this.userRepository = userRepository;
     }
 
     @Bean
@@ -72,7 +78,7 @@ public class SecurityConfig {
                 .loginPage("/login")
                 .loginProcessingUrl("/login")
                 .successHandler(authenticationSuccessHandler())
-                .failureUrl("/login?error=true")
+                .failureHandler(authenticationFailureHandler())
                 .permitAll()
             )
 
@@ -123,6 +129,15 @@ public class SecurityConfig {
             );
 
         return http.build();
+    }
+
+    /**
+     * Failure handler that shows a specific banned/suspended message (with ban reason, strikes
+     * and date on the login page) instead of the generic "Invalid username or password".
+     */
+    @Bean
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        return new ModerationAwareAuthenticationFailureHandler(userRepository);
     }
 
     @Bean

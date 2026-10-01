@@ -1,7 +1,6 @@
 package com.gameon.security;
 
 import com.gameon.model.entity.User;
-import com.gameon.model.enums.AccountStatus;
 import com.gameon.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,12 +36,13 @@ public class CustomUserDetailsService implements UserDetailsService {
                     return new UsernameNotFoundException("User not found: " + username);
                 });
 
-        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
-            logger.warn("Authentication failed: user '{}' is deactivated", username);
-            throw new UsernameNotFoundException("User account is deactivated: " + username);
-        }
-
-        logger.debug("User '{}' loaded successfully with type: {}", username, user.getTypeOfUser());
+        // NOTE: we intentionally load the user regardless of account status. Spring Security
+        // then rejects non-ACTIVE accounts via CustomUserDetails.isEnabled()/isAccountNonLocked(),
+        // which raises a DisabledException/LockedException AFTER credential checks. The custom
+        // authentication failure handler inspects the account status and shows a specific
+        // banned/suspended message. Authentication still stops before a session is created.
+        logger.debug("User '{}' loaded (status={}) with type: {}",
+                username, user.getAccountStatus(), user.getTypeOfUser());
         return new CustomUserDetails(user);
     }
 }

@@ -31,6 +31,37 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
 
+                <!-- Banned Account Message -->
+                <div th:if="${accountBanned}" class="alert alert-danger" role="alert">
+                    <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-1"></i>Account Banned</h5>
+                    <p class="mb-2">Your Game On account has been permanently banned.</p>
+                    <p class="mb-1" th:if="${banReason != null}">
+                        <strong>Reason:</strong> <span th:text="${banReason}">Ban reason</span>
+                    </p>
+                    <p class="mb-1">
+                        <strong>Strikes:</strong>
+                        <span th:text="${warningCount != null ? warningCount : strikesForBan}">3</span>
+                        of <span th:text="${strikesForBan}">3</span>
+                    </p>
+                    <p class="mb-2" th:if="${bannedAt != null}">
+                        <strong>Date Banned:</strong>
+                        <span th:text="${#temporals.format(bannedAt, 'dd MMMM yyyy')}">24 September 2026</span>
+                    </p>
+                    <hr>
+                    <p class="mb-0 small">If you believe this action was taken in error, please contact an administrator.</p>
+                </div>
+
+                <!-- Suspended Account Message -->
+                <div th:if="${accountSuspended}" class="alert alert-warning" role="alert">
+                    <h5 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-1"></i>Account Suspended</h5>
+                    <p class="mb-2">Your account has been temporarily suspended.</p>
+                    <p class="mb-2" th:if="${banReason != null}">
+                        <strong>Reason:</strong> <span th:text="${banReason}">Suspension reason</span>
+                    </p>
+                    <hr>
+                    <p class="mb-0 small">Please contact an administrator if you believe this is incorrect.</p>
+                </div>
+
                 <!-- Success Messages -->
                 <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
                     <span th:text="${message}">Success</span>

@@ -156,4 +156,66 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "OR p.user.userId = :userId) " +
            "ORDER BY p.createdAt DESC")
     Page<PostFeedDto> findAllVisiblePostDtosNoFollows(@Param("userId") Long userId, Pageable pageable);
+
+    // ===== Mutual blocking: block-filtered feed variants =====
+    // Each mirrors its non-blocked counterpart but excludes posts authored by any user on the
+    // viewer's "block wall" (blocked-either-way). Filtering is done in the database via NOT IN.
+
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.removedAt IS NULL AND p.privacySetting = 'PUBLIC' " +
+           "AND p.user.userId NOT IN :blockedUserIds " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findPublicPostDtosExcludingBlocked(
+            @Param("blockedUserIds") List<Long> blockedUserIds, Pageable pageable);
+
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.removedAt IS NULL AND p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
+           "AND p.user.userId NOT IN :blockedUserIds " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findFollowersOnlyPostDtosExcludingBlocked(
+            @Param("followedUserIds") List<Long> followedUserIds,
+            @Param("blockedUserIds") List<Long> blockedUserIds,
+            Pageable pageable);
+
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.removedAt IS NULL AND (p.privacySetting = 'PUBLIC' " +
+           "OR (p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds) " +
+           "OR p.user.userId = :userId) " +
+           "AND p.user.userId NOT IN :blockedUserIds " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findAllVisiblePostDtosExcludingBlocked(
+            @Param("userId") Long userId,
+            @Param("followedUserIds") List<Long> followedUserIds,
+            @Param("blockedUserIds") List<Long> blockedUserIds,
+            Pageable pageable);
+
+    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
+           "p.postId, p.content, p.privacySetting, p.createdAt, " +
+           "p.user.userId, p.user.username, " +
+           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
+           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
+           "FROM Post p " +
+           "WHERE p.removedAt IS NULL AND (p.privacySetting = 'PUBLIC' " +
+           "OR p.user.userId = :userId) " +
+           "AND p.user.userId NOT IN :blockedUserIds " +
+           "ORDER BY p.createdAt DESC")
+    Page<PostFeedDto> findAllVisiblePostDtosNoFollowsExcludingBlocked(
+            @Param("userId") Long userId,
+            @Param("blockedUserIds") List<Long> blockedUserIds,
+            Pageable pageable);
 }

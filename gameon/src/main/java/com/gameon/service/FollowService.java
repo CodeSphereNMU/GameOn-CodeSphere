@@ -27,13 +27,16 @@ public class FollowService {
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final BlockService blockService;
 
     public FollowService(FollowRepository followRepository,
                          UserRepository userRepository,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         BlockService blockService) {
         this.followRepository = followRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.blockService = blockService;
     }
 
     /**
@@ -45,6 +48,11 @@ public class FollowService {
         // Prevent self-follow
         if (followerId.equals(followedId)) {
             throw new BusinessRuleException("You cannot follow yourself.");
+        }
+
+        // Mutual blocking: cannot follow a user you have blocked or who has blocked you.
+        if (blockService.isBlockedEitherWay(followerId, followedId)) {
+            throw new BusinessRuleException("You cannot follow this user.");
         }
 
         if (isFollowing(followerId, followedId)) {
@@ -63,6 +71,11 @@ public class FollowService {
     public void follow(Long followerId, Long followedId) {
         if (followerId.equals(followedId)) {
             throw new BusinessRuleException("You cannot follow yourself.");
+        }
+
+        // Mutual blocking: prevent future follow requests between blocked users (either direction).
+        if (blockService.isBlockedEitherWay(followerId, followedId)) {
+            throw new BusinessRuleException("You cannot follow this user.");
         }
 
         if (isFollowing(followerId, followedId)) {
@@ -122,10 +135,19 @@ public class FollowService {
         return followRepository.findFollowerUserIds(userId);
     }
 
-    /** A Game On friend is a mutual follow. */
+    /**
+     * A Game On friend is a mutual follow. Mutual blocking additionally removes any user on the
+     * caller's block wall so blocked users never appear in friend-derived invite lists. Blocking
+     * already force-removes the follow rows in both directions; this filter is a defensive guard.
+     */
     @Transactional(readOnly = true)
     public List<Long> getFriendIds(Long userId) {
-        return followRepository.findMutualFollowUserIds(userId);
+        List<Long> friendIds = followRepository.findMutualFollowUserIds(userId);
+        List<Long> blockedIds = blockService.getBlockedUserIds(userId);
+        if (blockedIds.isEmpty()) {
+            return friendIds;
+        }
+        return friendIds.stream().filter(id -> !blockedIds.contains(id)).toList();
     }
 
     /**

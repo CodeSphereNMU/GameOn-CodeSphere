@@ -22,13 +22,16 @@ public class InvitationService {
     private final InvitationRepository invitationRepository;
     private final UserRepository userRepository;
     private final JoinRequestRepository joinRequestRepository;
+    private final BlockService blockService;
 
     public InvitationService(InvitationRepository invitationRepository,
                              UserRepository userRepository,
-                             JoinRequestRepository joinRequestRepository) {
+                             JoinRequestRepository joinRequestRepository,
+                             BlockService blockService) {
         this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
         this.joinRequestRepository = joinRequestRepository;
+        this.blockService = blockService;
     }
 
     @Transactional
@@ -42,10 +45,23 @@ public class InvitationService {
             if (creatorId.equals(inviteeId)) {
                 throw new BusinessRuleException("You cannot invite yourself.");
             }
+            // Mutual blocking: cannot send invitations between blocked users (either direction).
+            if (blockService.isBlockedEitherWay(creatorId, inviteeId)) {
+                throw new BusinessRuleException("You cannot invite a user you have blocked or who has blocked you.");
+            }
             User invitee = userRepository.findById(inviteeId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", inviteeId));
             invitationRepository.save(new Invitation(listing, invitee));
         }
+    }
+
+    /**
+     * Reusable guard for future features (e.g. direct/chat invitations): whether an invitation
+     * may be sent from one user to another under the mutual-blocking rules.
+     */
+    @Transactional(readOnly = true)
+    public boolean canInvite(Long fromUserId, Long toUserId) {
+        return !blockService.isBlockedEitherWay(fromUserId, toUserId);
     }
 
     @Transactional(readOnly = true)
