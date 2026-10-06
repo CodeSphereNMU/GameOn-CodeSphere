@@ -1,0 +1,414 @@
+:root {
+    --gameon-red: #DC3545;
+    --gameon-red-hover: #BB2D3B;
+    --text: #212529;
+    --muted: #6C757D;
+    --page: #F1F3F5;
+    --surface: #fff;
+    --border: #DEE2E6;
+    --soft: #F8F9FA
+}
+
+* {
+    box-sizing: border-box
+}
+
+body.auth-page {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px
+}
+
+.auth-shell {
+    width: min(1120px, 100%);
+    min-height: 680px;
+    display: grid;
+    grid-template-columns: 48% 52%;
+    background: var(--surface);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(33, 37, 41, .12), 0 4px 14px rgba(33, 37, 41, .06)
+}
+
+.auth-shell.sports {
+    width: min(1120px, 100%);
+    grid-template-columns: 42% 58%;
+    min-height: 680px
+}
+
+.auth-visual {
+    position: relative;
+    overflow: hidden;
+    background: #f5f5f4;
+    border-right: 1px solid #ececec
+}
+
+.auth-visual::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, .18));
+    pointer-events: none
+}
+
+.auth-visual-copy {
+    position: relative;
+    z-index: 3;
+    padding: 52px 52px 0
+}
+
+.brand-title {
+    margin: 0 0 10px;
+    color: var(--gameon-red);
+    font-size: 4rem;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: -1.5px
+}
+
+.visual-tagline {
+    font-size: 1.35rem;
+    line-height: 1.38;
+    font-weight: 650;
+    margin: 0 0 28px
+}
+
+.auth-benefits {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    font-size: .95rem;
+    font-weight: 600
+}
+
+.auth-benefits div {
+    display: flex;
+    align-items: center;
+    gap: 10px
+}
+
+.auth-benefits i {
+    color: var(--gameon-red);
+    font-size: 1.05rem
+}
+
+.auth-artwork {
+    position: absolute;
+    z-index: 1;
+    width: 112%;
+    max-width: none;
+    left: 50%;
+    bottom: -3%;
+    transform: translateX(-50%)
+}
+
+.auth-form-panel {
+    padding: 56px 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: #fff
+}
+
+.auth-form-panel.sports-panel {
+    padding: 32px 48px
+}
+
+.form-heading {
+    font-size: 2rem;
+    font-weight: 750;
+    letter-spacing: -.5px;
+    margin: 0 0 5px
+}
+
+.auth-subtitle {
+    color: var(--muted);
+    margin: 0 0 28px
+}
+
+.form-label {
+    font-weight: 600
+}
+
+.form-control,
+.form-select {
+    min-height: 50px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 11px 14px
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--gameon-red);
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, .10)
+}
+
+.input-group .form-control {
+    border-radius: 9px 0 0 9px
+}
+
+.password-toggle {
+    border-color: var(--border);
+    border-left: 0;
+    border-radius: 0 9px 9px 0;
+    color: var(--muted);
+    background: #fff
+}
+
+.password-toggle:hover {
+    background: var(--soft);
+    color: var(--text);
+    border-color: var(--border)
+}
+
+.btn-gameon {
+    min-height: 52px;
+    background: var(--gameon-red);
+    border-color: var(--gameon-red);
+    border-radius: 9px;
+    font-weight: 600;
+    transition: .15s ease
+}
+
+.btn-gameon:hover {
+    background: var(--gameon-red-hover);
+    border-color: var(--gameon-red-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(220, 53, 69, .18)
+}
+
+.auth-link {
+    color: var(--gameon-red);
+    font-weight: 700;
+    text-decoration: none
+}
+
+.auth-link:hover {
+    color: var(--gameon-red-hover)
+}
+
+.test-accounts {
+    background: var(--soft);
+    border: 1px solid #E9ECEF;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: .82rem;
+    color: var(--muted)
+}
+
+.test-accounts strong {
+    color: var(--text)
+}
+
+.register-progress {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: 12px;
+    margin: 0 auto 30px;
+    max-width: 380px
+}
+
+.progress-step {
+    text-align: center;
+    min-width: 92px;
+    color: #ADB5BD
+}
+
+.progress-step span {
+    width: 31px;
+    height: 31px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+    background: #E9ECEF;
+    color: #6C757D;
+    font-size: .85rem;
+    font-weight: 700
+}
+
+.progress-step small {
+    font-size: .72rem;
+    white-space: nowrap
+}
+
+.progress-step.active {
+    color: var(--gameon-red);
+    font-weight: 600
+}
+
+.progress-step.active span {
+    background: var(--gameon-red);
+    color: #fff
+}
+
+.progress-line {
+    height: 2px;
+    background: #DEE2E6;
+    margin-top: 15px
+}
+
+.progress-line.active {
+    background: var(--gameon-red)
+}
+
+.sport-intro {
+    color: var(--muted);
+    font-size: .9rem;
+    margin-bottom: 16px
+}
+
+.sport-card {
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease, transform .15s ease;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    background: #fff
+}
+
+
+.sport-card:hover {
+    border-color: rgba(220, 53, 69, .5) !important;
+    transform: translateY(-1px)
+}
+
+.sport-card.selected {
+    border-color: var(--gameon-red) !important;
+    background: rgba(220, 53, 69, .035)
+}
+
+.sport-card .form-check-input:checked {
+    background-color: var(--gameon-red);
+    border-color: var(--gameon-red)
+}
+
+.sport-card .form-select {
+    min-height: 40px;
+    width: 170px;
+    flex-shrink: 0;
+}
+
+.alert {
+    border-radius: 9px
+}
+
+.mobile-brand {
+    display: none
+}
+
+@media(max-width:850px) {
+    body.auth-page {
+        padding: 16px
+    }
+
+    .auth-shell,
+    .auth-shell.sports {
+        display: block;
+        min-height: auto
+    }
+
+    .auth-visual {
+        min-height: 235px;
+        border-right: 0;
+        border-bottom: 1px solid #ececec
+    }
+
+    .auth-visual-copy {
+        padding: 28px
+    }
+
+    .brand-title {
+        font-size: 3rem
+    }
+    .auth-shell.sports .auth-artwork {
+    width: 132%;
+}
+
+    .visual-tagline {
+        font-size: 1.05rem;
+        margin-bottom: 0
+    }
+
+    .auth-benefits {
+        display: none
+    }
+
+    .auth-artwork {
+        width: 72%;
+        left: auto;
+        right: -2%;
+        bottom: -20%;
+        transform: none
+    }
+
+    .auth-form-panel,
+    .auth-form-panel.sports-panel {
+        padding: 34px 28px
+    }
+
+    .form-heading {
+        font-size: 1.7rem
+    }
+
+    .register-progress {
+        margin-bottom: 24px
+    }
+
+    .progress-step small {
+        font-size: .66rem
+    }
+}
+
+@media(max-width:520px) {
+    body.auth-page {
+        padding: 0;
+        background: #fff
+    }
+
+    .auth-shell,
+    .auth-shell.sports {
+        border-radius: 0;
+        box-shadow: none
+    }
+
+    .auth-visual {
+        min-height: 195px
+    }
+
+    .auth-visual-copy {
+        padding: 22px
+    }
+
+    .auth-artwork {
+        width: 78%;
+        right: -9%;
+        bottom: -16%
+    }
+
+    .auth-form-panel,
+    .auth-form-panel.sports-panel {
+        padding: 30px 22px
+    }
+
+    .sport-card {
+        padding: 12px !important
+    }
+
+    .sport-card .d-flex {
+        gap: 10px
+    }
+
+    .sport-card .form-select {
+        max-width: 150px
+    }
+}
