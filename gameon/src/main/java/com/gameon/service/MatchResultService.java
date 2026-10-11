@@ -91,8 +91,9 @@ public class MatchResultService {
         String outcomeText = "DRAW".equals(saved.getWinners())
                 ? "Draw"
                 : saved.getWinners().replace("_", " ") + " wins";
-        String notifText = "Match result posted: Team A " + teamAScore + " - " + teamBScore +
-                " Team B (" + outcomeText + ").";
+        String notifText = listing.getCreator().getUsername() +
+        " posted the result for " + formatSport(listing) +
+        ": Team A " + teamAScore + "–" + teamBScore + " Team B.";
         List<Long> participantIds = gameJoinerRepository.findParticipants(listingId).stream()
                 .map(gj -> gj.getUser().getUserId())
                 .toList();
@@ -138,7 +139,9 @@ public class MatchResultService {
             updateParticipantStats(listing, saved.getWinners());
         }
 
-        String notifText = "Match result updated: Team A " + teamAScore + " - " + teamBScore + " Team B.";
+        String notifText = listing.getCreator().getUsername() +
+        " updated the result for " + formatSport(listing) +
+        ": Team A " + teamAScore + "–" + teamBScore + " Team B.";
         List<Long> participantIds = gameJoinerRepository.findParticipants(listingId).stream()
                 .map(joiner -> joiner.getUser().getUserId())
                 .distinct()
@@ -243,6 +246,10 @@ public class MatchResultService {
         if (teamAScore < 0 || teamBScore < 0) {
             throw new BusinessRuleException("Scores must be zero or higher.");
         }
+    }
+
+    private String formatSport(GameListing listing) {
+        return listing.getFormat().getFormatName() + " " + listing.getFormat().getSport().getSportName();
     }
 
     public void validateResultWindow(GameListing listing) {

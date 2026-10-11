@@ -14,8 +14,10 @@ import java.util.List;
  * Scheduled tasks for time-triggered listing lifecycle processing.
  *
  * New lifecycle phases:
+ *   T-24h — Attendance confirmation reminders begin.
  *   T-2h  — Confirmation Deadline: releases unconfirmed players, warns creator.
  *   T-1h  — Finalisation: confirms or cancels the listing, locks participants.
+ *   End+2h — Remind the organiser when a confirmed game has no recorded result.
  *
  * Both run every minute to ensure timely processing.
  */
@@ -52,6 +54,19 @@ public class SchedulingConfig {
         }
     }
 
+    @Scheduled(fixedRate = 60000)
+    public void sendConfirmationReminders() {
+        List<GameListing> listings = listingLifecycleService.findListingsNeedingConfirmationReminder();
+        for (GameListing listing : listings) {
+            try {
+                listingLifecycleService.sendConfirmationReminders(listing.getGameListingId());
+            } catch (Exception e) {
+                logger.error("Failed to send confirmation reminders for listing {}: {}",
+                        listing.getGameListingId(), e.getMessage());
+            }
+        }
+    }
+
     /**
      * Runs every minute. Processes listings that have reached (or passed) the T-1h finalisation point.
      */
@@ -69,6 +84,15 @@ public class SchedulingConfig {
                             listing.getGameListingId(), e.getMessage());
                 }
             }
+        }
+    }
+
+    @Scheduled(fixedRate = 60000)
+    public void sendMissingResultReminders() {
+        try {
+            listingLifecycleService.sendMissingResultReminders();
+        } catch (Exception e) {
+            logger.error("Failed to send missing-result reminders: {}", e.getMessage());
         }
     }
 }

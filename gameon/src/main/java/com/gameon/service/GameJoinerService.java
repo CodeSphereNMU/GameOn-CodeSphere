@@ -122,8 +122,7 @@ public class GameJoinerService {
             invitationRepository.save(item);
         });
 
-        String text = user.getUsername() + " wants to join your " +
-                listing.getFormat().getSport().getSportName() + " game.";
+        String text = user.getUsername() + " wants to join your " + formatSport(listing) + " game.";
         notificationService.createNotification(listing.getCreator().getUserId(), text,
                 NotificationType.JOIN_REQUEST_RECEIVED, user, listing, saved, null);
         logger.info("Join request {} sent: User {} -> Listing {}", saved.getJoinRequestId(), userId, listingId);
@@ -175,10 +174,20 @@ public class GameJoinerService {
         joinRequestRepository.save(request);
         GameJoiner saved = gameJoinerRepository.save(participant);
 
-        String text = "Your join request for " + listing.getFormat().getSport().getSportName() +
-                " " + listing.getFormat().getFormatName() + " was accepted.";
+        String text = listing.getCreator().getUsername() +
+                " accepted your request to join their " + formatSport(listing) + " game.";
         notificationService.createNotification(requesterId, text, NotificationType.JOIN_ACCEPTED,
                 listing.getCreator(), listing, request, null);
+
+        if (listingLifecycleService.isConfirmationWindowOpen(listing)
+                && listingLifecycleService.isBeforeConfirmationDeadline(listing)) {
+            String reminder = confirmationReminderText(listing);
+            if (!notificationService.hasNotification(requesterId, listingId,
+                    NotificationType.ATTENDANCE_REMINDER)) {
+                notificationService.createNotification(requesterId, reminder,
+                        NotificationType.ATTENDANCE_REMINDER, null, listing, null, null);
+            }
+        }
         return saved;
     }
 
@@ -199,8 +208,8 @@ public class GameJoinerService {
         request.setStatus(JoinRequestStatus.REJECTED);
         JoinRequest saved = joinRequestRepository.save(request);
 
-        String text = "Your join request for " + listing.getFormat().getSport().getSportName() +
-                " " + listing.getFormat().getFormatName() + " was declined.";
+        String text = listing.getCreator().getUsername() +
+                " declined your request to join their " + formatSport(listing) + " game.";
         notificationService.createNotification(requesterId, text, NotificationType.JOIN_REJECTED,
                 listing.getCreator(), listing, request, null);
         return saved;
@@ -247,9 +256,9 @@ public class GameJoinerService {
         // Notify creator that a player confirmed
         if (!listing.getCreator().getUserId().equals(userId)) {
             String text = joiner.getUser().getUsername() + " confirmed attendance for your " +
-                    listing.getFormat().getSport().getSportName() + " game.";
+                    formatSport(listing) + " game.";
             notificationService.createNotification(listing.getCreator().getUserId(), text,
-                    NotificationType.ATTENDANCE_CONFIRMATION_OPEN, joiner.getUser(), listing, null, null);
+                    NotificationType.ATTENDANCE_CONFIRMED, joiner.getUser(), listing, null, null);
         }
 
         return saved;
@@ -295,8 +304,8 @@ public class GameJoinerService {
             participant.get().setLateWithdrawal(isLateWithdrawal);
             gameJoinerRepository.save(participant.get());
 
-            String withdrawalType = isLateWithdrawal ? " (late withdrawal)" : "";
-            notifyCreatorOfWithdrawal(listing, participant.get().getUser(), null, false, isLateWithdrawal);
+            String withdrawalType = isLateWithdrawal ? "With less than 2 hours to go" : "";
+            notifyCreatorOfWithdrawal(listing, participant.get().getUser(), isLateWithdrawal);
 
             logger.info("User {} left listing {}{}", userId, listingId, withdrawalType);
             return false;
@@ -306,22 +315,15 @@ public class GameJoinerService {
         JoinRequest request = findPendingRequest(listingId, userId);
         request.setStatus(JoinRequestStatus.WITHDRAWN);
         joinRequestRepository.save(request);
-        notifyCreatorOfWithdrawal(listing, request.getUser(), request, true, false);
+        notificationService.removeForJoinRequest(request.getJoinRequestId());
         return true;
     }
 
-    private void notifyCreatorOfWithdrawal(GameListing listing, User user, JoinRequest request,
-                                           boolean requestOnly, boolean isLate) {
-        String text;
-        if (requestOnly) {
-            text = user.getUsername() + " withdrew their join request.";
-        } else if (isLate) {
-            text = user.getUsername() + " withdrew from your game listing (late withdrawal, within 2 hours of start).";
-        } else {
-            text = user.getUsername() + " left your game listing.";
-        }
+    private void notifyCreatorOfWithdrawal(GameListing listing, User user, boolean isLate) {
+        String text = user.getUsername() + " left your " + formatSport(listing) +
+                " game at " + listing.getLocation() + (isLate ? " (late withdrawal)." : ".");
         notificationService.createNotification(listing.getCreator().getUserId(), text,
-                NotificationType.JOIN_WITHDRAWN, user, listing, request, null);
+                NotificationType.JOIN_WITHDRAWN, user, listing, null, null);
     }
 
     // ========== Last-Call Place Claim ==========
@@ -360,9 +362,9 @@ public class GameJoinerService {
             joinRequestRepository.save(request);
 
             // Notify the user they have a last-call offer
-            String text = "A place has opened in the " + listing.getFormat().getSport().getSportName() +
-                    " game at " + listing.getLocation() + " that you requested to join. " +
-                    "Claim it now — places are filled on a first-come basis!";
+            String text = "There's room in " + listing.getCreator().getUsername() + "'s " +
+                    formatSport(listing) + " game at " + listing.getLocation() +
+                    ". Claim it before someone else does!";
             notificationService.createNotification(requesterId, text,
                     NotificationType.LAST_CALL_OFFER, listing.getCreator(), listing, request, null);
         }
@@ -403,11 +405,6 @@ public class GameJoinerService {
         int maxPlayers = listing.getFormat().getNoPlayers();
         long currentCount = countCurrentParticipants(listingId);
         if (currentCount >= maxPlayers) {
-            // Notify the user that the game filled
-            String text = "The " + listing.getFormat().getSport().getSportName() +
-                    " game at " + listing.getLocation() + " has already been filled.";
-            notificationService.createNotification(userId, text,
-                    NotificationType.LAST_CALL_FULL, null, listing, request, null);
             throw new BusinessRuleException("This game has already been filled. No places remain.");
         }
 
@@ -440,16 +437,16 @@ public class GameJoinerService {
         GameJoiner saved = gameJoinerRepository.save(participant);
 
         // Notify the user of successful claim
-        String claimText = "You successfully claimed a place in the " +
-                listing.getFormat().getSport().getSportName() + " game at " + listing.getLocation() + "!";
+        String claimText = "You're in for " + listing.getCreator().getUsername() + "'s " +
+                formatSport(listing) + " game at " + listing.getLocation() + "!";
         notificationService.createNotification(userId, claimText,
                 NotificationType.LAST_CALL_CLAIMED, null, listing, request, null);
 
         // Notify creator
         String creatorText = request.getUser().getUsername() + " claimed a last-call place in your " +
-                listing.getFormat().getSport().getSportName() + " game.";
+                formatSport(listing) + " game.";
         notificationService.createNotification(listing.getCreator().getUserId(), creatorText,
-                NotificationType.LAST_CALL_CLAIMED, request.getUser(), listing, request, null);
+                NotificationType.LAST_CALL_PLACE_FILLED, request.getUser(), listing, request, null);
 
         logger.info("User {} claimed last-call place in listing {}", userId, listingId);
         return saved;
@@ -479,6 +476,15 @@ public class GameJoinerService {
         if (!isRequestWindowOpen(listing)) {
             throw new BusinessRuleException("Join requests close 1 hour before the game starts.");
         }
+    }
+
+    private String formatSport(GameListing listing) {
+        return listing.getFormat().getFormatName() + " " + listing.getFormat().getSport().getSportName();
+    }
+
+    private String confirmationReminderText(GameListing listing) {
+        return "Confirm your attendance for " + listing.getCreator().getUsername() + "'s " +
+                formatSport(listing) + " game at " + listing.getLocation() + ".";
     }
 
     // ========== Utility Methods ==========

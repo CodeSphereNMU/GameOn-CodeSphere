@@ -100,8 +100,19 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAsRead(Long notificationId) {
-        notificationRepository.markAsRead(notificationId);
+    public int markAsRead(Long notificationId, Long userId) {
+        return notificationRepository.markAsReadForUser(notificationId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasNotification(Long recipientId, Long listingId, NotificationType type) {
+        return notificationRepository.existsByRecipient_UserIdAndGameListing_GameListingIdAndNotificationType(
+                recipientId, listingId, type);
+    }
+
+    @Transactional
+    public int removeForJoinRequest(Long joinRequestId) {
+        return notificationRepository.deleteForJoinRequest(joinRequestId);
     }
 
     @Transactional

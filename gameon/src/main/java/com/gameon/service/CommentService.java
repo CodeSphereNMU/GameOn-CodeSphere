@@ -5,6 +5,7 @@ import com.gameon.exception.UnauthorizedAccessException;
 import com.gameon.model.entity.Comment;
 import com.gameon.model.entity.Post;
 import com.gameon.model.entity.User;
+import com.gameon.model.enums.NotificationType;
 import com.gameon.repository.CommentRepository;
 import com.gameon.repository.PostRepository;
 import com.gameon.repository.UserRepository;
@@ -27,13 +28,16 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public CommentService(CommentRepository commentRepository,
                           PostRepository postRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          NotificationService notificationService) {
         this.commentRepository = commentRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -49,6 +53,11 @@ public class CommentService {
 
         Comment comment = new Comment(user, post, text);
         Comment saved = commentRepository.save(comment);
+        if (!post.getUser().getUserId().equals(userId)) {
+            notificationService.createNotification(post.getUser().getUserId(),
+                    user.getUsername() + " commented on your post.", NotificationType.POST_COMMENTED,
+                    user, null, null, null);
+        }
         logger.debug("Comment added: User {} → Post {} (ID: {})", userId, postId, saved.getCommentId());
         return saved;
     }

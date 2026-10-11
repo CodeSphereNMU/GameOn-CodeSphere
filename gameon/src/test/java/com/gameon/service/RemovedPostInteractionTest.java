@@ -37,7 +37,8 @@ class RemovedPostInteractionTest {
     void removedPostCannotReceiveNewComments() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(mock(com.gameon.model.entity.User.class)));
         when(postRepository.findByPostIdAndRemovedAtIsNull(20L)).thenReturn(Optional.empty());
-        CommentService service = new CommentService(commentRepository, postRepository, userRepository);
+        CommentService service = new CommentService(commentRepository, postRepository, userRepository,
+                mock(NotificationService.class));
 
         assertThatThrownBy(() -> service.addComment(1L, 20L, "Comment"))
                 .isInstanceOf(ResourceNotFoundException.class);

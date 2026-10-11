@@ -119,6 +119,44 @@ class ListingLifecycleServiceTest {
 
             assertThat(service.isConfirmationWindowOpen(listing)).isFalse();
         }
+
+        @Test
+        @DisplayName("T-24h reminders go to accepted, unconfirmed players including the organiser")
+        void confirmationReminderGoesToAllUnconfirmedPlayers() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setScheduledDate(now.plusHours(12));
+            doReturn(now).when(service).currentTime();
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
+            when(gameJoinerRepository.findUnconfirmedAccepted(10L)).thenReturn(List.of(
+                    makeJoiner(1L, "Creator", listing, JoinerStatus.ACCEPTED),
+                    makeJoiner(2L, "Player2", listing, JoinerStatus.ACCEPTED)));
+
+            service.sendConfirmationReminders(10L);
+
+            verify(notificationService).createNotification(eq(1L), contains("Doubles Tennis"),
+                    eq(NotificationType.ATTENDANCE_REMINDER), isNull(), eq(listing), isNull(), isNull());
+            verify(notificationService).createNotification(eq(2L), contains("Creator's Doubles Tennis"),
+                    eq(NotificationType.ATTENDANCE_REMINDER), isNull(), eq(listing), isNull(), isNull());
+        }
+
+        @Test
+        @DisplayName("A confirmed game without a result gets one organiser reminder after its scheduled end")
+        void missingResultReminderIsSentOnce() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setListingStatus(ListingStatus.CONFIRMED);
+            listing.setScheduledDate(now.minusHours(4));
+            when(gameListingRepository.findConfirmedGamesForResultReminder(any()))
+                    .thenReturn(List.of(listing));
+            doReturn(now).when(service).currentTime();
+            when(notificationService.hasNotification(1L, 10L,
+                    NotificationType.MATCH_RESULT_REMINDER)).thenReturn(false, true);
+
+            service.sendMissingResultReminders();
+            service.sendMissingResultReminders();
+
+            verify(notificationService, times(1)).createNotification(eq(1L), contains("Doubles Tennis game at Court"),
+                    eq(NotificationType.MATCH_RESULT_REMINDER), isNull(), eq(listing), isNull(), isNull());
+        }
     }
 
     // ========== T-2h Confirmation Deadline Tests ==========
@@ -179,7 +217,26 @@ class ListingLifecycleServiceTest {
             assertThat(creatorJoiner.getStatus()).isEqualTo(JoinerStatus.ACCEPTED);
             verify(gameJoinerRepository, never()).save(creatorJoiner);
             // But creator should receive urgent warning
-            verify(notificationService).createNotification(eq(1L), contains("URGENT"),
+            verify(notificationService).createNotification(eq(1L), contains("Confirm before the 1-hour deadline"),
+                    eq(NotificationType.CREATOR_CONFIRMATION_URGENT), isNull(), eq(listing), isNull(), isNull());
+        }
+
+        @Test
+        @DisplayName("Creator receives only one final-call warning when deadline processing repeats")
+        void creatorWarningIsSentOnce() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setScheduledDate(now.plusHours(1).plusMinutes(30));
+            doReturn(now).when(service).currentTime();
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+            when(gameJoinerRepository.findUnconfirmedAccepted(10L)).thenReturn(List.of(
+                    makeJoiner(1L, "Creator", listing, JoinerStatus.ACCEPTED)));
+            when(notificationService.hasNotification(1L, 10L,
+                    NotificationType.CREATOR_CONFIRMATION_URGENT)).thenReturn(false, true);
+
+            service.processConfirmationDeadline(10L);
+            service.processConfirmationDeadline(10L);
+
+            verify(notificationService, times(1)).createNotification(eq(1L), anyString(),
                     eq(NotificationType.CREATOR_CONFIRMATION_URGENT), isNull(), eq(listing), isNull(), isNull());
         }
 
@@ -261,14 +318,19 @@ class ListingLifecycleServiceTest {
                     makeJoiner(3L, "P3", listing, JoinerStatus.CONFIRMED_ATTENDANCE)
             );
             when(gameJoinerRepository.findConfirmedParticipants(10L)).thenReturn(confirmed);
-            when(joinRequestRepository.findPendingUserIds(10L)).thenReturn(List.of());
-            when(invitationRepository.findByGameListingGameListingIdAndStatus(anyLong(), any()))
-                    .thenReturn(List.of());
+            when(gameJoinerRepository.findParticipants(10L)).thenReturn(confirmed);
+            User invitee = user(5L, "Invitee");
+            when(invitationRepository.findByGameListingGameListingIdAndStatus(10L, InvitationStatus.PENDING))
+                    .thenReturn(List.of(new com.gameon.model.entity.Invitation(listing, invitee)));
 
             service.finaliseListing(10L);
 
             assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS);
             verify(gameJoinerRepository, never()).lockAllConfirmedJoiners(anyLong());
+            verify(joinRequestRepository, never()).findPendingUserIds(anyLong());
+            verify(notificationService).createBulkNotifications(argThat(ids -> ids.size() == 4
+                            && !ids.contains(99L)), contains("there weren't enough confirmed players"),
+                    eq(NotificationType.LISTING_CANCELLED_INSUFFICIENT_PLAYERS), isNull(), eq(listing), isNull(), isNull());
         }
 
         @Test
@@ -282,19 +344,14 @@ class ListingLifecycleServiceTest {
 
             // Release remaining unconfirmed (the creator is in this list but handled specially)
             when(gameJoinerRepository.findUnconfirmedAccepted(10L)).thenReturn(List.of(creatorJoiner));
-
-            when(gameJoinerRepository.findConfirmedParticipants(10L)).thenReturn(List.of(
-                    makeJoiner(2L, "P2", listing, JoinerStatus.CONFIRMED_ATTENDANCE),
-                    makeJoiner(3L, "P3", listing, JoinerStatus.CONFIRMED_ATTENDANCE),
-                    makeJoiner(4L, "P4", listing, JoinerStatus.CONFIRMED_ATTENDANCE)
-            ));
-            when(joinRequestRepository.findPendingUserIds(10L)).thenReturn(List.of());
+            when(gameJoinerRepository.findParticipants(10L)).thenReturn(List.of(creatorJoiner));
 
             service.finaliseListing(10L);
 
             assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS);
-            verify(notificationService).createNotification(eq(1L), contains("did not confirm"),
-                    eq(NotificationType.LISTING_CANCELLED_INSUFFICIENT_PLAYERS), isNull(), eq(listing), isNull(), isNull());
+            verify(notificationService).createBulkNotifications(argThat(ids -> ids.contains(1L)),
+                    contains("did not confirm attendance"),
+                    eq(NotificationType.LISTING_CANCELLED_CREATOR_UNCONFIRMED), isNull(), eq(listing), isNull(), isNull());
         }
 
         @Test

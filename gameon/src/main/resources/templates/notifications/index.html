@@ -49,7 +49,7 @@
                  th:classappend="${!notif.isRead} ? 'list-group-item-light border-start border-danger border-3'">
                 <div class="ms-2 me-auto">
                     <div class="d-flex align-items-center mb-1">
-                        <span class="badge bg-secondary me-2 badge-skill" th:text="${notif.notificationType.name().replace('_', ' ')}">TYPE</span>
+                        <strong class="me-2" th:text="${notif.notificationType.heading}">Notification heading</strong>
                         <small class="text-muted" th:text="${#temporals.format(notif.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
                     </div>
                     <p class="mb-0" th:text="${notif.text}">Notification text</p>

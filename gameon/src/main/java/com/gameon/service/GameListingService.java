@@ -152,8 +152,8 @@ public class GameListingService {
 
         // Notify invited friends (invitation is courtesy only - does NOT auto-accept)
         if (invitedFriendIds != null && !invitedFriendIds.isEmpty()) {
-            String notifText = creator.getUsername() + " invited you to game listing #" +
-                    saved.getGameListingId() + ". View the listing for its current details, then submit a join request to participate.";
+            String notifText = creator.getUsername() + " invited you to play " +
+                    format.getFormatName() + " " + format.getSport().getSportName() + ".";
             notificationService.createBulkNotifications(invitedFriendIds, notifText,
                     NotificationType.LISTING_INVITE, creator, saved, null, null);
         }
@@ -424,9 +424,6 @@ public class GameListingService {
                 .map(joiner -> joiner.getUser().getUserId())
                 .filter(id -> !id.equals(userId))
                 .forEach(recipientIds::add);
-        joinRequestRepository.findPendingUserIds(listingId).stream()
-                .filter(id -> !id.equals(userId))
-                .forEach(recipientIds::add);
         invitationRepository.findByGameListingGameListingIdAndStatus(listingId, InvitationStatus.PENDING).stream()
                 .map(invitation -> invitation.getInvitee().getUserId())
                 .filter(id -> !id.equals(userId))
@@ -438,7 +435,8 @@ public class GameListingService {
         gameListingRepository.save(listing);
 
         String notifText = listing.getCreator().getUsername() + " cancelled their " +
-                listing.getFormat().getSport().getSportName() + " game listing.";
+                listing.getFormat().getFormatName() + " " + listing.getFormat().getSport().getSportName() +
+                " game at " + listing.getLocation() + ".";
         notificationService.createBulkNotifications(List.copyOf(recipientIds), notifText,
                 NotificationType.LISTING_CANCELLED, listing.getCreator(), listing, null, null);
         logger.info("Game listing {} cancelled by creator {}", listingId, userId);

@@ -90,6 +90,65 @@ public class ListingLifecycleService {
                 currentTime().plusHours(FINALISATION_HOURS));
     }
 
+    @Transactional(readOnly = true)
+    public List<GameListing> findListingsNeedingConfirmationReminder() {
+        LocalDateTime now = currentTime();
+        return gameListingRepository.findListingsNeedingConfirmationReminder(
+                now.plusHours(CONFIRMATION_DEADLINE_HOURS),
+                now.plusHours(CONFIRMATION_WINDOW_HOURS));
+    }
+
+    @Transactional
+    public void sendConfirmationReminders(Long listingId) {
+        GameListing listing = gameListingRepository.findByIdWithDetails(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Game Listing", listingId));
+        if (listing.getListingStatus() != ListingStatus.OPEN
+                || !isConfirmationWindowOpen(listing)
+                || !listing.getScheduledDate().isAfter(currentTime().plusHours(CONFIRMATION_DEADLINE_HOURS))) {
+            return;
+        }
+
+        for (GameJoiner joiner : gameJoinerRepository.findUnconfirmedAccepted(listingId)) {
+    Long recipientId = joiner.getUser().getUserId();
+
+    boolean isCreator = recipientId.equals(listing.getCreator().getUserId());
+
+    String text = isCreator
+            ? "Confirm your attendance for your " +
+                    formatSport(listing) + " game at " + listing.getLocation() + "."
+            : "Confirm your attendance for " + listing.getCreator().getUsername() + "'s " +
+                    formatSport(listing) + " game at " + listing.getLocation() + ".";
+
+    if (!notificationService.hasNotification(recipientId, listingId,
+            NotificationType.ATTENDANCE_REMINDER)) {
+        notificationService.createNotification(recipientId, text,
+                NotificationType.ATTENDANCE_REMINDER, null, listing, null, null);
+    }
+}
+    }
+
+    @Transactional
+    public void sendMissingResultReminders() {
+        LocalDateTime now = currentTime();
+        for (GameListing listing : gameListingRepository.findConfirmedGamesForResultReminder(
+                now.minusHours(CONFIRMATION_DEADLINE_HOURS))) {
+            if (listing.getMatchResult() != null
+                    || listing.getScheduledDate().plusMinutes(listing.getDurationMinutes())
+                            .plusHours(CONFIRMATION_DEADLINE_HOURS).isAfter(now)) {
+                continue;
+            }
+            Long organizerId = listing.getCreator().getUserId();
+            if (notificationService.hasNotification(organizerId, listing.getGameListingId(),
+                    NotificationType.MATCH_RESULT_REMINDER)) {
+                continue;
+            }
+            String text = "Your " + formatSport(listing) + " game at " + listing.getLocation() +
+                    " has finished. Don't forget to record the final score!";
+            notificationService.createNotification(organizerId, text,
+                    NotificationType.MATCH_RESULT_REMINDER, null, listing, null, null);
+        }
+    }
+
     /** Legacy method kept for backward compatibility with existing callers. */
     @Transactional(readOnly = true)
     public List<GameListing> findListingsNeedingLockIn() {
@@ -134,19 +193,20 @@ public class ListingLifecycleService {
             releasedCount++;
 
             // Notify the player that their place was released
-            String text = "Your place in the " + listing.getFormat().getSport().getSportName() +
-                    " game at " + listing.getLocation() + " was released because you did not confirm attendance by the deadline.";
+            String text = spotReleasedText(listing);
             notificationService.createNotification(joiner.getUser().getUserId(), text,
                     NotificationType.PLACE_RELEASED_UNCONFIRMED, null, listing, null, null);
         }
 
         // Send urgent warning to creator if they haven't confirmed
         if (creatorUnconfirmed) {
-            String urgentText = "URGENT: You must confirm attendance for your " +
-                    listing.getFormat().getSport().getSportName() + " game at " + listing.getLocation() +
-                    " before the 1-hour finalisation deadline, or the listing will be automatically cancelled.";
-            notificationService.createNotification(creatorId, urgentText,
-                    NotificationType.CREATOR_CONFIRMATION_URGENT, null, listing, null, null);
+            if (!notificationService.hasNotification(creatorId, listingId,
+                    NotificationType.CREATOR_CONFIRMATION_URGENT)) {
+                String urgentText = "You haven't confirmed attendance for your " + formatSport(listing) +
+                        " game. Confirm before the 1-hour deadline or the game will be cancelled.";
+                notificationService.createNotification(creatorId, urgentText,
+                        NotificationType.CREATOR_CONFIRMATION_URGENT, null, listing, null, null);
+            }
         }
 
         logger.info("Listing {} confirmation deadline processed: {} unconfirmed players released, creator unconfirmed={}",
@@ -181,8 +241,7 @@ public class ListingLifecycleService {
             if (!joiner.getUser().getUserId().equals(creatorId)) {
                 joiner.setStatus(JoinerStatus.LEFT);
                 gameJoinerRepository.save(joiner);
-                String text = "Your place in the " + listing.getFormat().getSport().getSportName() +
-                        " game at " + listing.getLocation() + " was released because you did not confirm attendance.";
+                String text = spotReleasedText(listing);
                 notificationService.createNotification(joiner.getUser().getUserId(), text,
                         NotificationType.PLACE_RELEASED_UNCONFIRMED, null, listing, null, null);
             }
@@ -197,28 +256,17 @@ public class ListingLifecycleService {
 
         if (!creatorConfirmed) {
             // Creator did not confirm — cancel listing
+            Set<Long> recipientIds = cancellationRecipientIds(listingId);
             listing.setListingStatus(ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS);
             joinRequestRepository.expirePendingForListing(listingId);
             invitationRepository.expirePendingForListing(listingId);
             gameListingRepository.save(listing);
 
-            // Notify all affected users
-            Set<Long> recipientIds = new LinkedHashSet<>();
-            gameJoinerRepository.findConfirmedParticipants(listingId).stream()
-                    .map(gj -> gj.getUser().getUserId())
-                    .forEach(recipientIds::add);
-            joinRequestRepository.findPendingUserIds(listingId).forEach(recipientIds::add);
-
-            String text = "The " + listing.getFormat().getSport().getSportName() +
+            String text = listing.getCreator().getUsername() + "'s " + formatSport(listing) +
                     " game at " + listing.getLocation() +
-                    " was cancelled because the creator did not confirm attendance.";
+                    " was cancelled because the organiser did not confirm attendance.";
             notificationService.createBulkNotifications(List.copyOf(recipientIds), text,
-                    NotificationType.LISTING_CANCELLED_INSUFFICIENT_PLAYERS, null, listing, null, null);
-            // Also notify creator
-            notificationService.createNotification(creatorId,
-                    "Your " + listing.getFormat().getSport().getSportName() +
-                            " listing was automatically cancelled because you did not confirm attendance by the deadline.",
-                    NotificationType.LISTING_CANCELLED_INSUFFICIENT_PLAYERS, null, listing, null, null);
+                    NotificationType.LISTING_CANCELLED_CREATOR_UNCONFIRMED, null, listing, null, null);
 
             logger.info("Listing {} cancelled at finalisation: creator did not confirm", listingId);
             return;
@@ -242,8 +290,9 @@ public class ListingLifecycleService {
                     .map(gj -> gj.getUser().getUserId())
                     .distinct()
                     .toList();
-            String text = "Your " + listing.getFormat().getSport().getSportName() +
-                    " game at " + listing.getLocation() + " is confirmed and starts in about 1 hour.";
+            String text = listing.getCreator().getUsername() + "'s " +
+        formatSport(listing) + " game at " + listing.getLocation() +
+        " is confirmed. The game starts in about an hour!";
             notificationService.createBulkNotifications(participantIds, text,
                     NotificationType.LISTING_CONFIRMED, null, listing, null, null);
 
@@ -251,22 +300,15 @@ public class ListingLifecycleService {
                     listingId, confirmedCount, requiredPlayers);
         } else {
             // Insufficient players — cancel
+            Set<Long> recipientIds = cancellationRecipientIds(listingId);
             listing.setListingStatus(ListingStatus.CANCELLED_INSUFFICIENT_PLAYERS);
             joinRequestRepository.expirePendingForListing(listingId);
             invitationRepository.expirePendingForListing(listingId);
             gameListingRepository.save(listing);
 
-            Set<Long> recipientIds = new LinkedHashSet<>();
-            confirmedParticipants.stream()
-                    .map(gj -> gj.getUser().getUserId())
-                    .forEach(recipientIds::add);
-            joinRequestRepository.findPendingUserIds(listingId).forEach(recipientIds::add);
-            invitationRepository.findByGameListingGameListingIdAndStatus(listingId, InvitationStatus.PENDING)
-                    .forEach(inv -> recipientIds.add(inv.getInvitee().getUserId()));
-
-            String text = "The " + listing.getFormat().getSport().getSportName() +
+            String text = listing.getCreator().getUsername() + "'s " + formatSport(listing) +
                     " game at " + listing.getLocation() +
-                    " was cancelled because it did not have enough confirmed players.";
+                    " was cancelled because there weren't enough confirmed players.";
             notificationService.createBulkNotifications(List.copyOf(recipientIds), text,
                     NotificationType.LISTING_CANCELLED_INSUFFICIENT_PLAYERS, null, listing, null, null);
 
@@ -323,6 +365,11 @@ public class ListingLifecycleService {
         return !now.isBefore(confirmationOpens);
     }
 
+    public boolean isBeforeConfirmationDeadline(GameListing listing) {
+        return listing.getScheduledDate().isAfter(
+                currentTime().plusHours(CONFIRMATION_DEADLINE_HOURS));
+    }
+
     /**
      * Checks whether the listing is currently in the late withdrawal / last-call period (T-2h → T-1h).
      */
@@ -355,5 +402,25 @@ public class ListingLifecycleService {
 
     LocalDateTime currentTime() {
         return LocalDateTime.now();
+    }
+
+    private Set<Long> cancellationRecipientIds(Long listingId) {
+        Set<Long> recipientIds = new LinkedHashSet<>();
+        gameJoinerRepository.findParticipants(listingId).stream()
+                .map(joiner -> joiner.getUser().getUserId())
+                .forEach(recipientIds::add);
+        invitationRepository.findByGameListingGameListingIdAndStatus(listingId, InvitationStatus.PENDING)
+                .stream().map(invitation -> invitation.getInvitee().getUserId()).forEach(recipientIds::add);
+        return recipientIds;
+    }
+
+    private String formatSport(GameListing listing) {
+        return listing.getFormat().getFormatName() + " " + listing.getFormat().getSport().getSportName();
+    }
+
+    private String spotReleasedText(GameListing listing) {
+        return "You missed the attendance confirmation deadline for " +
+                listing.getCreator().getUsername() + "'s " + formatSport(listing) +
+                " game. Your spot has been released.";
     }
 }

@@ -138,6 +138,27 @@ class GameJoinerServiceTest {
     class AttendanceConfirmationTests {
 
         @Test
+        @DisplayName("Accepting a player before T-2h during the 24-hour window sends an immediate reminder")
+        void acceptanceInsideWindowSendsReminderImmediately() {
+            listing.setScheduledDate(LocalDateTime.now().plusHours(12));
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
+            when(listingLifecycleService.isInLastCallPeriod(listing)).thenReturn(false);
+            when(listingLifecycleService.isConfirmationWindowOpen(listing)).thenReturn(true);
+            when(listingLifecycleService.isBeforeConfirmationDeadline(listing)).thenReturn(true);
+            JoinRequest request = new JoinRequest(requester, listing, Team.A);
+            when(joinRequestRepository.findFirstByGameListingGameListingIdAndUserUserIdAndStatusOrderByCreatedAtDesc(
+                    10L, 2L, JoinRequestStatus.PENDING)).thenReturn(Optional.of(request));
+            when(gameJoinerRepository.findByUserAndListing(2L, 10L)).thenReturn(Optional.empty());
+            when(gameJoinerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+            when(joinRequestRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+            service.acceptRequest(10L, 2L, 1L);
+
+            verify(notificationService).createNotification(eq(2L), contains("Confirm your attendance"),
+                    eq(NotificationType.ATTENDANCE_REMINDER), isNull(), eq(listing), isNull(), isNull());
+        }
+
+        @Test
         @DisplayName("Accepted player can confirm attendance when window is open")
         void confirmedPlayerCanConfirm() {
             when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
@@ -192,6 +213,27 @@ class GameJoinerServiceTest {
 
             assertThat(joiner.getStatus()).isEqualTo(JoinerStatus.LEFT);
             assertThat(joiner.isLateWithdrawal()).isFalse();
+            verify(notificationService).createNotification(eq(1L), contains("left your 5v5 Football game"),
+                    eq(NotificationType.JOIN_WITHDRAWN), eq(joiner.getUser()), eq(listing), isNull(), isNull());
+        }
+
+        @Test
+        @DisplayName("Withdrawing a pending request removes its notifications without a withdrawal alert")
+        void withdrawingPendingRequestRemovesNotifications() {
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
+            when(listingLifecycleService.isPastFinalisation(listing)).thenReturn(false);
+            when(gameJoinerRepository.findByUserAndListing(2L, 10L)).thenReturn(Optional.empty());
+            JoinRequest request = new JoinRequest(requester, listing, Team.A);
+            request.setJoinRequestId(99L);
+            when(joinRequestRepository.findFirstByGameListingGameListingIdAndUserUserIdAndStatusOrderByCreatedAtDesc(
+                    10L, 2L, JoinRequestStatus.PENDING)).thenReturn(Optional.of(request));
+
+            boolean withdrewRequest = service.leaveListing(2L, 10L);
+
+            assertThat(withdrewRequest).isTrue();
+            verify(notificationService).removeForJoinRequest(99L);
+            verify(notificationService, never()).createNotification(anyLong(), anyString(),
+                    any(NotificationType.class), any(), any(), any(), any());
         }
     }
 
@@ -275,7 +317,7 @@ class GameJoinerServiceTest {
 
             assertThat(req1.isLastCallApproved()).isTrue();
             assertThat(req2.isLastCallApproved()).isTrue();
-            verify(notificationService, times(2)).createNotification(anyLong(), contains("place has opened"),
+            verify(notificationService, times(2)).createNotification(anyLong(), contains("There's room in Creator's 5v5 Football game"),
                     eq(NotificationType.LAST_CALL_OFFER), eq(creator), eq(listing), any(), isNull());
         }
 
@@ -351,6 +393,7 @@ class GameJoinerServiceTest {
             assertThatThrownBy(() -> service.claimLastCallPlace(2L, 10L))
                     .isInstanceOf(BusinessRuleException.class)
                     .hasMessageContaining("already been filled");
+            verifyNoInteractions(notificationService);
         }
 
         @Test
@@ -441,7 +484,7 @@ class GameJoinerServiceTest {
 
             verify(notificationService).createNotification(
                     eq(2L),                                    // recipient = requester
-                    contains("place has opened"),              // notification text
+                    contains("There's room in Creator's 5v5 Football game"), // notification text
                     eq(NotificationType.LAST_CALL_OFFER),      // correct type
                     eq(creator),                               // actor = creator
                     eq(listing),                               // listing reference

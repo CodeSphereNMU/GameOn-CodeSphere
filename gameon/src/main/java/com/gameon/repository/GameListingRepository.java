@@ -63,6 +63,19 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
            "ORDER BY gl.scheduledDate ASC")
     List<GameListing> findListingsNeedingFinalisation(@Param("threshold") LocalDateTime threshold);
 
+    @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.listingStatus = 'OPEN' AND gl.scheduledDate > :after " +
+           "AND gl.scheduledDate <= :before ORDER BY gl.scheduledDate ASC")
+    List<GameListing> findListingsNeedingConfirmationReminder(@Param("after") LocalDateTime after,
+                                                               @Param("before") LocalDateTime before);
+
+    @Query("SELECT gl FROM GameListing gl " +
+           "JOIN FETCH gl.format sf JOIN FETCH sf.sport JOIN FETCH gl.creator " +
+           "LEFT JOIN FETCH gl.matchResult " +
+           "WHERE gl.listingStatus = 'CONFIRMED' AND gl.scheduledDate <= :threshold " +
+           "ORDER BY gl.scheduledDate ASC")
+    List<GameListing> findConfirmedGamesForResultReminder(@Param("threshold") LocalDateTime threshold);
+
     // Lobby: active listings created by the user that have not started yet.
     @Query("SELECT gl FROM GameListing gl " +
            "WHERE gl.creator.userId = :userId " +
