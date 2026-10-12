@@ -194,6 +194,9 @@
                             <a th:if="${listing.creator.userId == currentUserId && listing.matchResult == null && listing.effectiveStatus == 'AWAITING_RESULT'}"
                                th:href="@{'/match-result/submit/' + ${listing.gameListingId}}"
                                class="btn btn-sm btn-gameon">Record Result</a>
+                            <a th:if="${listing.matchResult != null}"
+                               th:href="@{'/match-result/view/' + ${listing.gameListingId}}"
+                               class="btn btn-sm btn-outline-gameon">View Results</a>
                             <a th:if="${listing.creator.userId == currentUserId && listing.matchResult != null}"
                                th:href="@{'/match-result/submit/' + ${listing.gameListingId}}"
                                class="btn btn-sm btn-outline-secondary">Update Result</a>

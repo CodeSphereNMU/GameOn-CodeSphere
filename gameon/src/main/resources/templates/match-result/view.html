@@ -11,55 +11,75 @@
                 <div class="card shadow-sm">
                     <div class="card-header bg-white text-center">
                         <h5 class="mb-0" th:text="${listing.format.sport.sportName + ' - ' + listing.format.formatName}">Sport</h5>
-                        <small class="text-muted" th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')} + ' | ' + ${listing.location}">Date | Location</small>
+                        <small class="text-muted"
+                               th:text="${#temporals.format(listing.scheduledDate, 'dd MMM yyyy HH:mm')} + ' | ' + ${listing.location}">Date | Location</small>
                     </div>
                     <div class="card-body text-center">
-                        <!-- Score Display -->
+                        <!-- Final Score (winning side is emphasised; draw stays balanced) -->
                         <div class="row align-items-center py-4">
-                            <div class="col-4">
-                                <h6 class="text-danger">Team A</h6>
-                                <span class="display-4 fw-bold" th:text="${result.teamAScore}">0</span>
+                            <div class="col-4 p-3 rounded"
+                                 th:classappend="${result.winners == 'TEAM_A'} ? 'bg-danger bg-opacity-10'">
+                                <h6 class="text-danger"
+                                    th:classappend="${result.winners == 'TEAM_A'} ? 'fs-5 fw-bold'">Team A</h6>
+                                <span class="fw-bold"
+                                      th:classappend="${result.winners == 'TEAM_A'} ? 'display-3' : 'display-4'"
+                                      th:text="${result.teamAScore}">0</span>
                             </div>
                             <div class="col-4">
                                 <span class="fs-3 text-muted">vs</span>
                                 <br>
                                 <span class="badge mt-2"
-                                      th:classappend="${result.winners == 'DRAW'} ? 'bg-secondary' : (${result.winners == 'TEAM_A'} ? 'bg-danger' : 'bg-primary')"
-                                      th:text="${result.winners.replace('_', ' ')}">Winner</span>
+                                      th:classappend="${result.winners == 'DRAW' ? 'bg-secondary' : (result.winners == 'TEAM_A' ? 'bg-danger fs-6 px-3 py-2' : 'bg-primary fs-6 px-3 py-2')}"
+                                      th:text="${#strings.replace(result.winners, '_', ' ')}">Winner</span>
                             </div>
-                            <div class="col-4">
-                                <h6 class="text-primary">Team B</h6>
-                                <span class="display-4 fw-bold" th:text="${result.teamBScore}">0</span>
+                            <div class="col-4 p-3 rounded"
+                                 th:classappend="${result.winners == 'TEAM_B'} ? 'bg-primary bg-opacity-10'">
+                                <h6 class="text-primary"
+                                    th:classappend="${result.winners == 'TEAM_B'} ? 'fs-5 fw-bold'">Team B</h6>
+                                <span class="fw-bold"
+                                      th:classappend="${result.winners == 'TEAM_B'} ? 'display-3' : 'display-4'"
+                                      th:text="${result.teamBScore}">0</span>
                             </div>
                         </div>
 
                         <!-- Teams Roster -->
                         <hr>
-                        <div class="row mt-3">
+                        <div class="row mt-3 text-start">
+                            <!-- Team A (creator is always on Team A) -->
                             <div class="col-6">
-                                <h6 class="text-danger">Team A</h6>
-                                <ul class="list-unstyled">
-                                    <li class="mb-1">
+                                <h6 class="text-center text-danger">Team A</h6>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item small">
                                         <i class="bi bi-person-fill me-1"></i>
-                                        <span th:text="${listing.creator.username}">Creator</span>
+                                        <a th:href="@{'/profile/' + ${listing.creator.userId}}"
+                                           class="fw-bold text-decoration-none text-dark"
+                                           th:text="${listing.creator.username}">Creator</a>
                                         <small class="text-muted">(creator)</small>
                                     </li>
                                     <li th:each="joiner : ${listing.joiners}"
-                                        th:if="${joiner.team.name() == 'A' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED')}"
-                                        class="mb-1">
+                                        th:if="${joiner.team.name() == 'A'
+                                                 && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'CONFIRMED_ATTENDANCE' || joiner.status.name() == 'LOCKED')
+                                                 && !joiner.user.userId.equals(listing.creator.userId)}"
+                                        class="list-group-item small">
                                         <i class="bi bi-person me-1"></i>
-                                        <span th:text="${joiner.user.username}">Player</span>
+                                        <a th:href="@{'/profile/' + ${joiner.user.userId}}"
+                                           class="fw-bold text-decoration-none text-dark"
+                                           th:text="${joiner.user.username}">Player</a>
                                     </li>
                                 </ul>
                             </div>
+                            <!-- Team B -->
                             <div class="col-6">
-                                <h6 class="text-primary">Team B</h6>
-                                <ul class="list-unstyled">
+                                <h6 class="text-center text-primary">Team B</h6>
+                                <ul class="list-group list-group-flush">
                                     <li th:each="joiner : ${listing.joiners}"
-                                        th:if="${joiner.team.name() == 'B' && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'LOCKED')}"
-                                        class="mb-1">
+                                        th:if="${joiner.team.name() == 'B'
+                                                 && (joiner.status.name() == 'ACCEPTED' || joiner.status.name() == 'CONFIRMED_ATTENDANCE' || joiner.status.name() == 'LOCKED')}"
+                                        class="list-group-item small">
                                         <i class="bi bi-person me-1"></i>
-                                        <span th:text="${joiner.user.username}">Player</span>
+                                        <a th:href="@{'/profile/' + ${joiner.user.userId}}"
+                                           class="fw-bold text-decoration-none text-dark"
+                                           th:text="${joiner.user.username}">Player</a>
                                     </li>
                                 </ul>
                             </div>

@@ -117,7 +117,9 @@ public class MatchResultController {
             redirectAttributes.addFlashAttribute("error", "No match result found for this listing.");
             return "redirect:/lobby/history";
         }
-        GameListing listing = gameListingService.getListingWithDetails(listingId);
+        // Use the detail query which eager-fetches joiners and their users so the
+        // template can render the team rosters without a LazyInitializationException.
+        GameListing listing = gameListingService.getListingDetail(listingId);
         model.addAttribute("result", result);
         model.addAttribute("listing", listing);
         return "match-result/view";
