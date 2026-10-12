@@ -84,7 +84,12 @@
                                         <i class="bi bi-clipboard2-x"></i>
                                     </a>
                                     <form th:action="@{'/moderator/users/' + ${u.userId} + '/strike'}" method="post"
-                                          th:if="${u.accountStatus.name() != 'BANNED'}">
+                                          th:if="${u.accountStatus.name() != 'BANNED' and u.userId != currentUserId}"
+                                          th:attr="data-confirm='This issues a strike to ' + ${u.username} + '. Three strikes result in an automatic ban.'"
+                                          data-confirm-title="Issue strike?"
+                                          data-confirm-ok="Issue Strike"
+                                          data-confirm-cancel="Cancel"
+                                          data-confirm-variant="warning">
                                         <button type="submit" class="btn btn-outline-warning btn-sm" title="Issue a strike">
                                             <i class="bi bi-exclamation-triangle"></i> Strike
                                         </button>
@@ -110,7 +115,7 @@
                                         </button>
                                     </form>
                                     <form th:action="@{'/moderator/users/' + ${u.userId} + '/reset-warnings'}" method="post"
-                                          th:if="${u.warningCount > 0}">
+                                          th:if="${u.warningCount > 0 and u.accountStatus.name() != 'BANNED'}">
                                         <button type="submit" class="btn btn-outline-secondary btn-sm"
                                                 title="Reset warning count to 0">
                                             <i class="bi bi-arrow-repeat"></i> Reset

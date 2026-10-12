@@ -223,11 +223,12 @@ public class ModeratorController {
     // ===== Admin Dashboard: User account status & moderation standing =====
 
     @GetMapping("/users")
-    public String usersDashboard(Model model) {
+    public String usersDashboard(@AuthenticationPrincipal CustomUserDetails currentUser, Model model) {
         List<AdminUserView> users = userService.getAllUsersForModeration().stream()
                 .map(AdminUserView::from)
                 .toList();
         model.addAttribute("users", users);
+        model.addAttribute("currentUserId", currentUser.getUserId());
         return "moderator/users";
     }
 
@@ -237,6 +238,11 @@ public class ModeratorController {
                              @RequestParam(required = false) String reason,
                              @AuthenticationPrincipal CustomUserDetails currentUser,
                              RedirectAttributes redirectAttributes) {
+        // A moderator cannot issue a strike against their own account.
+        if (userId.equals(currentUser.getUserId())) {
+            redirectAttributes.addFlashAttribute("error", "You cannot issue a strike against your own account.");
+            return "redirect:/moderator/users";
+        }
         warningService.issueStrike(userId, currentUser.getUserId(), reason, ContentType.USER, userId, null);
         moderationService.logAction(currentUser.getUserId(), userId, null,
                 ModerationActionType.ISSUE_WARNING, reason, ContentType.USER, userId);
