@@ -60,6 +60,10 @@ public class Notification {
     @JoinColumn(name = "match_result_id")
     private MatchResult matchResult;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "post_id")
+    private Post post;
+
     // ===== Constructors =====
 
     public Notification() {
@@ -133,4 +137,6 @@ public class Notification {
     public void setJoinRequest(JoinRequest joinRequest) { this.joinRequest = joinRequest; }
     public MatchResult getMatchResult() { return matchResult; }
     public void setMatchResult(MatchResult matchResult) { this.matchResult = matchResult; }
+    public Post getPost() { return post; }
+    public void setPost(Post post) { this.post = post; }
 }

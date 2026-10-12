@@ -1,6 +1,7 @@
 package com.gameon.controller;
 
 import com.gameon.model.entity.Notification;
+import com.gameon.exception.BusinessRuleException;
 import com.gameon.security.CustomUserDetails;
 import com.gameon.service.NotificationService;
 import com.gameon.service.InvitationService;
@@ -37,6 +38,9 @@ public class NotificationController {
                 currentUser.getUserId(), PageRequest.of(page, 20));
 
         model.addAttribute("notifications", notifications);
+        model.addAttribute("clickableNotificationIds", notificationService
+                .getClickableNotificationIds(notifications.getContent().stream()
+                        .map(Notification::getNotificationId).toList(), currentUser.getUserId()));
         model.addAttribute("unreadCount", notificationService.getUnreadCount(currentUser.getUserId()));
         model.addAttribute("invitations", invitationService.getActiveInvitations(currentUser.getUserId()));
         return "notifications/index";
@@ -54,6 +58,32 @@ public class NotificationController {
                               RedirectAttributes redirectAttributes) {
         int count = notificationService.markAllAsRead(currentUser.getUserId());
         redirectAttributes.addFlashAttribute("success", count + " notifications marked as read");
+        return "redirect:/notifications";
+    }
+
+    @PostMapping("/open/{id}")
+    public String open(@PathVariable Long id,
+                       @AuthenticationPrincipal CustomUserDetails currentUser,
+                       RedirectAttributes redirectAttributes) {
+        return notificationService.openNotification(id, currentUser.getUserId())
+                .map(destination -> "redirect:" + destination)
+                .orElseGet(() -> {
+                    redirectAttributes.addFlashAttribute("error",
+                            "This notification no longer has an available destination.");
+                    return "redirect:/notifications";
+                });
+    }
+
+    @PostMapping("/invitations/{id}/decline")
+    public String declineInvitation(@PathVariable Long id,
+                                    @AuthenticationPrincipal CustomUserDetails currentUser,
+                                    RedirectAttributes redirectAttributes) {
+        try {
+            invitationService.declineInvitation(id, currentUser.getUserId());
+            redirectAttributes.addFlashAttribute("success", "Invitation declined.");
+        } catch (BusinessRuleException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
         return "redirect:/notifications";
     }
 }

@@ -56,7 +56,7 @@ public class CommentService {
         if (!post.getUser().getUserId().equals(userId)) {
             notificationService.createNotification(post.getUser().getUserId(),
                     user.getUsername() + " commented on your post.", NotificationType.POST_COMMENTED,
-                    user, null, null, null);
+                    user, null, null, null, post);
         }
         logger.debug("Comment added: User {} → Post {} (ID: {})", userId, postId, saved.getCommentId());
         return saved;

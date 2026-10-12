@@ -67,6 +67,19 @@ public class SchedulingConfig {
         }
     }
 
+    @Scheduled(fixedRate = 60000)
+    public void sendDeadlineApproachingReminders() {
+        List<GameListing> listings = listingLifecycleService.findListingsNeedingDeadlineApproachingReminder();
+        for (GameListing listing : listings) {
+            try {
+                listingLifecycleService.sendDeadlineApproachingReminders(listing.getGameListingId());
+            } catch (Exception e) {
+                logger.error("Failed to send deadline-approaching reminders for listing {}: {}",
+                        listing.getGameListingId(), e.getMessage());
+            }
+        }
+    }
+
     /**
      * Runs every minute. Processes listings that have reached (or passed) the T-1h finalisation point.
      */

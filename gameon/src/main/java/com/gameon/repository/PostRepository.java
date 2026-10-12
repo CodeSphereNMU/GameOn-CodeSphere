@@ -16,6 +16,12 @@ import java.util.Optional;
 @Repository
 public interface PostRepository extends JpaRepository<Post, Long> {
 
+    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM Post p " +
+           "WHERE p.postId = :postId AND p.removedAt IS NULL AND (p.user.userId = :viewerId " +
+           "OR p.privacySetting = 'PUBLIC' OR (p.privacySetting = 'FOLLOWERS' AND EXISTS " +
+           "(SELECT f FROM Follow f WHERE f.follower.userId = :viewerId AND f.followed.userId = p.user.userId)))")
+    boolean existsVisibleToUser(@Param("postId") Long postId, @Param("viewerId") Long viewerId);
+
     List<Post> findByUserUserIdAndRemovedAtIsNull(Long userId);
 
     Page<Post> findByUserUserIdAndRemovedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);

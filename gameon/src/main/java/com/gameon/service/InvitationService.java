@@ -85,6 +85,17 @@ public class InvitationService {
                 .toList();
     }
 
+    @Transactional
+    public void declineInvitation(Long invitationId, Long inviteeId) {
+        Invitation invitation = invitationRepository.findByInvitationIdAndInviteeUserId(invitationId, inviteeId)
+                .orElseThrow(() -> new BusinessRuleException("This invitation is no longer available."));
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new BusinessRuleException("This invitation can no longer be declined.");
+        }
+        invitation.setStatus(InvitationStatus.DECLINED);
+        invitationRepository.save(invitation);
+    }
+
     private boolean hasNoActiveRequest(Invitation invitation, Long userId) {
         return !joinRequestRepository.existsByGameListingGameListingIdAndUserUserIdAndStatus(
                 invitation.getGameListing().getGameListingId(), userId, JoinRequestStatus.PENDING);

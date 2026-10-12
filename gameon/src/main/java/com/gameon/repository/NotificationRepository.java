@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
@@ -20,6 +21,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Page<Notification> findByRecipientUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     long countByRecipientUserIdAndIsReadFalse(Long userId);
+
+    @Query("SELECT n FROM Notification n LEFT JOIN FETCH n.gameListing gl LEFT JOIN FETCH gl.creator " +
+           "LEFT JOIN FETCH n.actor LEFT JOIN FETCH n.post LEFT JOIN FETCH n.matchResult " +
+           "WHERE n.notificationId = :notificationId AND n.recipient.userId = :userId")
+    Optional<Notification> findOwnedForOpening(@Param("notificationId") Long notificationId,
+                                               @Param("userId") Long userId);
+
+    @Query("SELECT n FROM Notification n LEFT JOIN FETCH n.gameListing gl LEFT JOIN FETCH gl.creator " +
+           "LEFT JOIN FETCH n.actor LEFT JOIN FETCH n.post LEFT JOIN FETCH n.matchResult " +
+           "WHERE n.notificationId IN :ids AND n.recipient.userId = :userId")
+    List<Notification> findOwnedForOpening(@Param("ids") List<Long> ids, @Param("userId") Long userId);
 
     List<Notification> findByRecipientUserIdAndNotificationType(Long userId, NotificationType type);
 

@@ -15,7 +15,7 @@ public enum NotificationType {
     /** Sent when attendance confirmation window opens (T-24h). */
     ATTENDANCE_CONFIRMATION_OPEN("Attendance confirmation open"),
     /** Sent as a reminder that the T-2h confirmation deadline is approaching. */
-    ATTENDANCE_CONFIRMATION_DEADLINE("Confirmation deadline"),
+    ATTENDANCE_CONFIRMATION_DEADLINE("Confirmation deadline approaching!"),
     /** Creator has approved this user for a last-call place; they can claim it. */
     LAST_CALL_OFFER("A spot just opened up!"),
     /** User successfully claimed a last-call place. */
@@ -35,7 +35,8 @@ public enum NotificationType {
     POST_COMMENTED("New comment!"),
     MATCH_RESULT_REMINDER("How did it go?"),
     /** A moderator issued a community strike/warning against the user. */
-    STRIKE_ISSUED("STRIKE ISSUED");
+    STRIKE_ISSUED("STRIKE ISSUED"),
+    LISTING_NEEDS_PLAYERS("Still need players!");
 
     private final String heading;
 

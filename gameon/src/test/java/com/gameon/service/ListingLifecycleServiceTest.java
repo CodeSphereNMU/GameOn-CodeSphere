@@ -157,6 +157,63 @@ class ListingLifecycleServiceTest {
             verify(notificationService, times(1)).createNotification(eq(1L), contains("Doubles Tennis game at Court"),
                     eq(NotificationType.MATCH_RESULT_REMINDER), isNull(), eq(listing), isNull(), isNull());
         }
+
+        @Test
+        @DisplayName("Delayed T-5h checks still find listings before the T-2h cutoff")
+        void delayedDeadlineReminderCheckFindsListing() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setScheduledDate(now.plusHours(4)); // The T-5h check is an hour late.
+            doReturn(now).when(service).currentTime();
+            when(gameListingRepository.findListingsNeedingDeadlineApproachingReminder(
+                    now.plusHours(2), now.plusHours(5))).thenReturn(List.of(listing));
+
+            assertThat(service.findListingsNeedingDeadlineApproachingReminder()).containsExactly(listing);
+
+            verify(gameListingRepository).findListingsNeedingDeadlineApproachingReminder(
+                    now.plusHours(2), now.plusHours(5));
+        }
+
+        @Test
+        @DisplayName("T-5h reminder is sent once to accepted, unconfirmed participants eligible at the reminder point")
+        void deadlineApproachingReminderUsesAcceptanceTimeAndDeduplicates() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setScheduledDate(now.plusHours(4));
+            doReturn(now).when(service).currentTime();
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
+            GameJoiner earlier = makeJoiner(2L, "Player2", listing, JoinerStatus.ACCEPTED);
+            earlier.setUpdatedAt(now.minusHours(1).minusMinutes(1));
+            GameJoiner later = makeJoiner(3L, "Player3", listing, JoinerStatus.ACCEPTED);
+            GameJoiner confirmed = makeJoiner(4L, "Player4", listing, JoinerStatus.CONFIRMED_ATTENDANCE);
+            when(gameJoinerRepository.findUnconfirmedAccepted(10L))
+                    .thenReturn(List.of(earlier, later, confirmed));
+            when(notificationService.hasNotification(2L, 10L,
+                    NotificationType.ATTENDANCE_CONFIRMATION_DEADLINE)).thenReturn(false, true);
+
+            service.sendDeadlineApproachingReminders(10L);
+            service.sendDeadlineApproachingReminders(10L);
+
+            verify(notificationService, times(1)).createNotification(eq(2L), contains("Creator's Doubles Tennis"),
+                    eq(NotificationType.ATTENDANCE_CONFIRMATION_DEADLINE), isNull(), eq(listing), isNull(), isNull());
+            verify(notificationService, never()).createNotification(eq(3L), anyString(),
+                    eq(NotificationType.ATTENDANCE_CONFIRMATION_DEADLINE), any(), any(), any(), any());
+            verify(notificationService, never()).createNotification(eq(4L), anyString(),
+                    eq(NotificationType.ATTENDANCE_CONFIRMATION_DEADLINE), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("T-5h reminder is not sent at the T-2h cutoff")
+        void deadlineApproachingReminderStopsAtT2h() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setScheduledDate(now.plusHours(2));
+            doReturn(now).when(service).currentTime();
+            when(gameListingRepository.findByIdWithDetails(10L)).thenReturn(Optional.of(listing));
+
+            service.sendDeadlineApproachingReminders(10L);
+
+            verify(gameJoinerRepository, never()).findUnconfirmedAccepted(10L);
+            verifyNoInteractions(notificationService);
+        }
+
     }
 
     // ========== T-2h Confirmation Deadline Tests ==========
@@ -256,6 +313,25 @@ class ListingLifecycleServiceTest {
             // Listing remains OPEN — enters replacement period
             assertThat(listing.getListingStatus()).isEqualTo(ListingStatus.OPEN);
             verify(gameListingRepository, never()).save(listing);
+        }
+
+        @Test
+        @DisplayName("Organiser gets one still-needs-players reminder after unconfirmed places are released")
+        void needsPlayersReminderIsSentWhenConfirmedCapacityIsShort() {
+            LocalDateTime now = LocalDateTime.now();
+            listing.setScheduledDate(now.plusHours(1).plusMinutes(30));
+            doReturn(now).when(service).currentTime();
+            when(gameListingRepository.findById(10L)).thenReturn(Optional.of(listing));
+            when(gameJoinerRepository.findUnconfirmedAccepted(10L)).thenReturn(List.of());
+            when(gameJoinerRepository.countByIdGameListingIdAndStatusIn(10L,
+                    List.of(JoinerStatus.CONFIRMED_ATTENDANCE, JoinerStatus.LOCKED))).thenReturn(2L);
+            when(notificationService.hasNotification(1L, 10L, NotificationType.LISTING_NEEDS_PLAYERS))
+                    .thenReturn(false);
+
+            service.processConfirmationDeadline(10L);
+
+            verify(notificationService).createNotification(eq(1L), contains("doesn't have enough confirmed players"),
+                    eq(NotificationType.LISTING_NEEDS_PLAYERS), isNull(), eq(listing), isNull(), isNull());
         }
 
         @Test

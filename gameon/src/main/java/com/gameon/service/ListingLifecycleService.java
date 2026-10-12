@@ -98,6 +98,49 @@ public class ListingLifecycleService {
                 now.plusHours(CONFIRMATION_WINDOW_HOURS));
     }
 
+    @Transactional(readOnly = true)
+    public List<GameListing> findListingsNeedingDeadlineApproachingReminder() {
+        LocalDateTime now = currentTime();
+        return gameListingRepository.findListingsNeedingDeadlineApproachingReminder(
+                now.plusHours(CONFIRMATION_DEADLINE_HOURS), now.plusHours(5));
+    }
+
+    @Transactional
+    public void sendDeadlineApproachingReminders(Long listingId) {
+        GameListing listing = gameListingRepository.findByIdWithDetails(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Game Listing", listingId));
+        LocalDateTime now = currentTime();
+        if (listing.getListingStatus() != ListingStatus.OPEN
+                || !listing.getScheduledDate().isAfter(now.plusHours(CONFIRMATION_DEADLINE_HOURS))
+                || listing.getScheduledDate().isAfter(now.plusHours(5))) {
+            return;
+        }
+
+        LocalDateTime reminderPoint = listing.getScheduledDate().minusHours(5);
+        for (GameJoiner joiner : gameJoinerRepository.findUnconfirmedAccepted(listingId)) {
+            // For an ACCEPTED row, updatedAt records the latest transition into that state.
+            if (joiner.getStatus() != JoinerStatus.ACCEPTED
+                    || joiner.getAttendanceConfirmedAt() != null
+                    || joiner.getUpdatedAt() == null
+                    || joiner.getUpdatedAt().isAfter(reminderPoint)) {
+                continue;
+            }
+            Long recipientId = joiner.getUser().getUserId();
+            if (notificationService.hasNotification(recipientId, listingId,
+                    NotificationType.ATTENDANCE_CONFIRMATION_DEADLINE)) {
+                continue;
+            }
+            boolean organizer = recipientId.equals(listing.getCreator().getUserId());
+            String text = organizer
+                    ? "You haven't confirmed attendance for your " + formatSport(listing) +
+                        " game. Confirm before the deadline!"
+                    : "You haven't confirmed attendance for " + listing.getCreator().getUsername() + "'s " +
+                        formatSport(listing) + " game. Confirm your spot before the deadline!";
+            notificationService.createNotification(recipientId, text,
+                    NotificationType.ATTENDANCE_CONFIRMATION_DEADLINE, null, listing, null, null);
+        }
+    }
+
     @Transactional
     public void sendConfirmationReminders(Long listingId) {
         GameListing listing = gameListingRepository.findByIdWithDetails(listingId)
@@ -207,6 +250,17 @@ public class ListingLifecycleService {
                 notificationService.createNotification(creatorId, urgentText,
                         NotificationType.CREATOR_CONFIRMATION_URGENT, null, listing, null, null);
             }
+        }
+
+        long confirmedCount = gameJoinerRepository.countByIdGameListingIdAndStatusIn(listingId,
+                List.of(JoinerStatus.CONFIRMED_ATTENDANCE, JoinerStatus.LOCKED));
+        if (confirmedCount < listing.getFormat().getNoPlayers()
+                && !notificationService.hasNotification(creatorId, listingId,
+                        NotificationType.LISTING_NEEDS_PLAYERS)) {
+            String message = "Your " + formatSport(listing) + " game at " + listing.getLocation() +
+                    " doesn't have enough confirmed players yet. Check your pending requests before the final deadline.";
+            notificationService.createNotification(creatorId, message,
+                    NotificationType.LISTING_NEEDS_PLAYERS, null, listing, null, null);
         }
 
         logger.info("Listing {} confirmation deadline processed: {} unconfirmed players released, creator unconfirmed={}",

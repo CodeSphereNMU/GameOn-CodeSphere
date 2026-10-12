@@ -70,6 +70,12 @@ public interface GameListingRepository extends JpaRepository<GameListing, Long> 
                                                                @Param("before") LocalDateTime before);
 
     @Query("SELECT gl FROM GameListing gl " +
+           "WHERE gl.listingStatus = 'OPEN' AND gl.scheduledDate > :after " +
+           "AND gl.scheduledDate <= :before ORDER BY gl.scheduledDate ASC")
+    List<GameListing> findListingsNeedingDeadlineApproachingReminder(@Param("after") LocalDateTime after,
+                                                                      @Param("before") LocalDateTime before);
+
+    @Query("SELECT gl FROM GameListing gl " +
            "JOIN FETCH gl.format sf JOIN FETCH sf.sport JOIN FETCH gl.creator " +
            "LEFT JOIN FETCH gl.matchResult " +
            "WHERE gl.listingStatus = 'CONFIRMED' AND gl.scheduledDate <= :threshold " +

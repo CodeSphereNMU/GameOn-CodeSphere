@@ -43,7 +43,7 @@ class CommentServiceTest {
         service.addComment(2L, 10L, "Nice post");
 
         verify(notificationService).createNotification(1L, "Commenter commented on your post.",
-                NotificationType.POST_COMMENTED, commenter, null, null, null);
+                NotificationType.POST_COMMENTED, commenter, null, null, null, post);
     }
 
     @Test

@@ -23,17 +23,29 @@
             <span th:text="${success}"></span>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
 
         <div th:if="${invitations != null && !invitations.isEmpty()}" class="card shadow-sm mb-4">
             <div class="card-header bg-white"><strong>Game Invitations</strong></div>
             <div class="list-group list-group-flush">
-                <a th:each="invitation : ${invitations}"
-                   th:href="@{'/listings/' + ${invitation.gameListing.gameListingId}}"
-                   class="list-group-item list-group-item-action">
-                    <strong th:text="${invitation.gameListing.format.sport.sportName + ' - ' + invitation.gameListing.format.formatName}">Game</strong>
-                    <span class="text-muted ms-2" th:text="${#temporals.format(invitation.gameListing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
-                    <span class="badge bg-danger float-end">View Listing</span>
-                </a>
+                <div th:each="invitation : ${invitations}"
+                     class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                    <a th:href="@{'/listings/' + ${invitation.gameListing.gameListingId}}"
+                       class="text-decoration-none flex-grow-1">
+                        <strong th:text="${invitation.gameListing.format.sport.sportName + ' - ' + invitation.gameListing.format.formatName}">Game</strong>
+                        <span class="text-muted ms-2" th:text="${#temporals.format(invitation.gameListing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
+                    </a>
+                    <div class="d-flex align-items-center gap-2">
+                        <a th:href="@{'/listings/' + ${invitation.gameListing.gameListingId}}"
+                           class="badge bg-danger text-decoration-none">View Listing</a>
+                        <form th:action="@{'/notifications/invitations/' + ${invitation.invitationId} + '/decline'}" method="post">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Decline</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -46,8 +58,19 @@
         <div class="list-group">
             <div th:each="notif : ${notifications}"
                  class="list-group-item d-flex justify-content-between align-items-start"
-                 th:classappend="${!notif.isRead} ? 'list-group-item-light border-start border-danger border-3'">
-                <div class="ms-2 me-auto">
+                 th:classappend="${(!notif.isRead ? 'list-group-item-light border-start border-danger border-3' : '') + (clickableNotificationIds.contains(notif.notificationId) ? ' notification-clickable' : '')}">
+                <form th:if="${clickableNotificationIds.contains(notif.notificationId)}"
+                      th:action="@{'/notifications/open/' + ${notif.notificationId}}" method="post"
+                      class="notification-open-form ms-2 me-auto">
+                    <button type="submit" class="notification-open-button text-start">
+                        <span class="d-block d-flex align-items-center mb-1">
+                            <strong class="me-2" th:text="${notif.notificationType.heading}">Notification heading</strong>
+                            <small class="text-muted" th:text="${#temporals.format(notif.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
+                        </span>
+                        <span class="d-block mb-0" th:text="${notif.text}">Notification text</span>
+                    </button>
+                </form>
+                <div th:unless="${clickableNotificationIds.contains(notif.notificationId)}" class="ms-2 me-auto">
                     <div class="d-flex align-items-center mb-1">
                         <strong class="me-2" th:text="${notif.notificationType.heading}">Notification heading</strong>
                         <small class="text-muted" th:text="${#temporals.format(notif.createdAt, 'dd MMM yyyy HH:mm')}">Date</small>
@@ -80,5 +103,15 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <style>
+        .notification-open-form { flex: 1 1 auto; min-width: 0; }
+        .notification-open-button {
+            display: block; width: 100%; padding: 0; border: 0; background: transparent;
+            color: inherit; font: inherit; cursor: pointer;
+        }
+        .notification-open-button:hover { color: #343a40; }
+        .notification-open-button:focus-visible { outline: 2px solid #dc3545; outline-offset: 3px; border-radius: 2px; }
+        .notification-clickable:hover { background-color: #f8f9fa; }
+    </style>
 </body>
 </html>

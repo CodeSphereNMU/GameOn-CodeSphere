@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface InvitationRepository extends JpaRepository<Invitation, Long> {
+    Optional<Invitation> findByInvitationIdAndInviteeUserId(Long invitationId, Long inviteeId);
     boolean existsByGameListingGameListingIdAndInviteeUserId(Long listingId, Long userId);
     boolean existsByGameListingGameListingId(Long listingId);
     Optional<Invitation> findByGameListingGameListingIdAndInviteeUserId(Long listingId, Long userId);
