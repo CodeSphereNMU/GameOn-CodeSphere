@@ -71,7 +71,7 @@
                     </div>
                     <div>
                         <span th:if="${joiner.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Confirmed</span>
-                        <span th:if="${joiner.status.name() == 'LOCKED'}" class="badge bg-info">Locked In</span>
+                        <span th:if="${joiner.status.name() == 'LOCKED'}" class="badge bg-info">GAME ON!</span>
                         <span th:if="${joiner.status.name() == 'ACCEPTED' && confirmationWindowOpen}" class="badge bg-warning text-dark">Not Yet Confirmed</span>
                         <span th:if="${joiner.status.name() == 'ACCEPTED' && !confirmationWindowOpen}" class="badge bg-success">Accepted</span>
                     </div>

@@ -133,7 +133,7 @@
                         <div class="d-flex gap-2 align-items-center">
                             <!-- Status badge reflecting attendance confirmation -->
                             <span th:if="${gj.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Confirmed</span>
-                            <span th:if="${gj.status.name() == 'LOCKED'}" class="badge bg-info">Locked In</span>
+                            <span th:if="${gj.status.name() == 'LOCKED'}" class="badge bg-info">GAME ON!</span>
                             <span th:if="${gj.status.name() == 'ACCEPTED' && (confirmationAvailableIds == null || !confirmationAvailableIds.contains(gj.gameListing.gameListingId))}"
                                   class="badge bg-secondary">Accepted</span>
                             <span th:if="${gj.status.name() == 'ACCEPTED' && confirmationAvailableIds != null && confirmationAvailableIds.contains(gj.gameListing.gameListingId)}"
