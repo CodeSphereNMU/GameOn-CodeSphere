@@ -35,15 +35,18 @@ public class ReportService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostService postService;
+    private final BlockService blockService;
 
     public ReportService(ReportRepository reportRepository,
                          UserRepository userRepository,
                          PostRepository postRepository,
-                         PostService postService) {
+                         PostService postService,
+                         BlockService blockService) {
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.postService = postService;
+        this.blockService = blockService;
     }
 
     /**
@@ -87,6 +90,32 @@ public class ReportService {
         Report report = createReport(reporterId, referenceId, reportType, reportReason);
         report.setContent(content);
         return reportRepository.save(report);
+    }
+
+    /**
+     * Report &amp; Block (D600): creates a USER report and blocks the reported user in a single
+     * transaction. Either both succeed or neither does - a failure (e.g. an invalid user, or a
+     * self-report/self-block) rolls the whole operation back, so we never leave a report without
+     * the intended block or a block without the report.
+     *
+     * <p>Reporting is a moderation action, not an automatic ban: the reported user remains
+     * active and visible to everyone else; only the mutual block between these two users is
+     * created. The report reason/content and moderation history are preserved as normal.</p>
+     *
+     * @param reporterId     the user submitting the report and performing the block
+     * @param reportedUserId the user being reported and blocked
+     * @param reportReason   the selected offence reason
+     * @param content        optional free-text detail (may be {@code null})
+     * @return the persisted report
+     */
+    @Transactional
+    public Report reportAndBlockUser(Long reporterId, Long reportedUserId,
+                                     String reportReason, String content) {
+        Report report = createReport(reporterId, reportedUserId, ReportType.USER, reportReason, content);
+        // Mutual block via the single existing blocking system (guards self-block internally).
+        blockService.block(reporterId, reportedUserId);
+        logger.info("Report & Block: reporter={} reported and blocked user={}", reporterId, reportedUserId);
+        return report;
     }
 
     /**

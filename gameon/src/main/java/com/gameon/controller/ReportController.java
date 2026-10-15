@@ -55,6 +55,12 @@ public class ReportController {
         return "report/form";
     }
 
+    /**
+     * Report &amp; Block (D600): submits a user report AND blocks the reported user in one
+     * transaction (see {@link ReportService#reportAndBlockUser}). On success the reporter is
+     * sent to the social hub - never back to the now-blocked user's profile, which is no longer
+     * accessible to either side. On failure both the report and block are rolled back together.
+     */
     @PostMapping("/user/{userId}")
     public String submitUserReport(@PathVariable Long userId,
                                    @RequestParam String reportReason,
@@ -62,12 +68,15 @@ public class ReportController {
                                    @AuthenticationPrincipal CustomUserDetails currentUser,
                                    RedirectAttributes redirectAttributes) {
         try {
-            reportService.createReport(currentUser.getUserId(), userId, ReportType.USER, reportReason, content);
-            redirectAttributes.addFlashAttribute("success", "Report submitted. A moderator will review it.");
+            reportService.reportAndBlockUser(currentUser.getUserId(), userId, reportReason, content);
+            redirectAttributes.addFlashAttribute("success",
+                    "Report submitted and user blocked. You will no longer see each other's content.");
+            return "redirect:/social";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
+            // On failure, return to the report form so the reporter can retry or correct input.
+            return "redirect:/report/user/" + userId;
         }
-        return "redirect:/profile/" + userId;
     }
 
     // ===== D700: Report Post =====
