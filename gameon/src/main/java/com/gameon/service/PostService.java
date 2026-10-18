@@ -10,6 +10,7 @@ import com.gameon.model.entity.PostImage;
 import com.gameon.model.entity.User;
 import com.gameon.model.enums.PrivacySetting;
 import com.gameon.repository.FollowRepository;
+import com.gameon.repository.LikeRepository;
 import com.gameon.repository.PostImageRepository;
 import com.gameon.repository.PostRepository;
 import com.gameon.repository.UserRepository;
@@ -23,9 +24,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.time.LocalDateTime;
 
 /**
@@ -47,19 +50,22 @@ public class PostService {
     private final PostImageRepository postImageRepository;
     private final ImageStorageService imageStorageService;
     private final BlockService blockService;
+    private final LikeRepository likeRepository;
 
     public PostService(PostRepository postRepository,
                        UserRepository userRepository,
                        FollowRepository followRepository,
                        PostImageRepository postImageRepository,
                        ImageStorageService imageStorageService,
-                       BlockService blockService) {
+                       BlockService blockService,
+                       LikeRepository likeRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postImageRepository = postImageRepository;
         this.imageStorageService = imageStorageService;
         this.blockService = blockService;
+        this.likeRepository = likeRepository;
     }
 
     /**
@@ -331,15 +337,20 @@ public class PostService {
     /**
      * Gets a filtered social feed for a user (B300) as DTO projections.
      * Filter options:
-     *   ALL       - public posts + followers-only from followed users + own posts
-     *   PUBLIC    - only public posts
-     *   FOLLOWERS - only followers-only posts from users the current user follows
+     *   ALL       - public posts + followers-only from followed users + own posts (default)
+     *   FOLLOWING - all visible posts (PUBLIC and FOLLOWERS) from users the current user follows,
+     *               excluding the user's own posts
      *   MY_POSTS  - all posts by the current user regardless of privacy
+     *
+     * Any unrecognised filter value (including the retired PUBLIC and FOLLOWERS filters) falls
+     * back to ALL, which fully enforces the privacy rules below.
      *
      * Privacy enforcement:
      *   - Public posts are always visible to everyone.
      *   - Followers-only posts are only visible to followers and the post owner.
-     *   - Users cannot access followers-only posts via URL manipulation.
+     *   - Users cannot access followers-only posts via URL manipulation: the FOLLOWING query only
+     *     returns posts whose author the user actually follows, so no filter can surface a
+     *     followers-only post from an author the viewer does not follow.
      */
     @Transactional(readOnly = true)
     public Page<PostFeedDto> getFilteredFeed(Long userId, String filter, Pageable pageable) {
@@ -350,21 +361,17 @@ public class PostService {
 
         Page<PostFeedDto> page;
         switch (filter.toUpperCase()) {
-            case "PUBLIC":
-                page = hasBlocks
-                        ? postRepository.findPublicPostDtosExcludingBlocked(blockedIds, pageable)
-                        : postRepository.findPublicPostDtos(pageable);
-                break;
-
-            case "FOLLOWERS":
-                // Security: only show followers-only posts from users the current user actually follows
+            case "FOLLOWING":
+                // All visible posts from users the current user actually follows (any privacy).
+                // Because a FOLLOWERS post is only returned when its author is followed, privacy
+                // is preserved; own posts are excluded since a user never follows themselves.
                 List<Long> followedIdsForFilter = followRepository.findFollowingUserIds(userId);
                 if (followedIdsForFilter.isEmpty()) {
                     return Page.empty(pageable);
                 }
                 page = hasBlocks
-                        ? postRepository.findFollowersOnlyPostDtosExcludingBlocked(followedIdsForFilter, blockedIds, pageable)
-                        : postRepository.findFollowersOnlyPostDtos(followedIdsForFilter, pageable);
+                        ? postRepository.findFollowingPostDtosExcludingBlocked(followedIdsForFilter, blockedIds, pageable)
+                        : postRepository.findFollowingPostDtos(followedIdsForFilter, pageable);
                 break;
 
             case "MY_POSTS":
@@ -372,7 +379,7 @@ public class PostService {
                 page = postRepository.findMyPostDtos(userId, pageable);
                 break;
 
-            default: // "ALL" - all visible posts
+            default: // "ALL" - all visible posts (also the safe fallback for retired filters)
                 List<Long> followedIds = followRepository.findFollowingUserIds(userId);
                 if (followedIds.isEmpty()) {
                     page = hasBlocks
@@ -387,7 +394,29 @@ public class PostService {
         }
         attachImages(page.getContent());
         attachAuthorAvatars(page.getContent());
+        attachLikedState(userId, page.getContent());
         return page;
+    }
+
+    /**
+     * Marks which posts on a page the viewing user has liked, using a single batch query for the
+     * whole page (no per-post N+1 lookups). Drives the feed's heart icon: clear when not liked,
+     * filled/red when liked.
+     */
+    private void attachLikedState(Long viewerId, List<PostFeedDto> dtos) {
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+        List<Long> postIds = dtos.stream().map(PostFeedDto::postId).toList();
+        Set<Long> likedPostIds = new HashSet<>(likeRepository.findLikedPostIds(viewerId, postIds));
+        if (likedPostIds.isEmpty()) {
+            return;
+        }
+        for (PostFeedDto dto : dtos) {
+            if (likedPostIds.contains(dto.postId())) {
+                dto.setLikedByCurrentUser(true);
+            }
+        }
     }
 
     /**

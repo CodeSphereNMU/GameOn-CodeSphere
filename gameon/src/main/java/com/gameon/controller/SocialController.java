@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for B100 (Create Posts), B200 (Manage Posts), B300 (Browse Posts).
@@ -133,6 +134,22 @@ public class SocialController {
                              @RequestParam(defaultValue = "ALL") String filter) {
         likeService.toggleLike(currentUser.getUserId(), postId);
         return "redirect:/social?page=" + page + "&filter=" + filter;
+    }
+
+    /**
+     * AJAX like/unlike. Toggles the like and returns the new state as JSON so the feed and
+     * post-detail pages can update the heart icon and count in place, without a full page reload.
+     * The form-based {@link #toggleLike} endpoint remains the no-JavaScript fallback.
+     */
+    @PostMapping("/social/like/{postId}/ajax")
+    @ResponseBody
+    public Map<String, Object> toggleLikeAjax(@PathVariable Long postId,
+                                               @AuthenticationPrincipal CustomUserDetails currentUser) {
+        boolean liked = likeService.toggleLike(currentUser.getUserId(), postId);
+        return Map.of(
+                "liked", liked,
+                "likeCount", likeService.getLikeCount(postId)
+        );
     }
 
     // ===== B300: Add Comment =====

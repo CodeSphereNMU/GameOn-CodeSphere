@@ -39,6 +39,13 @@ public class PostFeedDto {
     private String authorProfilePictureUrl;
 
     /**
+     * Whether the viewing user has liked this post. Attached separately (like {@link #imagePaths})
+     * so the JPQL projection constructor stays unchanged. Drives the feed's heart icon: filled/red
+     * when liked, outline/clear when not.
+     */
+    private boolean likedByCurrentUser;
+
+    /**
      * Constructor used directly by the JPQL feed projections. The signature must stay
      * unchanged so existing repository queries keep compiling.
      */
@@ -101,6 +108,14 @@ public class PostFeedDto {
 
     public void setAuthorProfilePictureUrl(String authorProfilePictureUrl) {
         this.authorProfilePictureUrl = authorProfilePictureUrl;
+    }
+
+    public boolean isLikedByCurrentUser() {
+        return likedByCurrentUser;
+    }
+
+    public void setLikedByCurrentUser(boolean likedByCurrentUser) {
+        this.likedByCurrentUser = likedByCurrentUser;
     }
 
     /** Convenience for templates: whether this post has any attached images. */

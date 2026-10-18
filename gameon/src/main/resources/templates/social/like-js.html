@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Shared AJAX like/unlike script (B300).
+  Intercepts submission of any like form (data-like-form) and toggles the like via the JSON
+  endpoint, with NO page reload or navigation. The heart icon, its colour and the like count
+  update optimistically the instant the user clicks; the request then persists the change in the
+  database. If the request fails the previous visual state is restored and an error is shown.
+
+  CSRF: the token is read from the Thymeleaf-rendered hidden "_csrf" field that already lives
+  inside each like form, and sent as the X-XSRF-TOKEN header. This avoids relying on the
+  XSRF-TOKEN cookie, which Spring Security's CookieCsrfTokenRepository does not guarantee is
+  present on first page load (the forms authenticate via the hidden field, not the cookie).
+-->
+<th:block th:fragment="script">
+<script>
+(function () {
+    // Pull the CSRF token out of the form's own hidden field (name="_csrf").
+    function csrfTokenFor(form) {
+        var field = form.querySelector('input[name="_csrf"]');
+        return field ? field.value : null;
+    }
+
+    // Capture the current visual state so it can be restored if the request fails.
+    function snapshot(form) {
+        var icon = form.querySelector('[data-like-icon]');
+        var count = form.querySelector('[data-like-count]');
+        return {
+            liked: icon ? icon.classList.contains('bi-heart-fill') : false,
+            count: count ? parseInt(count.textContent, 10) || 0 : 0
+        };
+    }
+
+    // Reflect a liked state + count on a single like form's button.
+    function render(form, liked, likeCount) {
+        var btn = form.querySelector('[data-like-btn]');
+        var icon = form.querySelector('[data-like-icon]');
+        var count = form.querySelector('[data-like-count]');
+        if (count && typeof likeCount === 'number') {
+            count.textContent = likeCount;
+        }
+        if (icon) {
+            icon.classList.toggle('bi-heart-fill', liked);
+            icon.classList.toggle('bi-heart', !liked);
+            // Feed hearts tint the icon red when liked; detail page tints the button instead.
+            if (icon.hasAttribute('data-like-icon-tint')) {
+                icon.classList.toggle('text-danger', liked);
+            }
+        }
+        if (btn) {
+            // Feed button: muted when clear, red when liked.
+            if (btn.hasAttribute('data-like-btn-text')) {
+                btn.classList.toggle('text-danger', liked);
+                btn.classList.toggle('text-muted', !liked);
+            }
+            // Detail page button: solid red when liked, outline when clear.
+            if (btn.hasAttribute('data-like-btn-fill')) {
+                btn.classList.toggle('btn-danger', liked);
+                btn.classList.toggle('btn-outline-danger', !liked);
+            }
+        }
+    }
+
+    // Transient, dismissible error using the app's existing Bootstrap alert styling.
+    function showError(message) {
+        var el = document.createElement('div');
+        el.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3 shadow';
+        el.style.zIndex = '2000';
+        el.setAttribute('role', 'alert');
+        el.textContent = message;
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'btn-close';
+        close.setAttribute('data-bs-dismiss', 'alert');
+        close.setAttribute('aria-label', 'Close');
+        el.appendChild(close);
+        document.body.appendChild(el);
+        setTimeout(function () {
+            if (el.parentNode) { el.parentNode.removeChild(el); }
+        }, 4000);
+    }
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-like-form')) {
+            return;
+        }
+        // Never let the browser navigate/reload for a like.
+        e.preventDefault();
+
+        // Guard against double submits while a request is in flight.
+        if (form.dataset.likePending === 'true') {
+            return;
+        }
+        form.dataset.likePending = 'true';
+
+        // --- Optimistic update: flip the heart + count instantly, before the server responds.
+        var before = snapshot(form);
+        var optimisticLiked = !before.liked;
+        var optimisticCount = before.count + (optimisticLiked ? 1 : -1);
+        if (optimisticCount < 0) { optimisticCount = 0; }
+        render(form, optimisticLiked, optimisticCount);
+
+        var url = form.getAttribute('action') + '/ajax';
+        var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+        var token = csrfTokenFor(form);
+        if (token) {
+            headers['X-XSRF-TOKEN'] = token;
+        }
+
+        fetch(url, { method: 'POST', headers: headers, credentials: 'same-origin' })
+            .then(function (res) {
+                if (!res.ok) { throw new Error('Like request failed: ' + res.status); }
+                return res.json();
+            })
+            .then(function (data) {
+                // Reconcile with the server's authoritative state (handles concurrent likes).
+                render(form, !!data.liked, data.likeCount);
+            })
+            .catch(function (err) {
+                // No reload fallback: undo the optimistic change and tell the user.
+                console.error('[GameOn like]', err);
+                render(form, before.liked, before.count);
+                showError('Could not update your like. Please try again.');
+            })
+            .finally(function () {
+                delete form.dataset.likePending;
+            });
+    });
+})();
+</script>
+</th:block>
+</body>
+</html>

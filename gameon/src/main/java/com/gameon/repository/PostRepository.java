@@ -88,7 +88,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // ===== Filtered Feed DTO projections =====
 
     /**
-     * Public-only posts from all users (filter: PUBLIC).
+     * All visible posts authored by users the current user follows (filter: FOLLOWING).
+     * Returns both PUBLIC and FOLLOWERS posts, but only from followed authors; the current
+     * user's own posts are excluded (a user does not follow themselves).
+     *
+     * <p>Privacy is preserved intrinsically: a FOLLOWERS post is only ever returned when its
+     * author is in {@code followedUserIds}, i.e. the viewer follows them. Posts from non-followed
+     * users are never returned, regardless of privacy.</p>
      */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.privacySetting, p.createdAt, " +
@@ -96,23 +102,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.removedAt IS NULL AND p.privacySetting = 'PUBLIC' " +
+           "WHERE p.removedAt IS NULL AND p.user.userId IN :followedUserIds " +
            "ORDER BY p.createdAt DESC")
-    Page<PostFeedDto> findPublicPostDtos(Pageable pageable);
-
-    /**
-     * Followers-only posts from users the current user follows (filter: FOLLOWERS).
-     * Security: only returns FOLLOWERS posts where the author is in the followedUserIds list.
-     */
-    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
-           "p.user.userId, p.user.username, " +
-           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
-           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
-           "FROM Post p " +
-           "WHERE p.removedAt IS NULL AND p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
-           "ORDER BY p.createdAt DESC")
-    Page<PostFeedDto> findFollowersOnlyPostDtos(
+    Page<PostFeedDto> findFollowingPostDtos(
             @Param("followedUserIds") List<Long> followedUserIds,
             Pageable pageable);
 
@@ -167,28 +159,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // Each mirrors its non-blocked counterpart but excludes posts authored by any user on the
     // viewer's "block wall" (blocked-either-way). Filtering is done in the database via NOT IN.
 
+    /**
+     * Block-filtered variant of {@link #findFollowingPostDtos} (filter: FOLLOWING).
+     * Same semantics, additionally excluding any author on the viewer's block wall.
+     */
     @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
            "p.postId, p.content, p.privacySetting, p.createdAt, " +
            "p.user.userId, p.user.username, " +
            "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
            "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
            "FROM Post p " +
-           "WHERE p.removedAt IS NULL AND p.privacySetting = 'PUBLIC' " +
+           "WHERE p.removedAt IS NULL AND p.user.userId IN :followedUserIds " +
            "AND p.user.userId NOT IN :blockedUserIds " +
            "ORDER BY p.createdAt DESC")
-    Page<PostFeedDto> findPublicPostDtosExcludingBlocked(
-            @Param("blockedUserIds") List<Long> blockedUserIds, Pageable pageable);
-
-    @Query("SELECT new com.gameon.model.dto.PostFeedDto(" +
-           "p.postId, p.content, p.privacySetting, p.createdAt, " +
-           "p.user.userId, p.user.username, " +
-           "(SELECT COUNT(l) FROM Like l WHERE l.post = p), " +
-           "(SELECT COUNT(c) FROM Comment c WHERE c.post = p)) " +
-           "FROM Post p " +
-           "WHERE p.removedAt IS NULL AND p.privacySetting = 'FOLLOWERS' AND p.user.userId IN :followedUserIds " +
-           "AND p.user.userId NOT IN :blockedUserIds " +
-           "ORDER BY p.createdAt DESC")
-    Page<PostFeedDto> findFollowersOnlyPostDtosExcludingBlocked(
+    Page<PostFeedDto> findFollowingPostDtosExcludingBlocked(
             @Param("followedUserIds") List<Long> followedUserIds,
             @Param("blockedUserIds") List<Long> blockedUserIds,
             Pageable pageable);

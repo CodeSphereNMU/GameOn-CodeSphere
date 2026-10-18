@@ -55,9 +55,11 @@
                         </div>
 
                         <div class="d-flex gap-3 align-items-center mt-3">
-                            <form th:action="@{'/social/like/' + ${post.postId}}" method="post" class="d-inline">
-                                <button type="submit" class="btn btn-sm" th:classappend="${isLiked} ? 'btn-danger' : 'btn-outline-danger'">
-                                    <i class="bi bi-heart-fill me-1"></i><span th:text="${likeCount}">0</span> Likes
+                            <form th:action="@{'/social/like/' + ${post.postId}}" method="post" class="d-inline" data-like-form>
+                                <button type="submit" class="btn btn-sm"
+                                        data-like-btn data-like-btn-fill
+                                        th:classappend="${isLiked} ? 'btn-danger' : 'btn-outline-danger'">
+                                    <i class="bi me-1" data-like-icon th:classappend="${isLiked} ? 'bi-heart-fill' : 'bi-heart'"></i><span data-like-count th:text="${likeCount}">0</span> Likes
                                 </button>
                             </form>
                             <span class="text-muted small"><i class="bi bi-chat me-1"></i><span th:text="${comments.size()}">0</span> Comments</span>
@@ -128,5 +130,6 @@
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script th:replace="~{social/carousel-js :: script}"></script>
+    <th:block th:replace="~{social/like-js :: script}"></th:block>
 </body>
 </html>
