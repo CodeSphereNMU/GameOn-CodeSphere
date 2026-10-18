@@ -27,6 +27,7 @@ class ReportSoftRemovalTest {
     @Mock UserRepository userRepository;
     @Mock PostRepository postRepository;
     @Mock PostService postService;
+    @Mock BlockService blockService;
     @InjectMocks ReportService service;
 
     @Test
