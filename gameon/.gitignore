@@ -41,5 +41,5 @@ desktop.ini
 *.seed
 build-output.txt
 
-# === Uploaded Post Images (stored on filesystem, not tracked) ===
-uploads/
+# === Uploaded Images (tracked temporarily for expo demonstration) ===
+#uploads/
