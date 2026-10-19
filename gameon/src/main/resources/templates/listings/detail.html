@@ -6,6 +6,14 @@
     <div th:replace="~{fragments/layout :: tabs('listings')}"></div>
 
     <div class="container mt-4">
+        <!-- Back navigation: returns to the originating page when it is a safe same-origin
+             page, otherwise falls back to the listings grid. See script at the bottom. -->
+        <div class="mb-3 text-end">
+            <a th:href="@{/listings}" id="backButton" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+        </div>
+
         <!-- Flash Messages -->
         <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
             <span th:text="${success}"></span>
@@ -205,11 +213,6 @@
             </div>
         </div>
 
-        <div class="mt-3">
-            <a th:href="@{/listings}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i>Back to Listings
-            </a>
-        </div>
     </div>
 
     <style>
@@ -294,6 +297,31 @@
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDirections(); }
                 });
             }
+        }
+    })();
+    </script>
+    <script>
+    /*
+     * Context-aware Back button (presentational only).
+     * The link's default href is the safe fallback (/listings) so it always works,
+     * including with JavaScript disabled, on direct URL access, and after a refresh or
+     * redirect. When the page was reached from another same-origin page (e.g. a
+     * notification or the lobby), the href is upgraded to that referrer. The current
+     * page itself is excluded as a target so a refresh/redirect cannot create a loop.
+     */
+    (function () {
+        var back = document.getElementById('backButton');
+        if (!back) { return; }
+        var ref = document.referrer;
+        if (!ref) { return; }
+        try {
+            var refUrl = new URL(ref);
+            if (refUrl.origin !== window.location.origin) { return; }
+            // Don't send the user back to this exact page (guards refresh / redirect loops).
+            if (refUrl.pathname + refUrl.search === window.location.pathname + window.location.search) { return; }
+            back.setAttribute('href', refUrl.pathname + refUrl.search);
+        } catch (e) {
+            // Malformed referrer: keep the safe fallback href.
         }
     })();
     </script>

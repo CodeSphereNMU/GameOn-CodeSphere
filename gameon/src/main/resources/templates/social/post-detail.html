@@ -9,6 +9,14 @@
     <div class="container mt-4">
         <div class="row justify-content-center">
             <div class="col-md-8">
+                <!-- Back navigation: returns to the originating page when it is a safe
+                     same-origin page, otherwise falls back to the social feed. -->
+                <div class="mb-3 text-end">
+                    <a th:href="@{/social}" id="backButton" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </a>
+                </div>
+
                 <!-- Post Card -->
                 <div class="card shadow-sm mb-3">
                     <div class="card-body">
@@ -115,9 +123,6 @@
                     <small>No comments yet. Be the first!</small>
                 </div>
 
-                <a th:href="@{/social}" class="btn btn-outline-secondary btn-sm mt-3">
-                    <i class="bi bi-arrow-left me-1"></i>Back to Feed
-                </a>
             </div>
         </div>
     </div>
@@ -131,5 +136,28 @@
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script th:replace="~{social/carousel-js :: script}"></script>
     <th:block th:replace="~{social/like-js :: script}"></th:block>
+    <script>
+    /*
+     * Context-aware Back button (presentational only).
+     * Default href is the safe fallback (/social) so the link always works, including with
+     * JavaScript disabled, on direct access, and after a refresh or redirect. When reached
+     * from another same-origin page (e.g. a notification) the href is upgraded to that
+     * referrer. The current page is excluded as a target to avoid refresh/redirect loops.
+     */
+    (function () {
+        var back = document.getElementById('backButton');
+        if (!back) { return; }
+        var ref = document.referrer;
+        if (!ref) { return; }
+        try {
+            var refUrl = new URL(ref);
+            if (refUrl.origin !== window.location.origin) { return; }
+            if (refUrl.pathname + refUrl.search === window.location.pathname + window.location.search) { return; }
+            back.setAttribute('href', refUrl.pathname + refUrl.search);
+        } catch (e) {
+            // Malformed referrer: keep the safe fallback href.
+        }
+    })();
+    </script>
 </body>
 </html>

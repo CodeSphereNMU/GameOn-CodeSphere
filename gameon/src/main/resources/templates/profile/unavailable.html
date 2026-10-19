@@ -6,17 +6,42 @@
     <div th:replace="~{fragments/layout :: tabs('none')}"></div>
 
     <div class="container mt-5">
+        <div class="mb-3 text-end">
+            <a th:href="@{/social}" id="backButton" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+        </div>
         <div class="row justify-content-center">
             <div class="col-md-6 text-center py-5">
                 <i class="bi bi-slash-circle fs-1 text-muted mb-3 d-block"></i>
                 <h4 class="mb-3">This profile is unavailable.</h4>
-                <a th:href="@{/social}" class="btn btn-gameon mt-2">
-                    <i class="bi bi-arrow-left"></i> Back to Social
-                </a>
             </div>
         </div>
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+    /*
+     * Context-aware Back button (presentational only).
+     * Default href is the safe fallback (/social) so the link always works, including with
+     * JavaScript disabled, on direct access, and after a refresh or redirect. When reached
+     * from another same-origin page (e.g. search, feed or a notification) the href is
+     * upgraded to that referrer. The current page is excluded to avoid refresh loops.
+     */
+    (function () {
+        var back = document.getElementById('backButton');
+        if (!back) { return; }
+        var ref = document.referrer;
+        if (!ref) { return; }
+        try {
+            var refUrl = new URL(ref);
+            if (refUrl.origin !== window.location.origin) { return; }
+            if (refUrl.pathname + refUrl.search === window.location.pathname + window.location.search) { return; }
+            back.setAttribute('href', refUrl.pathname + refUrl.search);
+        } catch (e) {
+            // Malformed referrer: keep the safe fallback href.
+        }
+    })();
+    </script>
 </body>
 </html>
