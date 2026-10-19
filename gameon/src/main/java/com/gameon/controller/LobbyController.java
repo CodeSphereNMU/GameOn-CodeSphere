@@ -79,9 +79,31 @@ public class LobbyController {
                 .filter(listingLifecycleService::isInLastCallPeriod)
                 .map(GameListing::getGameListingId)
                 .collect(Collectors.toSet()));
-        // Listings where confirmation is available (for creator's own confirmation)
+        // Listings where the creator may confirm their OWN attendance: the confirmation
+        // window is open AND the creator's own GameJoiner is still ACCEPTED. Mirrors the
+        // Joined-tab logic so the button disappears once the creator confirms.
         model.addAttribute("confirmationAvailableIds", listings.stream()
                 .filter(listingLifecycleService::isConfirmationWindowOpen)
+                .filter(listing -> gameJoinerService
+                        .getJoinerStatus(currentUser.getUserId(), listing.getGameListingId())
+                        .map(status -> status == JoinerStatus.ACCEPTED)
+                        .orElse(false))
+                .map(GameListing::getGameListingId)
+                .collect(Collectors.toSet()));
+        // Creator's individual attendance state (separate from the listing's effectiveStatus),
+        // used to show an individual "Attendance Confirmed" / "GAME ON!" badge on each card.
+        model.addAttribute("creatorConfirmedIds", listings.stream()
+                .filter(listing -> gameJoinerService
+                        .getJoinerStatus(currentUser.getUserId(), listing.getGameListingId())
+                        .map(status -> status == JoinerStatus.CONFIRMED_ATTENDANCE)
+                        .orElse(false))
+                .map(GameListing::getGameListingId)
+                .collect(Collectors.toSet()));
+        model.addAttribute("creatorLockedIds", listings.stream()
+                .filter(listing -> gameJoinerService
+                        .getJoinerStatus(currentUser.getUserId(), listing.getGameListingId())
+                        .map(status -> status == JoinerStatus.LOCKED)
+                        .orElse(false))
                 .map(GameListing::getGameListingId)
                 .collect(Collectors.toSet()));
         model.addAttribute("activeTab", "created");
@@ -116,6 +138,17 @@ public class LobbyController {
                 .filter(joiner -> listingLifecycleService.isInLastCallPeriod(joiner.getGameListing()))
                 .map(joiner -> joiner.getGameListing().getGameListingId())
                 .collect(Collectors.toSet()));
+
+        // Occupied-place count per listing (creator + ACCEPTED/CONFIRMED_ATTENDANCE/LOCKED),
+        // reusing the same calculation the rest of the app uses for capacity. Excludes pending
+        // requests, unclaimed invitations and participants who left. Capacity comes from the
+        // format's player count in the template.
+        model.addAttribute("joinedParticipantCounts", joinedGames.stream()
+                .map(joiner -> joiner.getGameListing().getGameListingId())
+                .distinct()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        gameJoinerService::countCurrentParticipants)));
 
         model.addAttribute("activeTab", "joined");
         return "lobby/index";

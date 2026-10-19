@@ -264,6 +264,18 @@ public class GameJoinerService {
         return saved;
     }
 
+    /**
+     * Read-only lookup of a user's own participation status for a listing.
+     * Returns the user's {@link JoinerStatus}, or empty if they have no GameJoiner row.
+     * Used by the lobby to show a user's individual attendance state (e.g. the creator's
+     * own attendance on the Created tab) without exposing repositories to the controller.
+     */
+    @Transactional(readOnly = true)
+    public Optional<JoinerStatus> getJoinerStatus(Long userId, Long listingId) {
+        return gameJoinerRepository.findByUserAndListing(userId, listingId)
+                .map(GameJoiner::getStatus);
+    }
+
     // ========== Withdrawal (Normal + Late) ==========
 
     /**

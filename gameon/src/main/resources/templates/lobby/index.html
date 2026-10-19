@@ -48,9 +48,15 @@
                             </small>
                         </div>
                         <div class="d-flex gap-2 align-items-center">
+                            <!-- Listing's overall status (the whole game), independent of the creator's attendance. -->
                             <span class="badge"
                                   th:classappend="${listing.effectiveStatus == 'COMPLETED'} ? 'bg-secondary' : (${#strings.startsWith(listing.effectiveStatus, 'CANCELLED')} ? 'bg-danger' : 'bg-success')"
                                   th:text="${#strings.replace(listing.effectiveStatus, '_', ' ')}">Status</span>
+                            <!-- Creator's OWN attendance status (separate from the listing status above). -->
+                            <span th:if="${creatorConfirmedIds != null && creatorConfirmedIds.contains(listing.gameListingId)}"
+                                  class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Attendance Confirmed</span>
+                            <span th:if="${creatorLockedIds != null && creatorLockedIds.contains(listing.gameListingId)}"
+                                  class="badge bg-info">GAME ON!</span>
                             <!-- Creator attendance confirmation -->
                             <form th:if="${confirmationAvailableIds != null && confirmationAvailableIds.contains(listing.gameListingId)}"
                                   th:action="@{'/lobby/created/' + ${listing.gameListingId} + '/confirm'}" method="post">
@@ -128,11 +134,14 @@
                                 <i class="bi bi-calendar me-1"></i>
                                 <span th:text="${#temporals.format(gj.gameListing.scheduledDate, 'dd MMM yyyy HH:mm')}">Date</span>
                                 <span class="ms-2">Team <span th:text="${gj.team}">A</span></span>
+                                <span class="ms-2"><i class="bi bi-people me-1"></i>Players:
+                                    <span th:text="${(joinedParticipantCounts != null ? joinedParticipantCounts[gj.gameListing.gameListingId] : 0) + '/' + gj.gameListing.format.noPlayers}">2/4</span>
+                                </span>
                             </small>
                         </div>
                         <div class="d-flex gap-2 align-items-center">
                             <!-- Status badge reflecting attendance confirmation -->
-                            <span th:if="${gj.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Confirmed</span>
+                            <span th:if="${gj.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Attendance Confirmed</span>
                             <span th:if="${gj.status.name() == 'LOCKED'}" class="badge bg-info">GAME ON!</span>
                             <span th:if="${gj.status.name() == 'ACCEPTED' && (confirmationAvailableIds == null || !confirmationAvailableIds.contains(gj.gameListing.gameListingId))}"
                                   class="badge bg-secondary">Accepted</span>

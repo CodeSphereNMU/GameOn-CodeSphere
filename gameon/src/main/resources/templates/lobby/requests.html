@@ -27,8 +27,8 @@
         </h4>
 
         <!-- Capacity Status -->
-        <div class="alert mb-4" th:classappend="${listingFull} ? 'alert-danger' : 'alert-info'">
-            <i class="bi me-1" th:classappend="${listingFull} ? 'bi-x-circle' : 'bi-people'"></i>
+        <div class="alert mb-4" th:classappend="${listingFull} ? 'alert-success' : 'alert-info'">
+            <i class="bi me-1" th:classappend="${listingFull} ? 'bi-check-circle' : 'bi-people'"></i>
             <strong>Players:</strong>
             <span th:text="${currentParticipants}">2</span>/<span th:text="${maxPlayers}">4</span>
             <span th:if="${listingFull}" class="fw-bold ms-2">— Listing Full</span>
@@ -70,7 +70,7 @@
                         </div>
                     </div>
                     <div>
-                        <span th:if="${joiner.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Confirmed</span>
+                        <span th:if="${joiner.status.name() == 'CONFIRMED_ATTENDANCE'}" class="badge bg-success">Attendance Confirmed</span>
                         <span th:if="${joiner.status.name() == 'LOCKED'}" class="badge bg-info">GAME ON!</span>
                         <span th:if="${joiner.status.name() == 'ACCEPTED' && confirmationWindowOpen}" class="badge bg-warning text-dark">Not Yet Confirmed</span>
                         <span th:if="${joiner.status.name() == 'ACCEPTED' && !confirmationWindowOpen}" class="badge bg-success">Accepted</span>
