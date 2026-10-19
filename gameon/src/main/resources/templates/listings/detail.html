@@ -308,6 +308,11 @@
      * redirect. When the page was reached from another same-origin page (e.g. a
      * notification or the lobby), the href is upgraded to that referrer. The current
      * page itself is excluded as a target so a refresh/redirect cannot create a loop.
+     *
+     * Transient action pages are also excluded: the join form (/game-joiner/*) is a
+     * one-shot, guarded flow that redirects back here after submitting and rejects
+     * re-entry once a request exists. Returning there would bounce the user with an
+     * error, so we keep the safe fallback instead.
      */
     (function () {
         var back = document.getElementById('backButton');
@@ -319,6 +324,8 @@
             if (refUrl.origin !== window.location.origin) { return; }
             // Don't send the user back to this exact page (guards refresh / redirect loops).
             if (refUrl.pathname + refUrl.search === window.location.pathname + window.location.search) { return; }
+            // Don't send the user back to transient/guarded action pages (e.g. the join form).
+            if (refUrl.pathname.indexOf('/game-joiner/') === 0) { return; }
             back.setAttribute('href', refUrl.pathname + refUrl.search);
         } catch (e) {
             // Malformed referrer: keep the safe fallback href.
